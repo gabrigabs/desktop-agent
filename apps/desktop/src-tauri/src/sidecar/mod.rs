@@ -6,6 +6,7 @@ pub struct SidecarHandle {
     name: String,
 }
 
+#[allow(dead_code)]
 impl SidecarHandle {
     pub fn spawn(name: &str, binary_path: &str) -> Result<Self, String> {
         let child = Command::new(binary_path)
