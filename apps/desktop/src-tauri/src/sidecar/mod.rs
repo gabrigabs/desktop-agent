@@ -1,5 +1,6 @@
 use std::process::{Child, Command, Stdio};
 
+#[allow(dead_code)]
 pub struct SidecarHandle {
     child: Option<Child>,
     name: String,

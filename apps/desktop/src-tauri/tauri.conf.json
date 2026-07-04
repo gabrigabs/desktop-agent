@@ -39,7 +39,7 @@
     "shell": {
       "open": true
     },
-    "clipboard-manager": {},
-    "global-shortcut": {}
+    "clipboard-manager": null,
+    "global-shortcut": null
   }
 }
