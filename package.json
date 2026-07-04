@@ -1,0 +1,23 @@
+{
+  "name": "desktop-agent",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "bun run --cwd apps/desktop dev",
+    "build:packages": "bun run --filter './packages/*' build",
+    "build:sidecar": "bun run --cwd packages/agent-runtime build:sidecar",
+    "desktop:dev": "bun run --cwd apps/desktop tauri dev",
+    "desktop:build": "bun run build:packages && bun run build:sidecar && bun run --cwd apps/desktop tauri build",
+    "test": "bun test",
+    "lint": "bun x biome check .",
+    "format": "bun x biome format --write .",
+    "typecheck": "bun run --filter '*' typecheck"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "latest",
+    "typescript": "^5.9"
+  }
+}

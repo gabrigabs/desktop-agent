@@ -1,0 +1,45 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nickkuk/nickkuk/master/config.schema.json",
+  "productName": "Desktop Agent",
+  "version": "0.1.0",
+  "identifier": "com.desktop-agent.app",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "bun run dev",
+    "beforeBuildCommand": "bun run build"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Desktop Agent",
+        "width": 640,
+        "height": 520,
+        "center": true,
+        "decorations": true,
+        "resizable": true,
+        "focus": true,
+        "visible": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "externalBin": [
+      "binaries/agent-runtime"
+    ]
+  },
+  "plugins": {
+    "shell": {
+      "open": true
+    },
+    "clipboard-manager": {},
+    "global-shortcut": {}
+  }
+}
