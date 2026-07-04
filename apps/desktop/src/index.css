@@ -3,10 +3,138 @@
 @theme {
   --color-accent: #6366f1;
   --color-accent-hover: #818cf8;
-  --color-surface: #18181b;
-  --color-surface-hover: #27272a;
-  --color-border: #3f3f46;
+  --color-surface: #09090b;
+  --color-surface-hover: #18181b;
+  --color-border: rgba(63, 63, 70, 0.4);
   --color-text-primary: #fafafa;
   --color-text-secondary: #a1a1aa;
-  --color-text-muted: #71717a;
+  --color-text-muted: #52525b;
+}
+
+:root {
+  --glow-idle: rgba(99, 102, 241, 0.2);
+  --glow-connecting: rgba(245, 158, 11, 0.2);
+  --glow-thinking: rgba(234, 179, 8, 0.3);
+  --glow-success: rgba(16, 185, 129, 0.35);
+  --glow-error: rgba(239, 68, 68, 0.35);
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  background: transparent !important;
+  overflow: hidden;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: var(--color-text-primary);
+  user-select: none;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Focus resets to remove white borders in WebKit/Chromium */
+button, input, textarea, select {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: transparent;
+}
+
+button:focus, button:focus-visible, 
+textarea:focus, textarea:focus-visible, 
+input:focus, input:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Glassmorphism Panel */
+.glass-panel {
+  background: rgba(9, 9, 11, 0.88);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Analog Noise Grain Mask */
+.noise-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+  z-index: 50;
+  border-radius: inherit;
+}
+
+/* Kinetic Orb Animations */
+@keyframes spin-clockwise {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes spin-counter {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
+
+@keyframes pulse-gentle {
+  0%, 100% { transform: scale(1); opacity: 0.75; }
+  50% { transform: scale(1.06); opacity: 1; }
+}
+
+@keyframes float-gentle {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-3px); }
+}
+
+.animate-spin-clockwise {
+  animation: spin-clockwise 10s linear infinite;
+  transform-origin: center;
+}
+
+.animate-spin-counter {
+  animation: spin-counter 14s linear infinite;
+  transform-origin: center;
+}
+
+.animate-pulse-gentle {
+  animation: pulse-gentle 4s ease-in-out infinite;
+}
+
+.animate-float {
+  animation: float-gentle 5s ease-in-out infinite;
+}
+
+/* Discrete Transitions for UI popovers */
+.discrete-enter {
+  opacity: 0;
+  transform: scale(0.96);
+  transition-property: opacity, transform, display, overlay;
+  transition-duration: 0.25s;
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  transition-behavior: allow-discrete;
+}
+
+.discrete-enter:popover-open,
+.discrete-enter[open] {
+  opacity: 1;
+  transform: scale(1);
+  @starting-style {
+    opacity: 0;
+    transform: scale(0.96);
+  }
 }

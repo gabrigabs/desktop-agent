@@ -1,6 +1,7 @@
 import { execSync } from "node:child_process";
 
-const triple = execSync("rustc -vV").toString()
+const triple = execSync("rustc -vV")
+  .toString()
   .split("\n")
   .find((l) => l.startsWith("host:"))
   ?.split("host:")[1]
@@ -13,13 +14,7 @@ if (!triple) {
 
 const outfile = `../../apps/desktop/src-tauri/binaries/agent-runtime-${triple}`;
 
-const result = Bun.spawnSync([
-  "bun",
-  "build",
-  "./src/index.ts",
-  "--compile",
-  `--outfile=${outfile}`,
-], {
+const result = Bun.spawnSync(["bun", "build", "./src/index.ts", "--compile", `--outfile=${outfile}`], {
   stdio: ["inherit", "inherit", "inherit"],
 });
 

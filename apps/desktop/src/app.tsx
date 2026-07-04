@@ -1,17 +1,188 @@
+import { listen } from "@tauri-apps/api/event";
+import { useEffect, useRef, useState } from "react";
+import { Pet } from "./components/ui/pet";
+import { setAlwaysOnTop as apiSetAlwaysOnTop, setWindowMode, startWindowDrag } from "./lib/window";
 import { useAgentStore } from "./stores/agent";
 import { CommandPalette } from "./surfaces/command-palette";
 
 export function App() {
-	const connected = useAgentStore((s) => s.connected);
+  const { connected, uiMode, setUiMode } = useAgentStore();
+  const [alwaysOnTop, setAlwaysOnTopState] = useState(true);
+  const dragStart = useRef({ x: 0, y: 0 });
 
-	return (
-		<div className="h-screen flex flex-col bg-zinc-950">
-			{!connected && (
-				<div className="flex items-center justify-center h-10 bg-amber-900/30 text-amber-200 text-sm px-4">
-					Conectando ao agent runtime...
-				</div>
-			)}
-			<CommandPalette />
-		</div>
-	);
+  // Ensure always on top is synced with state
+  useEffect(() => {
+    apiSetAlwaysOnTop(alwaysOnTop);
+  }, [alwaysOnTop]);
+
+  // Listen to tray-click event emitted from Rust
+  useEffect(() => {
+    let unlistenFn: (() => void) | undefined;
+
+    listen<string>("tray-click", (event) => {
+      if (event.payload === "expanded") {
+        setUiMode("expanded");
+      }
+    }).then((fn) => {
+      unlistenFn = fn;
+    });
+
+    return () => {
+      if (unlistenFn) {
+        unlistenFn();
+      }
+    };
+  }, [setUiMode]);
+
+  const handleExpand = async () => {
+    setUiMode("expanded");
+    await setWindowMode("expanded");
+  };
+
+  const handleCollapse = async () => {
+    setUiMode("collapsed");
+    await setWindowMode("collapsed");
+  };
+
+  const toggleAlwaysOnTop = () => {
+    setAlwaysOnTopState(!alwaysOnTop);
+  };
+
+  const handleMouseDown = async (e: React.MouseEvent) => {
+    if (e.buttons === 1) {
+      dragStart.current = { x: e.screenX, y: e.screenY };
+      await startWindowDrag();
+    }
+  };
+
+  const handleMouseUp = (e: React.MouseEvent) => {
+    const dx = e.screenX - dragStart.current.x;
+    const dy = e.screenY - dragStart.current.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    // Se o mouse moveu menos de 5 pixels, tratamos como clique para expandir
+    if (dist < 5) {
+      handleExpand();
+    }
+  };
+
+  if (uiMode === "collapsed") {
+    return (
+      // biome-ignore lint/a11y/useSemanticElements: We need a div here to allow programmatic Tauri window dragging
+      <div
+        role="button"
+        tabIndex={0}
+        className="w-[120px] h-[120px] flex items-center justify-center cursor-pointer group active:scale-95 transition-transform duration-150 focus:outline-none bg-transparent border-0 p-0"
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            handleExpand();
+          }
+        }}
+        data-tauri-drag-region
+        title="Clique para expandir, arraste para mover"
+      >
+        {/* Transparent drag container, centering the floating pet orb */}
+        <div className="w-20 h-20 rounded-full flex items-center justify-center bg-zinc-950/60 backdrop-blur-md border border-zinc-800/50 shadow-lg group-hover:border-indigo-500/40 group-hover:bg-zinc-900/80 transition-all duration-300 relative pointer-events-none">
+          <Pet size={52} />
+          {/* Micro-interaction indicator */}
+          <div className="absolute bottom-1.5 text-[8px] font-mono text-zinc-500 group-hover:text-indigo-400 group-hover:scale-105 transition-all duration-300">
+            CORE
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-[380px] h-[560px] flex flex-col glass-panel rounded-2xl overflow-hidden shadow-2xl relative select-none">
+      {/* Noise grain texture */}
+      <div className="noise-overlay" />
+
+      {/* Custom Titlebar / Header */}
+      <header
+        className="h-12 flex items-center justify-between px-4 border-b border-zinc-800/60 bg-zinc-950/40 relative z-10"
+        data-tauri-drag-region
+      >
+        <div className="flex items-center gap-2" data-tauri-drag-region>
+          <Pet size={24} />
+          <div className="flex flex-col" data-tauri-drag-region>
+            <span className="text-xs font-mono font-bold tracking-wide text-zinc-200" data-tauri-drag-region>
+              AI DESKTOP CORE
+            </span>
+            <span
+              className="text-[9px] font-mono text-zinc-500 flex items-center gap-1"
+              data-tauri-drag-region
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`}
+              />
+              {connected ? "online" : "connecting"}
+            </span>
+          </div>
+        </div>
+
+        {/* Drag handle center marker */}
+        <div
+          className="flex gap-1 justify-center opacity-30 group-hover:opacity-60 transition-opacity"
+          data-tauri-drag-region
+        >
+          <div className="w-1 h-1 bg-zinc-400 rounded-full" data-tauri-drag-region />
+          <div className="w-1 h-1 bg-zinc-400 rounded-full" data-tauri-drag-region />
+          <div className="w-1 h-1 bg-zinc-400 rounded-full" data-tauri-drag-region />
+        </div>
+
+        <div className="flex items-center gap-1.5 relative z-20">
+          {/* Always on top toggle */}
+          <button
+            type="button"
+            onClick={toggleAlwaysOnTop}
+            className={`p-1.5 rounded-md hover:bg-zinc-800/80 transition-colors ${alwaysOnTop ? "text-indigo-400" : "text-zinc-500 hover:text-zinc-300"}`}
+            title={alwaysOnTop ? "Fixado no topo" : "Fixar no topo"}
+          >
+            <svg
+              className="w-3.5 h-3.5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              role="img"
+            >
+              <title>Toggle Pin always on top</title>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+              />
+            </svg>
+          </button>
+
+          {/* Collapse Button */}
+          <button
+            type="button"
+            onClick={handleCollapse}
+            className="p-1.5 rounded-md text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/80 transition-colors"
+            title="Minimizar para o Pet"
+          >
+            <svg
+              className="w-3.5 h-3.5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              role="img"
+            >
+              <title>Collapse window</title>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M18 12H6" />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      {/* Main Content Area */}
+      <main className="flex-1 overflow-hidden relative z-10">
+        <CommandPalette />
+      </main>
+    </div>
+  );
 }

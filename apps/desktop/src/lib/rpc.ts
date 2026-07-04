@@ -1,7 +1,7 @@
+import type { AgentApi, AgentEvent } from "@desktop-agent/shared";
+import { Command } from "@tauri-apps/plugin-shell";
 import { RPCChannel } from "kkrpc";
 import { tauriShellStdioTransport } from "kkrpc/tauri";
-import { Command } from "@tauri-apps/plugin-shell";
-import type { AgentApi, AgentEvent } from "@desktop-agent/shared";
 import { useAgentStore } from "../stores/agent";
 
 type FrontendApi = {

@@ -1,4 +1,4 @@
-import type { ToolResult, AgentEvent, ProviderConfig } from "./types/rpc";
+import type { AgentEvent, ProviderConfig, ToolResult } from "./types/rpc";
 
 export type AgentApi = {
   ping(): Promise<{ status: string }>;

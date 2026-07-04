@@ -1,3 +1,4 @@
+export type { AgentApi } from "./api";
 export type {
   AgentEvent,
   AuditEntry,
@@ -15,5 +16,3 @@ export type {
   ToolDefinition,
   ToolResult,
 } from "./types/rpc";
-
-export type { AgentApi } from "./api";

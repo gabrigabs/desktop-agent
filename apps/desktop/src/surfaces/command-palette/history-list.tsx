@@ -3,61 +3,75 @@ import { getAgent } from "../../lib/rpc";
 import { useAgentStore } from "../../stores/agent";
 
 export function HistoryList() {
-	const { history, setHistory } = useAgentStore();
-	const [loading, setLoading] = useState(false);
+  const { history, setHistory } = useAgentStore();
+  const [loading, setLoading] = useState(false);
 
-	useEffect(() => {
-		async function load() {
-			setLoading(true);
-			try {
-				const api = await getAgent();
-				const data = (await api.getHistory({ limit: 30 })) as Array<{
-					id: string;
-					timestamp: string;
-					tool_name: string;
-					input_preview: string;
-					output_preview: string;
-				}>;
-				setHistory(data);
-			} catch {
-				// History load failure is non-blocking
-			} finally {
-				setLoading(false);
-			}
-		}
-		load();
-	}, []);
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      try {
+        const api = await getAgent();
+        const data = (await api.getHistory({ limit: 30 })) as Array<{
+          id: string;
+          timestamp: string;
+          tool_name: string;
+          input_preview: string;
+          output_preview: string;
+        }>;
+        setHistory(data);
+      } catch {
+        // History load failure is non-blocking
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, [setHistory]);
 
-	if (loading) {
-		return <p className="text-text-muted text-sm">Carregando histórico...</p>;
-	}
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="w-4 h-4 border-2 border-zinc-700 border-t-zinc-400 rounded-full animate-spin" />
+        <span className="text-zinc-500 font-mono text-xs ml-2">CARREGANDO LOGS...</span>
+      </div>
+    );
+  }
 
-	if (history.length === 0) {
-		return (
-			<p className="text-text-muted text-sm">Nenhuma execução registrada.</p>
-		);
-	}
+  if (history.length === 0) {
+    return (
+      <div className="text-center py-8 border border-dashed border-zinc-900 rounded-xl">
+        <p className="text-zinc-600 font-mono text-xs">NENHUMA EXECUÇÃO REGISTRADA</p>
+      </div>
+    );
+  }
 
-	return (
-		<div className="space-y-2">
-			{history.map((entry) => (
-				<div
-					key={entry.id}
-					className="bg-surface border border-border rounded-lg p-3"
-				>
-					<div className="flex items-center justify-between mb-1">
-						<span className="text-xs font-medium text-accent-hover">
-							{entry.tool_name}
-						</span>
-						<span className="text-xs text-text-muted">
-							{new Date(entry.timestamp).toLocaleString("pt-BR")}
-						</span>
-					</div>
-					<p className="text-sm text-text-secondary truncate">
-						{entry.input_preview}
-					</p>
-				</div>
-			))}
-		</div>
-	);
+  return (
+    <div className="flex flex-col gap-2.5 font-mono">
+      <div className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold mb-1">
+        [ SYSTEM RUN LOGS ]
+      </div>
+      <div className="flex flex-col gap-2">
+        {history.map((entry) => (
+          <div
+            key={entry.id}
+            className="bg-zinc-950/70 border border-zinc-900 hover:border-zinc-800/80 rounded-xl p-3 hover:bg-zinc-900/40 transition-all duration-200"
+          >
+            <div className="flex items-center justify-between mb-1.5 text-[10px]">
+              <span className="font-bold text-indigo-400 bg-indigo-950/30 px-1.5 py-0.5 rounded border border-indigo-900/30">
+                {entry.tool_name}
+              </span>
+              <span className="text-zinc-600">
+                {new Date(entry.timestamp).toLocaleTimeString("pt-BR", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                })}
+              </span>
+            </div>
+            <p className="text-xs text-zinc-400 truncate italic">"{entry.input_preview}"</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }

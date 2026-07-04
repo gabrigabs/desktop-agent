@@ -58,6 +58,7 @@
         "@desktop-agent/shared": "workspace:*",
       },
       "devDependencies": {
+        "@types/bun": "latest",
         "typescript": "^5.9",
       },
     },
@@ -89,7 +90,9 @@
         "@desktop-agent/shared": "workspace:*",
       },
       "devDependencies": {
+        "@types/bun": "latest",
         "typescript": "^5.9",
+        "zod": "^3.25",
       },
     },
     "packages/tools-desktop": {
@@ -113,6 +116,7 @@
         "@desktop-agent/tool-registry": "workspace:*",
       },
       "devDependencies": {
+        "@types/bun": "latest",
         "typescript": "^5.9",
         "zod": "^3.25",
       },
