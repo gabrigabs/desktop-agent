@@ -1,7 +1,7 @@
 import { RPCChannel } from "kkrpc";
 import { tauriShellStdioTransport } from "kkrpc/tauri";
 import { Command } from "@tauri-apps/plugin-shell";
-import type { AgentApi } from "@desktop-agent/agent-runtime/src/api";
+import type { AgentApi, AgentEvent } from "@desktop-agent/shared";
 import { useAgentStore } from "../stores/agent";
 
 type FrontendApi = {
@@ -69,5 +69,3 @@ export async function destroyRpc(): Promise<void> {
   }
   agent = null;
 }
-
-import type { AgentEvent } from "@desktop-agent/shared";
