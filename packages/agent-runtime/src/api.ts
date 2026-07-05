@@ -5,7 +5,6 @@ import {
   createInteraction,
   createMcpServer as createStoredMcpServer,
   createWorkflowRun,
-  createWorkflowStep,
   deleteMcpServer as deleteStoredMcpServer,
   ensureDefaultMcpPresets,
   getDb,
@@ -25,6 +24,7 @@ import { registry } from "@desktop-agent/tool-registry";
 import { createClipboardTool } from "@desktop-agent/tools-desktop";
 import { createRewriteTool, createSummarizeTool, createTranslateTool } from "@desktop-agent/tools-text";
 import { Orchestrator } from "./orchestrator";
+import { WorkflowRunner } from "./workflow-runner";
 
 // Client API reference for streaming events
 let clientApi: any = null;
@@ -163,18 +163,6 @@ function emitToClient(event: AgentEvent) {
   }
 }
 
-function workflowEventsForRun(requestId: string, run: WorkflowRun): AgentEvent[] {
-  const events: AgentEvent[] = [{ type: "workflow.started", requestId, runId: run.id, mode: run.mode }];
-  for (const step of run.steps ?? []) {
-    events.push({ type: "workflow.step", requestId, runId: run.id, step });
-  }
-  if (run.approval) {
-    events.push({ type: "workflow.approval_required", requestId, runId: run.id, approval: run.approval });
-  }
-  events.push({ type: "workflow.completed", requestId, runId: run.id, status: run.status });
-  return events;
-}
-
 function listToolCapabilities() {
   return registry.list().map((t) => ({
     name: t.name,
@@ -206,22 +194,6 @@ function createQueuedRun(input: {
     metadata: {
       createdBy: "desktop-agent",
       timeoutSeconds: config.timeout,
-    },
-  });
-
-  createWorkflowStep(db, {
-    runId,
-    stepIndex: 1,
-    kind: "plan",
-    status: "pending",
-    title: input.mode === "workflow" ? "Preparar workflow" : "Preparar resposta simples",
-    detail:
-      input.mode === "workflow"
-        ? "Aguardando a engine de workflow iniciar o plano."
-        : "Aguardando execução direta do agente.",
-    output: {
-      maxSteps: input.maxSteps ?? 8,
-      sourceMode: input.sourceMode ?? (input.clipboardText?.trim() ? "clipboard" : "free"),
     },
   });
 
@@ -277,11 +249,32 @@ export const agentApi: AgentApi = {
       clipboardText: input.clipboardText,
       maxSteps: input.maxSteps,
     });
-    const events = workflowEventsForRun(input.requestId, run);
-    for (const event of events) {
-      emitToClient(event);
+
+    const controller = new AbortController();
+    runningRuns.set(run.id, controller);
+    const events: AgentEvent[] = [];
+    const runner = new WorkflowRunner({
+      orchestrator,
+      getLlmProvider,
+      getActiveModel: () => getActiveProviderConfig().model,
+      emit(event) {
+        events.push(event);
+        emitToClient(event);
+      },
+    });
+
+    try {
+      const completedRun = await runner.start({
+        requestId: input.requestId,
+        runId: run.id,
+        prompt: input.prompt,
+        clipboardText: input.clipboardText ?? "",
+        signal: controller.signal,
+      });
+      return { run: completedRun, events };
+    } finally {
+      runningRuns.delete(run.id);
     }
-    return { run, events };
   },
 
   async cancelRun({ runId }) {
@@ -313,24 +306,37 @@ export const agentApi: AgentApi = {
   },
 
   async resumeRun({ requestId, runId, approved }) {
-    const run = getWorkflowRun(getDb(), runId);
-    if (!run) {
+    const existingRun = getWorkflowRun(getDb(), runId);
+    if (!existingRun) {
       throw new Error(`Workflow run não encontrado: ${runId}`);
     }
 
-    updateWorkflowRun(getDb(), runId, {
-      status: approved ? "queued" : "cancelled",
-      approval: null,
-      completedAt: approved ? null : new Date().toISOString(),
-      errorMessage: approved ? null : "Aprovação negada pelo usuário.",
+    const controller = new AbortController();
+    runningRuns.set(runId, controller);
+    const events: AgentEvent[] = [];
+    const runner = new WorkflowRunner({
+      orchestrator,
+      getLlmProvider,
+      getActiveModel: () => getActiveProviderConfig().model,
+      emit(event) {
+        events.push(event);
+        emitToClient(event);
+      },
     });
 
-    const updated = getWorkflowRun(getDb(), runId) as WorkflowRun;
-    const events = workflowEventsForRun(requestId, updated);
-    for (const event of events) {
-      emitToClient(event);
+    try {
+      const run = await runner.resume({
+        requestId,
+        runId,
+        prompt: existingRun.prompt,
+        clipboardText: existingRun.clipboardPreview,
+        approved,
+        signal: controller.signal,
+      });
+      return { run, events };
+    } finally {
+      runningRuns.delete(runId);
     }
-    return { run: updated, events };
   },
 
   async listCapabilities() {
