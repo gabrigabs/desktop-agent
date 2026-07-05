@@ -47,10 +47,10 @@ export function Pet({ className = "", size = 64 }: PetProps) {
       glow: "rgba(52, 211, 153, 0.4)",
     },
     idle: {
-      core: "fill-indigo-500 shadow-indigo-500/50",
-      rings: "stroke-indigo-500/60",
-      text: "text-indigo-400",
-      glow: "rgba(99, 102, 241, 0.3)",
+      core: "fill-fuchsia-500 shadow-fuchsia-500/50",
+      rings: "stroke-fuchsia-400/70",
+      text: "text-fuchsia-300",
+      glow: "rgba(217, 70, 239, 0.38)",
     },
   };
 
@@ -106,13 +106,13 @@ export function Pet({ className = "", size = 64 }: PetProps) {
             cx="50"
             cy="20"
             r="2"
-            className={state === "thinking" ? "fill-yellow-300" : "fill-indigo-300/60"}
+            className={state === "thinking" ? "fill-yellow-300" : "fill-fuchsia-200/70"}
           />
           <circle
             cx="50"
             cy="80"
             r="1.5"
-            className={state === "thinking" ? "fill-yellow-300/80" : "fill-indigo-300/40"}
+            className={state === "thinking" ? "fill-yellow-300/80" : "fill-fuchsia-200/45"}
           />
         </g>
 

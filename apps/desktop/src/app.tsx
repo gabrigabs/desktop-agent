@@ -110,11 +110,12 @@ export function App() {
         title="Abrir Desktop Agent"
         aria-label="Abrir Desktop Agent"
       >
-        <div className="w-20 h-20 flex items-center justify-center transition-transform duration-300 group-hover:scale-105 relative pointer-events-none">
-          <Pet size={60} />
+        <div className="w-[92px] h-[92px] rounded-full flex items-center justify-center transition-transform duration-300 group-hover:scale-105 relative pointer-events-none bg-zinc-950/90 shadow-[0_0_0_1px_rgba(255,255,255,0.28),0_0_0_7px_rgba(255,255,255,0.07),0_20px_45px_rgba(0,0,0,0.58)] backdrop-blur-md">
+          <div className="absolute inset-2 rounded-full bg-[radial-gradient(circle_at_50%_42%,rgba(244,114,182,0.24),rgba(9,9,11,0)_62%)]" />
+          <Pet size={62} />
           <div
-            className={`absolute right-3 bottom-3 w-2.5 h-2.5 rounded-full shadow-[0_0_12px_currentColor] ${
-              connected ? "bg-emerald-400" : "bg-amber-400"
+            className={`absolute right-[18px] bottom-[18px] w-3 h-3 rounded-full ring-4 ring-zinc-950/95 shadow-[0_0_18px_currentColor] ${
+              connected ? "bg-emerald-400 text-emerald-300" : "bg-amber-400 text-amber-300"
             }`}
           />
         </div>
@@ -123,7 +124,7 @@ export function App() {
   }
 
   return (
-    <div className="w-[440px] h-[720px] flex flex-col agent-shell rounded-[26px] overflow-hidden relative select-none">
+    <div className="w-[480px] h-[760px] flex flex-col agent-shell rounded-[24px] overflow-hidden relative select-none">
       {/* Custom Titlebar / Header */}
       <header
         className="h-12 flex items-center justify-between px-4 border-b border-zinc-800/60 bg-zinc-950/40 relative z-10"

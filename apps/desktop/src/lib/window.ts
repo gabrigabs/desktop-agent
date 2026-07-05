@@ -2,7 +2,7 @@ import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 
 export const WINDOW_SIZES = {
   collapsed: { width: 120, height: 120 },
-  expanded: { width: 440, height: 720 },
+  expanded: { width: 480, height: 760 },
 };
 
 export function isTauriRuntime() {
