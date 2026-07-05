@@ -110,10 +110,10 @@ export function App() {
         title="Abrir Desktop Agent"
         aria-label="Abrir Desktop Agent"
       >
-        <div className="w-20 h-20 rounded-2xl flex items-center justify-center bg-zinc-950/70 backdrop-blur-md border border-zinc-800/60 shadow-lg group-hover:border-violet-500/40 group-hover:bg-zinc-900/90 transition-all duration-300 relative pointer-events-none">
-          <Pet size={48} />
+        <div className="w-20 h-20 flex items-center justify-center transition-transform duration-300 group-hover:scale-105 relative pointer-events-none">
+          <Pet size={60} />
           <div
-            className={`absolute right-2 bottom-2 w-2.5 h-2.5 rounded-full border border-zinc-950 ${
+            className={`absolute right-3 bottom-3 w-2.5 h-2.5 rounded-full shadow-[0_0_12px_currentColor] ${
               connected ? "bg-emerald-400" : "bg-amber-400"
             }`}
           />
@@ -123,10 +123,7 @@ export function App() {
   }
 
   return (
-    <div className="w-[440px] h-[720px] flex flex-col glass-panel rounded-2xl overflow-hidden shadow-2xl relative select-none">
-      {/* Noise grain texture */}
-      <div className="noise-overlay" />
-
+    <div className="w-[440px] h-[720px] flex flex-col agent-shell rounded-[26px] overflow-hidden relative select-none">
       {/* Custom Titlebar / Header */}
       <header
         className="h-12 flex items-center justify-between px-4 border-b border-zinc-800/60 bg-zinc-950/40 relative z-10"

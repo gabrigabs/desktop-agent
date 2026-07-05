@@ -1,6 +1,7 @@
 import { readText as readClipboard, writeText as writeClipboard } from "@tauri-apps/plugin-clipboard-manager";
 import {
   AlertCircle,
+  ArrowLeft,
   Bot,
   Check,
   CheckSquare,
@@ -18,6 +19,7 @@ import {
   MessageSquare,
   PenLine,
   Play,
+  RefreshCw,
   Search,
   Settings,
   Sparkles,
@@ -297,6 +299,14 @@ export function CommandPalette() {
     });
   };
 
+  const handleNewTask = () => {
+    reset();
+    setMode("command");
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+    });
+  };
+
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingSettings(true);
@@ -363,6 +373,17 @@ export function CommandPalette() {
   };
 
   const hasClipboard = clipboardText.trim().length > 0;
+  const taskActive = streaming || result !== null || Boolean(error) || agentLogs.length > 0;
+  const latestLog = agentLogs.length > 0 ? agentLogs[agentLogs.length - 1] : undefined;
+  const taskStatus = error
+    ? "Algo falhou"
+    : streaming
+      ? latestLog?.type === "tool_start"
+        ? "Usando ferramenta"
+        : "Pensando"
+      : result
+        ? "Resultado pronto"
+        : "Preparando";
 
   return (
     <div className="flex flex-col h-full w-full bg-zinc-950/20 text-zinc-100 font-sans relative">
@@ -435,208 +456,255 @@ export function CommandPalette() {
       {/* Tab Contents */}
       <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
         {mode === "command" ? (
-          <div className="flex flex-col gap-4">
-            <div className="relative group flex flex-col">
-              <span className="text-[10px] text-zinc-500 font-mono font-bold uppercase mb-1 flex items-center gap-1.5 select-none">
-                <Bot className="w-3.5 h-3.5 text-violet-400" />
-                Pedido
-              </span>
-              <div className="relative w-full">
-                <textarea
-                  ref={textareaRef}
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Pergunte algo, peça um rascunho ou use uma ação rápida abaixo."
-                  className="w-full min-h-[104px] bg-zinc-950/70 border border-zinc-900 rounded-xl pl-3 pr-12 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-950/50 resize-none transition-all duration-200 select-text"
-                  disabled={streaming}
-                  aria-label="Pedido para o agente"
-                  rows={3}
-                />
+          taskActive ? (
+            <div className="min-h-full flex flex-col gap-4">
+              <div className="flex items-center justify-between gap-3">
                 <button
                   type="button"
-                  onClick={() => handleExecute()}
-                  disabled={streaming || !query.trim()}
-                  className="absolute right-3.5 bottom-3.5 p-2 rounded-lg bg-violet-950/50 border border-violet-800/70 text-violet-300 hover:text-violet-100 hover:bg-violet-900/80 hover:border-violet-500/60 transition-all cursor-pointer disabled:opacity-30 disabled:pointer-events-none"
-                  title="Enviar pedido"
+                  onClick={handleNewTask}
+                  disabled={streaming}
+                  className="h-8 px-2.5 rounded-md bg-zinc-900/80 border border-zinc-800 text-[10px] font-semibold text-zinc-400 hover:text-zinc-100 hover:border-violet-500/30 transition-colors cursor-pointer disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1.5"
                 >
-                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  Nova tarefa
                 </button>
-              </div>
-            </div>
-
-            <section className="p-3.5 rounded-xl bg-zinc-950/65 border border-zinc-900 flex flex-col gap-3">
-              <div className="flex items-center justify-between gap-3">
-                <span className="flex items-center gap-1.5 text-[10px] text-zinc-400 uppercase tracking-wider font-bold select-none">
-                  <Clipboard
-                    className={`w-3.5 h-3.5 ${hasClipboard ? "text-emerald-400" : "text-zinc-600"}`}
-                  />
-                  {hasClipboard ? "Clipboard detectado" : "Sem clipboard"}
-                </span>
-                <span className="text-[9px] font-mono bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded text-zinc-500">
-                  {hasClipboard ? `${clipboardText.length} caracteres` : "prompt livre"}
+                <span
+                  className={`text-[10px] font-mono uppercase tracking-wider ${
+                    error ? "text-rose-300" : streaming ? "text-amber-300" : "text-emerald-300"
+                  }`}
+                >
+                  {taskStatus}
                 </span>
               </div>
-              <div className="bg-zinc-900/40 border border-zinc-900/60 rounded-lg p-2.5 text-[11px] text-zinc-400 leading-normal min-h-10 select-text">
-                {hasClipboard
-                  ? `"${clipboardText.slice(0, 180)}${clipboardText.length > 180 ? "..." : ""}"`
-                  : "Digite uma pergunta acima ou comece com um dos atalhos abaixo. As ações de texto ativam quando houver conteúdo no clipboard."}
-              </div>
-            </section>
 
-            <section className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] text-zinc-500 font-mono font-bold uppercase select-none">
-                  Ações rápidas
-                </span>
-                {!hasClipboard && (
-                  <span className="text-[10px] text-zinc-600 select-none">
-                    copie texto para liberar ações de contexto
-                  </span>
-                )}
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                {QUICK_ACTIONS.map((action) => {
-                  const Icon = action.icon;
-                  const disabled = action.requiresClipboard && !hasClipboard;
-
-                  return (
-                    <button
-                      key={action.id}
-                      type="button"
-                      onClick={() => handleQuickAction(action.id)}
-                      disabled={disabled || streaming}
-                      className={`min-h-[68px] rounded-lg bg-zinc-900/80 border border-zinc-850 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-850/80 hover:border-violet-500/30 transition-all cursor-pointer flex flex-col items-start justify-center gap-1 px-2.5 py-2 text-left disabled:opacity-40 disabled:pointer-events-none`}
-                      title={disabled ? "Copie um texto primeiro" : action.description}
-                    >
-                      <Icon className={`w-4 h-4 ${action.accent}`} />
-                      <span className="text-[10px] font-semibold leading-tight">{action.label}</span>
-                      <span className="text-[9px] text-zinc-600 leading-tight">{action.description}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-
-            <section className="flex flex-col gap-2">
-              <span className="text-[10px] text-zinc-500 font-mono font-bold uppercase select-none">
-                Começar sem clipboard
-              </span>
-              <div className="flex flex-wrap gap-2">
-                {STARTER_ACTIONS.map((action) => {
-                  const Icon = action.icon;
-
-                  return (
-                    <button
-                      key={action.label}
-                      type="button"
-                      onClick={() => handleStarterAction(action.prompt)}
-                      disabled={streaming}
-                      className="px-2.5 py-1.5 rounded-md bg-zinc-950/70 border border-zinc-850 text-[10px] font-semibold text-zinc-400 hover:text-zinc-100 hover:border-violet-500/30 transition-colors cursor-pointer disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1.5"
-                    >
-                      <Icon className="w-3.5 h-3.5 text-violet-400" />
-                      {action.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-
-            {agentLogs.length > 0 && (
-              <section className="bg-zinc-950 border border-zinc-900 rounded-xl overflow-hidden text-[11px] leading-relaxed shadow-lg">
-                <div className="bg-zinc-900/60 px-3 py-1.5 border-b border-zinc-900/80 flex items-center justify-between select-none">
-                  <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold">
-                    Execução
-                  </span>
-                  <span className="text-[9px] text-zinc-600">{agentLogs.length} eventos</span>
-                </div>
-                <div className="p-3.5 flex flex-col gap-2.5 max-h-40 overflow-y-auto custom-scrollbar select-text selection:bg-violet-950">
-                  {agentLogs.map((log) => (
-                    <div key={log.id} className="flex gap-2.5 items-start">
-                      <div className="mt-1 select-none flex-shrink-0">
-                        {log.type === "thought" && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-violet-500 inline-block animate-pulse shadow-md shadow-violet-500/50" />
-                        )}
-                        {log.type === "tool_start" && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block animate-ping" />
-                        )}
-                        {log.type === "tool_complete" && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
-                        )}
-                        {log.type === "tool_fail" && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block" />
-                        )}
-                        {log.type === "info" && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-sky-500 inline-block" />
-                        )}
-                      </div>
-                      <div className="flex-1 text-zinc-400">
-                        {log.type === "thought" && (
-                          <span className="text-violet-300 font-bold">pensando: </span>
-                        )}
-                        {log.type === "tool_start" && (
-                          <span className="text-amber-400 font-bold">usando: </span>
-                        )}
-                        {log.type === "tool_complete" && (
-                          <span className="text-emerald-400 font-bold">ok: </span>
-                        )}
-                        {log.type === "tool_fail" && <span className="text-rose-400 font-bold">falha: </span>}
-                        <span>{log.text}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {error && (
-              <div className="p-3.5 bg-rose-950/20 border border-rose-900/40 rounded-xl text-rose-300 text-xs flex gap-2.5 items-start">
-                <AlertCircle className="w-4.5 h-4.5 text-rose-500 flex-shrink-0 mt-0.5" />
-                <div className="select-text">
-                  <strong className="text-rose-400 font-bold mr-1">Erro:</strong>
-                  {error}
-                </div>
-              </div>
-            )}
-
-            {/* Spinner loader bar */}
-            {streaming && agentLogs.length === 0 && (
-              <div className="w-full bg-zinc-900 h-1 rounded-full overflow-hidden">
-                <div
-                  className="bg-indigo-500 h-full rounded-full animate-pulse-gentle"
-                  style={{ width: "100%", animationDuration: "1.2s" }}
-                />
-              </div>
-            )}
-
-            {result && (
-              <div className="mt-1 flex flex-col gap-2">
-                <div className="flex items-center justify-between select-none">
-                  <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold">
-                    Resultado
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleCopyResult}
-                    className={`px-3 py-1.5 text-[10px] font-bold rounded-lg border transition-all duration-150 active:scale-95 cursor-pointer flex items-center gap-1.5 ${
-                      copied
-                        ? "bg-emerald-950/30 border-emerald-800 text-emerald-400"
-                        : "bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-850"
+              <section className="rounded-2xl bg-zinc-950/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] p-4 flex flex-col gap-3">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="text-[10px] text-zinc-500 font-mono font-bold uppercase mb-1">Pedido</div>
+                    <p className="text-sm leading-relaxed text-zinc-100 select-text whitespace-pre-wrap">
+                      {query}
+                    </p>
+                  </div>
+                  <div
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                      error
+                        ? "bg-rose-950/45 text-rose-300"
+                        : streaming
+                          ? "bg-amber-950/45 text-amber-300"
+                          : "bg-emerald-950/45 text-emerald-300"
                     }`}
                   >
-                    {copied ? (
-                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    {streaming ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : error ? (
+                      <AlertCircle className="w-4 h-4" />
                     ) : (
-                      <Clipboard className="w-3.5 h-3.5 text-indigo-400" />
+                      <Check className="w-4 h-4" />
                     )}
-                    <span>{copied ? "Copiado" : "Copiar"}</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  {["Preparando", "Pensando", "Resultado"].map((step, index) => {
+                    const active =
+                      (index === 0 && !result && !error) ||
+                      (index === 1 && streaming) ||
+                      (index === 2 && (Boolean(result) || Boolean(error)));
+
+                    return (
+                      <div
+                        key={step}
+                        className={`h-1.5 rounded-full transition-colors ${
+                          active
+                            ? error && index === 2
+                              ? "bg-rose-400"
+                              : streaming && index === 1
+                                ? "bg-amber-400"
+                                : "bg-violet-400"
+                            : "bg-zinc-800"
+                        }`}
+                        title={step}
+                      />
+                    );
+                  })}
+                </div>
+              </section>
+
+              {latestLog && (
+                <section className="rounded-xl bg-zinc-950/45 p-3 flex items-start gap-2.5">
+                  <span
+                    className={`mt-1 w-1.5 h-1.5 rounded-full shrink-0 ${
+                      latestLog.type === "tool_fail"
+                        ? "bg-rose-400"
+                        : latestLog.type === "tool_start"
+                          ? "bg-amber-400 animate-pulse"
+                          : latestLog.type === "tool_complete"
+                            ? "bg-emerald-400"
+                            : "bg-violet-400"
+                    }`}
+                  />
+                  <div className="min-w-0">
+                    <div className="text-[10px] text-zinc-500 font-mono uppercase font-bold">
+                      Último evento
+                    </div>
+                    <p className="text-xs text-zinc-300 leading-relaxed truncate">{latestLog.text}</p>
+                  </div>
+                </section>
+              )}
+
+              {error && (
+                <section className="p-3.5 bg-rose-950/20 rounded-xl text-rose-300 text-xs flex gap-2.5 items-start">
+                  <AlertCircle className="w-4.5 h-4.5 text-rose-500 flex-shrink-0 mt-0.5" />
+                  <div className="select-text">
+                    <strong className="text-rose-400 font-bold mr-1">Erro:</strong>
+                    {error}
+                  </div>
+                </section>
+              )}
+
+              <section className="flex-1 min-h-[260px] rounded-2xl bg-zinc-950/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] overflow-hidden flex flex-col">
+                <div className="px-4 py-3 flex items-center justify-between bg-zinc-900/40">
+                  <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold">
+                    {streaming ? "Resposta em andamento" : "Resultado"}
+                  </span>
+                  {result && (
+                    <button
+                      type="button"
+                      onClick={handleCopyResult}
+                      className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all duration-150 active:scale-95 cursor-pointer flex items-center gap-1.5 ${
+                        copied
+                          ? "bg-emerald-950/40 text-emerald-300"
+                          : "bg-zinc-950/80 text-zinc-300 hover:text-zinc-100"
+                      }`}
+                    >
+                      {copied ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      ) : (
+                        <Clipboard className="w-3.5 h-3.5 text-violet-300" />
+                      )}
+                      <span>{copied ? "Copiado" : "Copiar"}</span>
+                    </button>
+                  )}
+                </div>
+                <div className="flex-1 p-4 text-sm text-zinc-200 leading-relaxed whitespace-pre-wrap overflow-y-auto custom-scrollbar select-text selection:bg-violet-950">
+                  {result ? (
+                    result
+                  ) : (
+                    <span className="text-zinc-600">
+                      A resposta aparece aqui assim que o agente começar a escrever.
+                    </span>
+                  )}
+                </div>
+              </section>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-4">
+              <div className="relative group flex flex-col">
+                <span className="text-[10px] text-zinc-500 font-mono font-bold uppercase mb-1 flex items-center gap-1.5 select-none">
+                  <Bot className="w-3.5 h-3.5 text-violet-400" />
+                  Pedido
+                </span>
+                <div className="relative w-full">
+                  <textarea
+                    ref={textareaRef}
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Pergunte algo, peça um rascunho ou use uma ação rápida abaixo."
+                    className="w-full min-h-[104px] bg-zinc-950/70 border border-zinc-900 rounded-xl pl-3 pr-12 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-950/50 resize-none transition-all duration-200 select-text"
+                    disabled={streaming}
+                    aria-label="Pedido para o agente"
+                    rows={3}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleExecute()}
+                    disabled={streaming || !query.trim()}
+                    className="absolute right-3.5 bottom-3.5 p-2 rounded-lg bg-violet-950/50 border border-violet-800/70 text-violet-300 hover:text-violet-100 hover:bg-violet-900/80 hover:border-violet-500/60 transition-all cursor-pointer disabled:opacity-30 disabled:pointer-events-none"
+                    title="Enviar pedido"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-current" />
                   </button>
                 </div>
-                <div className="bg-zinc-950 border border-zinc-900 rounded-xl p-4 text-xs text-zinc-200 leading-relaxed whitespace-pre-wrap max-h-60 overflow-y-auto custom-scrollbar select-text selection:bg-violet-950 border-l-2 border-l-violet-500">
-                  {result}
-                </div>
               </div>
-            )}
-          </div>
+
+              <section className="p-3.5 rounded-xl bg-zinc-950/65 border border-zinc-900 flex flex-col gap-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="flex items-center gap-1.5 text-[10px] text-zinc-400 uppercase tracking-wider font-bold select-none">
+                    <Clipboard
+                      className={`w-3.5 h-3.5 ${hasClipboard ? "text-emerald-400" : "text-zinc-600"}`}
+                    />
+                    {hasClipboard ? "Clipboard detectado" : "Sem clipboard"}
+                  </span>
+                  <span className="text-[9px] font-mono bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded text-zinc-500">
+                    {hasClipboard ? `${clipboardText.length} caracteres` : "prompt livre"}
+                  </span>
+                </div>
+                <div className="bg-zinc-900/40 border border-zinc-900/60 rounded-lg p-2.5 text-[11px] text-zinc-400 leading-normal min-h-10 select-text">
+                  {hasClipboard
+                    ? `"${clipboardText.slice(0, 180)}${clipboardText.length > 180 ? "..." : ""}"`
+                    : "Digite uma pergunta acima ou comece com um dos atalhos abaixo. As ações de texto ativam quando houver conteúdo no clipboard."}
+                </div>
+              </section>
+
+              <section className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-zinc-500 font-mono font-bold uppercase select-none">
+                    Ações rápidas
+                  </span>
+                  {!hasClipboard && (
+                    <span className="text-[10px] text-zinc-600 select-none">
+                      copie texto para liberar ações de contexto
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {QUICK_ACTIONS.map((action) => {
+                    const Icon = action.icon;
+                    const disabled = action.requiresClipboard && !hasClipboard;
+
+                    return (
+                      <button
+                        key={action.id}
+                        type="button"
+                        onClick={() => handleQuickAction(action.id)}
+                        disabled={disabled || streaming}
+                        className={`min-h-[68px] rounded-lg bg-zinc-900/80 border border-zinc-850 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-850/80 hover:border-violet-500/30 transition-all cursor-pointer flex flex-col items-start justify-center gap-1 px-2.5 py-2 text-left disabled:opacity-40 disabled:pointer-events-none`}
+                        title={disabled ? "Copie um texto primeiro" : action.description}
+                      >
+                        <Icon className={`w-4 h-4 ${action.accent}`} />
+                        <span className="text-[10px] font-semibold leading-tight">{action.label}</span>
+                        <span className="text-[9px] text-zinc-600 leading-tight">{action.description}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section className="flex flex-col gap-2">
+                <span className="text-[10px] text-zinc-500 font-mono font-bold uppercase select-none">
+                  Começar sem clipboard
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {STARTER_ACTIONS.map((action) => {
+                    const Icon = action.icon;
+
+                    return (
+                      <button
+                        key={action.label}
+                        type="button"
+                        onClick={() => handleStarterAction(action.prompt)}
+                        disabled={streaming}
+                        className="px-2.5 py-1.5 rounded-md bg-zinc-950/70 border border-zinc-850 text-[10px] font-semibold text-zinc-400 hover:text-zinc-100 hover:border-violet-500/30 transition-colors cursor-pointer disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1.5"
+                      >
+                        <Icon className="w-3.5 h-3.5 text-violet-400" />
+                        {action.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            </div>
+          )
         ) : (
           <HistoryList />
         )}
