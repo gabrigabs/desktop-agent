@@ -3,6 +3,12 @@ import type { LlmProvider } from "../types";
 
 type FetchFn = typeof globalThis.fetch;
 
+function createSignal(signal: CompletionInput["signal"], timeout: number) {
+  const timeoutSignal = AbortSignal.timeout(timeout);
+  if (!signal) return timeoutSignal;
+  return AbortSignal.any([signal as AbortSignal, timeoutSignal]);
+}
+
 export class OpenAICompatibleProvider implements LlmProvider {
   name: string;
   kind: ProviderKind;
@@ -34,7 +40,7 @@ export class OpenAICompatibleProvider implements LlmProvider {
         "Content-Type": "application/json",
         Authorization: `Bearer ${this.apiKey}`,
       },
-      signal: AbortSignal.timeout(this.timeout),
+      signal: createSignal(input.signal, this.timeout),
       body: JSON.stringify({
         model: input.model,
         messages: input.messages,
@@ -73,7 +79,7 @@ export class OpenAICompatibleProvider implements LlmProvider {
         "Content-Type": "application/json",
         Authorization: `Bearer ${this.apiKey}`,
       },
-      signal: AbortSignal.timeout(this.timeout),
+      signal: createSignal(input.signal, this.timeout),
       body: JSON.stringify({
         model: input.model,
         messages: input.messages,

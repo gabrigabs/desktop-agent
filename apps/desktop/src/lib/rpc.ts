@@ -53,6 +53,10 @@ export async function initializeRpc(): Promise<AgentApi> {
           case "tool.failed":
             store.addAgentLog({ type: "tool_fail", text: `Falha em ${event.toolName}: ${event.error}` });
             break;
+          case "agent.cancelled":
+            store.addAgentLog({ type: "tool_fail", text: "Execução abortada pelo usuário" });
+            store.setError("Execução abortada pelo usuário.");
+            break;
           case "agent.completed":
             store.addAgentLog({ type: "info", text: "Resposta pronta" });
             break;

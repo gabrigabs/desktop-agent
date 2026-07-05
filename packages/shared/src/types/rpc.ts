@@ -26,6 +26,7 @@ export type AgentEvent =
   | { type: "tool.completed"; requestId: string; toolName: string }
   | { type: "tool.failed"; requestId: string; toolName: string; error: string }
   | { type: "permission.required"; permission: string }
+  | { type: "agent.cancelled"; requestId: string }
   | { type: "agent.completed"; requestId: string };
 
 export type PermissionLevel = "local.read" | "local.write" | "external";
@@ -71,11 +72,18 @@ export type ProviderConfig = {
   models: string[];
 };
 
+export type CompletionSignal = {
+  readonly aborted: boolean;
+  addEventListener(type: "abort", listener: () => void, options?: { once?: boolean }): void;
+  removeEventListener(type: "abort", listener: () => void): void;
+};
+
 export type CompletionInput = {
   model: string;
   messages: { role: "system" | "user" | "assistant"; content: string }[];
   maxTokens?: number;
   temperature?: number;
+  signal?: CompletionSignal;
 };
 
 export type CompletionOutput = {

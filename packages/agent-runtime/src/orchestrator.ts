@@ -14,6 +14,33 @@ export type ExecutionResult = {
   events: AgentEvent[];
 };
 
+function throwIfAborted(signal?: AbortSignal) {
+  if (signal?.aborted) {
+    throw new Error("Execução abortada pelo usuário.");
+  }
+}
+
+async function sleep(ms: number, signal?: AbortSignal) {
+  await new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new Error("Execução abortada pelo usuário."));
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      signal?.removeEventListener("abort", abort);
+      resolve();
+    }, ms);
+
+    const abort = () => {
+      clearTimeout(timeout);
+      reject(new Error("Execução abortada pelo usuário."));
+    };
+
+    signal?.addEventListener("abort", abort, { once: true });
+  });
+}
+
 export class Orchestrator {
   private provider: LlmProvider;
   private model: string;
@@ -145,8 +172,10 @@ export class Orchestrator {
     emit: (event: AgentEvent) => void,
     getLlmProviderFn: () => any,
     getActiveModelFn: () => string,
+    signal?: AbortSignal,
   ): Promise<string> {
     emit({ type: "agent.started", requestId });
+    throwIfAborted(signal);
 
     const provider = getLlmProviderFn();
     const model = getActiveModelFn() || "gpt-4o";
@@ -189,10 +218,11 @@ IMPORTANTE: Você deve responder ESTRITAMENTE com um objeto JSON no formato abai
 
     while (steps < maxSteps) {
       steps++;
+      throwIfAborted(signal);
 
       if (provider.name === "mock") {
         emit({ type: "agent.thought", requestId, thought: "Analisando comando no modo mock..." });
-        await new Promise((r) => setTimeout(r, 600));
+        await sleep(600, signal);
 
         let selectedTool = "";
         const normalizedQuery = query.toLowerCase();
@@ -214,7 +244,8 @@ IMPORTANTE: Você deve responder ESTRITAMENTE com um objeto JSON no formato abai
             requestId,
             thought: `Executando ferramenta ${selectedTool} para a requisição: ${query}`,
           });
-          await new Promise((r) => setTimeout(r, 600));
+          await sleep(600, signal);
+          throwIfAborted(signal);
           const executionResult = await this.execute(requestId, selectedTool, {
             text: clipboardText,
             instruction: query,
@@ -228,10 +259,11 @@ IMPORTANTE: Você deve responder ESTRITAMENTE com um objeto JSON no formato abai
           const words = text.split(" ");
           let acc = "";
           for (const word of words) {
+            throwIfAborted(signal);
             const chunk = `${word} `;
             acc += chunk;
             emit({ type: "agent.chunk", requestId, chunk });
-            await new Promise((r) => setTimeout(r, 20));
+            await sleep(20, signal);
           }
           finalResult = acc;
         } else {
@@ -239,10 +271,11 @@ IMPORTANTE: Você deve responder ESTRITAMENTE com um objeto JSON no formato abai
           const words = text.split(" ");
           let acc = "";
           for (const word of words) {
+            throwIfAborted(signal);
             const chunk = `${word} `;
             acc += chunk;
             emit({ type: "agent.chunk", requestId, chunk });
-            await new Promise((r) => setTimeout(r, 20));
+            await sleep(20, signal);
           }
           finalResult = acc;
         }
@@ -250,10 +283,12 @@ IMPORTANTE: Você deve responder ESTRITAMENTE com um objeto JSON no formato abai
       }
 
       emit({ type: "agent.thought", requestId, thought: "Pensando na próxima ação..." });
+      throwIfAborted(signal);
       const res = await provider.complete({
         model,
         messages,
         temperature: 0.2,
+        signal,
       });
 
       const responseText = res.content.trim();
@@ -287,6 +322,7 @@ IMPORTANTE: Você deve responder ESTRITAMENTE com um objeto JSON no formato abai
       if (parsed.toolName) {
         emit({ type: "agent.thought", requestId, thought: `Executando ferramenta: ${parsed.toolName}` });
         try {
+          throwIfAborted(signal);
           const execution = await this.execute(requestId, parsed.toolName, parsed.toolInput);
           const outputString = JSON.stringify(execution.result.output);
 
@@ -329,7 +365,9 @@ IMPORTANTE: Você deve responder ESTRITAMENTE com um objeto JSON no formato abai
           model,
           messages: finalMessages,
           temperature: 0.3,
+          signal,
         })) {
+          throwIfAborted(signal);
           if (chunk.content) {
             accumulatedText += chunk.content;
             emit({ type: "agent.chunk", requestId, chunk: chunk.content });

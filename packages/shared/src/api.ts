@@ -16,5 +16,6 @@ export type AgentApi = {
     result: string;
     events: AgentEvent[];
   }>;
+  cancelAgent(input: { requestId: string }): Promise<{ cancelled: boolean }>;
   shutdown(): Promise<void>;
 };

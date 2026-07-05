@@ -19,6 +19,8 @@ export function setClientApi(api: any) {
   clientApi = api;
 }
 
+const runningRequests = new Map<string, AbortController>();
+
 // Clipboard context wrapper for Bun environment (macOS native pbcopy/pbpaste)
 const clipboardCtx = {
   clipboard: {
@@ -240,6 +242,8 @@ export const agentApi: AgentApi = {
     const providerId = getLlmProvider().name;
     const inputPreview = formatAgentInputPreview(query, clipboardText);
     const toolName = clipboardText?.trim() ? "agent.clipboard" : "agent.chat";
+    const controller = new AbortController();
+    runningRequests.set(requestId, controller);
     const events: any[] = [];
     const emit = (event: any) => {
       events.push(event);
@@ -258,6 +262,7 @@ export const agentApi: AgentApi = {
         emit,
         getLlmProvider,
         () => getActiveProviderConfig().model,
+        controller.signal,
       );
 
       createInteraction(getDb(), {
@@ -273,6 +278,10 @@ export const agentApi: AgentApi = {
       return { result, events };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
+      if (controller.signal.aborted) {
+        emit({ type: "agent.cancelled", requestId });
+      }
+
       createInteraction(getDb(), {
         toolName,
         providerId,
@@ -284,10 +293,26 @@ export const agentApi: AgentApi = {
         errorMessage: previewText(errorMessage, 240),
       });
       throw err;
+    } finally {
+      runningRequests.delete(requestId);
     }
   },
 
+  async cancelAgent({ requestId }) {
+    const controller = runningRequests.get(requestId);
+    if (!controller) {
+      return { cancelled: false };
+    }
+
+    controller.abort();
+    return { cancelled: true };
+  },
+
   async shutdown() {
+    for (const controller of runningRequests.values()) {
+      controller.abort();
+    }
+    runningRequests.clear();
     orchestrator.shutdown();
   },
 };

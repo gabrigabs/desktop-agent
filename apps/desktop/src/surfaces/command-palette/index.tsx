@@ -186,6 +186,7 @@ export function CommandPalette() {
   const [mode, setMode] = useState<"command" | "history">("command");
   const [inputMode, setInputMode] = useState<InputMode>("free");
   const [activeTaskMode, setActiveTaskMode] = useState<InputMode>("free");
+  const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [showKey, setShowKey] = useState<boolean>(false);
 
@@ -287,6 +288,7 @@ export function CommandPalette() {
       setActiveTaskMode(sourceMode);
       clearAgentLogs();
 
+      let requestId: string | null = null;
       try {
         const api = await getAgent();
         const clipboardContent =
@@ -299,7 +301,8 @@ export function CommandPalette() {
           throw new Error("Não há texto no clipboard para usar nesta tarefa.");
         }
 
-        const requestId = crypto.randomUUID();
+        requestId = crypto.randomUUID();
+        setActiveRequestId(requestId);
 
         const res = await api.runAgent({
           requestId,
@@ -313,6 +316,7 @@ export function CommandPalette() {
         addAgentLog({ type: "tool_fail", text: err instanceof Error ? err.message : String(err) });
       } finally {
         setStreaming(false);
+        setActiveRequestId((current) => (current === requestId ? null : current));
       }
     },
     [
@@ -339,6 +343,22 @@ export function CommandPalette() {
       setTimeout(() => setCopied(false), 2000);
     }
   }, [result]);
+
+  const handleAbort = useCallback(async () => {
+    if (!activeRequestId) return;
+
+    try {
+      const api = await getAgent();
+      await api.cancelAgent({ requestId: activeRequestId });
+    } catch (err) {
+      console.error("Failed to cancel request:", err);
+    } finally {
+      setError("Execução abortada pelo usuário.");
+      setStreaming(false);
+      addAgentLog({ type: "tool_fail", text: "Execução abortada pelo usuário" });
+      setActiveRequestId(null);
+    }
+  }, [activeRequestId, setError, setStreaming, addAgentLog]);
 
   const handleQuickAction = async (actionId: string) => {
     const action = QUICK_ACTIONS.find((item) => item.id === actionId);
@@ -544,6 +564,17 @@ export function CommandPalette() {
                   >
                     {taskStatus}
                   </span>
+                  {streaming && (
+                    <button
+                      type="button"
+                      onClick={handleAbort}
+                      disabled={!activeRequestId}
+                      className="h-7 px-2 rounded-md bg-rose-950/25 border border-rose-900/40 text-[10px] font-semibold text-rose-300 hover:text-rose-100 hover:border-rose-500/50 transition-colors cursor-pointer disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1.5"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      Parar
+                    </button>
+                  )}
                 </div>
               </div>
 
