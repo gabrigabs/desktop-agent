@@ -14,7 +14,7 @@ import { CommandPalette } from "./surfaces/command-palette";
 
 export function App() {
   const { connected, uiMode, setUiMode, settings } = useAgentStore();
-  const [alwaysOnTop, setAlwaysOnTopState] = useState(true);
+  const [alwaysOnTop, setAlwaysOnTopState] = useState(false);
   const dragStart = useRef({ x: 0, y: 0 });
 
   // Ensure always on top is synced with state
@@ -98,7 +98,7 @@ export function App() {
       <div
         role="button"
         tabIndex={0}
-        className="w-[120px] h-[120px] flex items-center justify-center cursor-pointer group active:scale-95 transition-transform duration-150 focus:outline-none bg-transparent border-0 p-0"
+        className="w-[104px] h-[104px] flex items-center justify-center cursor-pointer group active:scale-95 transition-transform duration-150 focus:outline-none bg-transparent border-0 p-0"
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onKeyDown={(e) => {
