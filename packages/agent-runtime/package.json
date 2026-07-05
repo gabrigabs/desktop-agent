@@ -17,6 +17,8 @@
     "@desktop-agent/tool-registry": "workspace:*",
     "@desktop-agent/tools-text": "workspace:*",
     "@desktop-agent/tools-desktop": "workspace:*",
+    "@desktop-agent/tools-web": "workspace:*",
+    "@desktop-agent/tools-ocr": "workspace:*",
     "kkrpc": "latest"
   },
   "devDependencies": {

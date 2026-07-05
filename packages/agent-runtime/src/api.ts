@@ -22,7 +22,9 @@ import {
 } from "@desktop-agent/storage";
 import { registry } from "@desktop-agent/tool-registry";
 import { createClipboardTool } from "@desktop-agent/tools-desktop";
+import { createOcrImageTool, createScreenshotOcrTool } from "@desktop-agent/tools-ocr";
 import { createRewriteTool, createSummarizeTool, createTranslateTool } from "@desktop-agent/tools-text";
+import { createWebCrawlTool, createWebExtractTool, createWebSearchTool } from "@desktop-agent/tools-web";
 import { Orchestrator } from "./orchestrator";
 import { WorkflowRunner } from "./workflow-runner";
 
@@ -137,6 +139,11 @@ registry.register(createRewriteTool(ctx));
 registry.register(createSummarizeTool(ctx));
 registry.register(createTranslateTool(ctx));
 registry.register(createClipboardTool(clipboardCtx));
+registry.register(createWebSearchTool());
+registry.register(createWebExtractTool());
+registry.register(createWebCrawlTool());
+registry.register(createOcrImageTool());
+registry.register(createScreenshotOcrTool());
 
 const orchestrator = new Orchestrator({ provider: proxyProvider });
 

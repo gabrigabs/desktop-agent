@@ -44,7 +44,9 @@
         "@desktop-agent/storage": "workspace:*",
         "@desktop-agent/tool-registry": "workspace:*",
         "@desktop-agent/tools-desktop": "workspace:*",
+        "@desktop-agent/tools-ocr": "workspace:*",
         "@desktop-agent/tools-text": "workspace:*",
+        "@desktop-agent/tools-web": "workspace:*",
         "kkrpc": "latest",
       },
       "devDependencies": {
@@ -108,12 +110,36 @@
         "zod": "^3.25",
       },
     },
+    "packages/tools-ocr": {
+      "name": "@desktop-agent/tools-ocr",
+      "version": "0.1.0",
+      "dependencies": {
+        "@desktop-agent/tool-registry": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "latest",
+        "typescript": "^5.9",
+        "zod": "^3.25",
+      },
+    },
     "packages/tools-text": {
       "name": "@desktop-agent/tools-text",
       "version": "0.1.0",
       "dependencies": {
         "@desktop-agent/provider-gateway": "workspace:*",
         "@desktop-agent/shared": "workspace:*",
+        "@desktop-agent/tool-registry": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "latest",
+        "typescript": "^5.9",
+        "zod": "^3.25",
+      },
+    },
+    "packages/tools-web": {
+      "name": "@desktop-agent/tools-web",
+      "version": "0.1.0",
+      "dependencies": {
         "@desktop-agent/tool-registry": "workspace:*",
       },
       "devDependencies": {
@@ -194,7 +220,11 @@
 
     "@desktop-agent/tools-desktop": ["@desktop-agent/tools-desktop@workspace:packages/tools-desktop"],
 
+    "@desktop-agent/tools-ocr": ["@desktop-agent/tools-ocr@workspace:packages/tools-ocr"],
+
     "@desktop-agent/tools-text": ["@desktop-agent/tools-text@workspace:packages/tools-text"],
+
+    "@desktop-agent/tools-web": ["@desktop-agent/tools-web@workspace:packages/tools-web"],
 
     "@esbuild/aix-ppc64": ["@esbuild/aix-ppc64@0.28.1", "", { "os": "aix", "cpu": "ppc64" }, "sha512-Svl7tq8k/08+p6CXPpRjQ1fKX+1odH/BQbb48fV6fj3CWHhsoIOoY87w1oHXm0qEpkIK3ZfVgp0hed3XBXzXMQ=="],
 
