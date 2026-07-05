@@ -29,14 +29,43 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getAgent } from "../../lib/rpc";
+import { getAgent, isMissingRpcMethodError, restartRpc } from "../../lib/rpc";
 import { isTauriRuntime, setWindowMode } from "../../lib/window";
 import { useAgentStore } from "../../stores/agent";
 import { HistoryList } from "./history-list";
 
 const GLOBAL_SHORTCUT_LABEL = "Control+Shift+Space";
+const STALE_RUNTIME_MESSAGE =
+  "Runtime antigo detectado. Reinicie o app para carregar workflows e MCPs atualizados.";
 
 type InputMode = "free" | "clipboard";
+type RuntimeApi = Awaited<ReturnType<typeof getAgent>>;
+
+function isStaleRuntimeError(err: unknown) {
+  return err instanceof Error && err.message === STALE_RUNTIME_MESSAGE;
+}
+
+async function callAgentWithRuntimeRefresh<T>(method: string, action: (api: RuntimeApi) => Promise<T>) {
+  const api = await getAgent();
+
+  try {
+    return await action(api);
+  } catch (err) {
+    if (!isMissingRpcMethodError(err, method)) {
+      throw err;
+    }
+  }
+
+  const refreshedApi = await restartRpc();
+  try {
+    return await action(refreshedApi);
+  } catch (err) {
+    if (isMissingRpcMethodError(err, method)) {
+      throw new Error(STALE_RUNTIME_MESSAGE);
+    }
+    throw err;
+  }
+}
 
 const PINSTRIPES_MODELS = [
   {
@@ -271,11 +300,14 @@ export function CommandPalette() {
 
   const refreshCapabilities = useCallback(async () => {
     try {
-      const api = await getAgent();
-      const capabilities = await api.listCapabilities();
+      const capabilities = await callAgentWithRuntimeRefresh("listCapabilities", (api) =>
+        api.listCapabilities(),
+      );
       setConnectors(capabilities.connectors);
     } catch (err) {
-      console.error("Failed to refresh capabilities:", err);
+      if (!isStaleRuntimeError(err)) {
+        console.error("Failed to refresh capabilities:", err);
+      }
     }
   }, [setConnectors]);
 
@@ -358,7 +390,6 @@ export function CommandPalette() {
       let requestId: string | null = null;
       let runId: string | null = null;
       try {
-        const api = await getAgent();
         const clipboardContent =
           sourceMode === "clipboard" ? (isTauriRuntime() ? await readClipboard() : clipboardText) : "";
         if (sourceMode === "clipboard") {
@@ -373,13 +404,48 @@ export function CommandPalette() {
         setActiveRequestId(requestId);
         setActiveRunId(null);
 
-        const res = await api.startRun({
+        const runInput = {
           requestId,
           prompt: activeQuery,
           mode: executionMode,
           sourceMode,
           clipboardText: clipboardContent,
           maxSteps: executionMode === "workflow" ? 8 : 1,
+        };
+
+        const res = await callAgentWithRuntimeRefresh("startRun", (runtimeApi) =>
+          runtimeApi.startRun(runInput),
+        ).catch(async (err) => {
+          if (executionMode === "simple" && isStaleRuntimeError(err)) {
+            const fallbackApi = await getAgent();
+            const fallback = await fallbackApi.runAgent({
+              requestId: requestId || crypto.randomUUID(),
+              query: activeQuery,
+              clipboardText: clipboardContent,
+            });
+            return {
+              run: {
+                id: requestId || crypto.randomUUID(),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                mode: "simple" as const,
+                status: "completed" as const,
+                prompt: activeQuery,
+                sourceMode,
+                clipboardPreview: clipboardContent.slice(0, 500),
+                providerId: settings.activeProvider,
+                model: settings.model,
+                maxSteps: 1,
+                currentStep: 1,
+                result: fallback.result,
+                metadata: {},
+                steps: [],
+              },
+              events: fallback.events,
+            };
+          }
+
+          throw err;
         });
 
         runId = res.run.id;
@@ -410,6 +476,8 @@ export function CommandPalette() {
       setWorkflowRun,
       clearAgentLogs,
       addAgentLog,
+      settings.activeProvider,
+      settings.model,
     ],
   );
 
@@ -432,7 +500,16 @@ export function CommandPalette() {
     try {
       const api = await getAgent();
       if (runId) {
-        await api.cancelRun({ runId });
+        await callAgentWithRuntimeRefresh("cancelRun", (runtimeApi) => runtimeApi.cancelRun({ runId })).catch(
+          async (err) => {
+            if (activeRequestId && isStaleRuntimeError(err)) {
+              const fallbackApi = await getAgent();
+              await fallbackApi.cancelAgent({ requestId: activeRequestId });
+              return;
+            }
+            throw err;
+          },
+        );
       } else if (activeRequestId) {
         await api.cancelAgent({ requestId: activeRequestId });
       }
@@ -458,8 +535,9 @@ export function CommandPalette() {
       setError(null);
 
       try {
-        const api = await getAgent();
-        const res = await api.resumeRun({ requestId, runId: workflowRun.id, approved });
+        const res = await callAgentWithRuntimeRefresh("resumeRun", (api) =>
+          api.resumeRun({ requestId, runId: workflowRun.id, approved }),
+        );
         setWorkflowRun(res.run);
         setResult(res.run.result || "");
         if (res.run.status === "failed" || res.run.status === "cancelled") {
@@ -515,21 +593,23 @@ export function CommandPalette() {
 
   const handleToggleConnector = async (connectorId: string) => {
     const connector = connectors.find((item) => item.id === connectorId);
-    if (!connector?.command) return;
+    const command = connector?.command;
+    if (!connector || !command) return;
 
     try {
-      const api = await getAgent();
-      await api.saveMcpServer({
-        server: {
-          id: connector.id,
-          name: connector.name,
-          command: connector.command,
-          args: connector.args,
-          enabled: !connector.enabled,
-          preset: connector.preset,
-          permissionPolicy: connector.permissionPolicy,
-        },
-      });
+      await callAgentWithRuntimeRefresh("saveMcpServer", (api) =>
+        api.saveMcpServer({
+          server: {
+            id: connector.id,
+            name: connector.name,
+            command,
+            args: connector.args,
+            enabled: !connector.enabled,
+            preset: connector.preset,
+            permissionPolicy: connector.permissionPolicy,
+          },
+        }),
+      );
       await refreshCapabilities();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao atualizar conector");
@@ -539,8 +619,9 @@ export function CommandPalette() {
   const handleTestConnector = async (connectorId: string) => {
     setTestingConnectorId(connectorId);
     try {
-      const api = await getAgent();
-      const result = await api.testMcpServer({ id: connectorId });
+      const result = await callAgentWithRuntimeRefresh("testMcpServer", (api) =>
+        api.testMcpServer({ id: connectorId }),
+      );
       if (!result.ok) {
         addAgentLog({ type: "tool_fail", text: result.error || "Conector não passou no teste" });
       } else {

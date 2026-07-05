@@ -1,5 +1,5 @@
 import type { AgentApi, AgentEvent } from "@desktop-agent/shared";
-import { Command } from "@tauri-apps/plugin-shell";
+import { type Child, Command } from "@tauri-apps/plugin-shell";
 import { RPCChannel } from "kkrpc";
 import { tauriShellStdioTransport } from "kkrpc/tauri";
 import { useAgentStore } from "../stores/agent";
@@ -10,6 +10,20 @@ type FrontendApi = {
 
 let agent: AgentApi | null = null;
 let channel: RPCChannel<FrontendApi, AgentApi> | null = null;
+let child: Child | null = null;
+
+export function isMissingRpcMethodError(err: unknown, method?: string) {
+  const message = err instanceof Error ? err.message : String(err);
+  const normalized = message.toLowerCase();
+  const matchesMethod = method ? normalized.includes(method.toLowerCase()) : true;
+
+  return (
+    matchesMethod &&
+    (normalized.includes("is not a function") ||
+      normalized.includes("method not found") ||
+      normalized.includes("unknown method"))
+  );
+}
 
 export async function initializeRpc(): Promise<AgentApi> {
   if (agent) return agent;
@@ -17,7 +31,7 @@ export async function initializeRpc(): Promise<AgentApi> {
   const store = useAgentStore.getState();
 
   const cmd = Command.sidecar("binaries/agent-runtime");
-  const child = await cmd.spawn();
+  child = await cmd.spawn();
 
   const transport = tauriShellStdioTransport({
     stdout: cmd.stdout,
@@ -134,7 +148,9 @@ export async function initializeRpc(): Promise<AgentApi> {
       const capabilities = await agent.listCapabilities();
       store.setConnectors(capabilities.connectors);
     } catch (err) {
-      console.error("Failed to load agent capabilities:", err);
+      if (!isMissingRpcMethodError(err, "listCapabilities")) {
+        console.error("Failed to load agent capabilities:", err);
+      }
     }
   } catch (err) {
     store.setConnected(false);
@@ -151,10 +167,19 @@ export async function getAgent(): Promise<AgentApi> {
   return agent;
 }
 
+export async function restartRpc(): Promise<AgentApi> {
+  await destroyRpc();
+  return initializeRpc();
+}
+
 export async function destroyRpc(): Promise<void> {
   if (channel) {
     channel.destroy();
     channel = null;
+  }
+  if (child) {
+    await child.kill().catch(() => undefined);
+    child = null;
   }
   agent = null;
 }

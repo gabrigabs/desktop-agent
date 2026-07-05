@@ -58,6 +58,9 @@ pub fn run() {
                                 use tauri_plugin_positioner::{Position, WindowExt};
                                 let _ = window.set_shadow(false);
                                 let _ = window.set_resizable(true);
+                                let _ = window.set_min_size::<tauri::Size>(None);
+                                let _ = window.set_fullscreen(false);
+                                let _ = window.unmaximize();
                                 let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize::new(EXPANDED_WIDTH, EXPANDED_HEIGHT)));
                                 let _ = window.move_window(Position::TrayCenter);
                                 let _ = window.emit("tray-click", "expanded");
