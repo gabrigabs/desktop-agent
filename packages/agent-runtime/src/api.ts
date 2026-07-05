@@ -1,12 +1,25 @@
 import { execSync, spawn } from "node:child_process";
 import { createProvider } from "@desktop-agent/provider-gateway";
-import type { AgentApi, AppSettings } from "@desktop-agent/shared";
+import type { AgentApi, AgentEvent, AppSettings, WorkflowRun } from "@desktop-agent/shared";
 import {
   createInteraction,
+  createMcpServer as createStoredMcpServer,
+  createWorkflowRun,
+  createWorkflowStep,
+  deleteMcpServer as deleteStoredMcpServer,
+  ensureDefaultMcpPresets,
   getDb,
   getRecentInteractions,
   getSetting,
+  getMcpServer as getStoredMcpServer,
+  getWorkflowRun,
+  listMcpServers as listStoredMcpServers,
+  listWorkflowRuns,
+  listWorkflowTemplates,
   setSetting,
+  updateMcpServerStatus,
+  updateWorkflowRun,
+  upsertMcpServer,
 } from "@desktop-agent/storage";
 import { registry } from "@desktop-agent/tool-registry";
 import { createClipboardTool } from "@desktop-agent/tools-desktop";
@@ -20,6 +33,7 @@ export function setClientApi(api: any) {
 }
 
 const runningRequests = new Map<string, AbortController>();
+const runningRuns = new Map<string, AbortController>();
 
 // Clipboard context wrapper for Bun environment (macOS native pbcopy/pbpaste)
 const clipboardCtx = {
@@ -141,6 +155,83 @@ function formatAgentInputPreview(query: string, clipboardText?: string) {
   return previewText(query);
 }
 
+function emitToClient(event: AgentEvent) {
+  if (clientApi?.onEvent) {
+    clientApi.onEvent(event).catch((err: any) => {
+      console.error("Failed to emit event to client:", err);
+    });
+  }
+}
+
+function workflowEventsForRun(requestId: string, run: WorkflowRun): AgentEvent[] {
+  const events: AgentEvent[] = [{ type: "workflow.started", requestId, runId: run.id, mode: run.mode }];
+  for (const step of run.steps ?? []) {
+    events.push({ type: "workflow.step", requestId, runId: run.id, step });
+  }
+  if (run.approval) {
+    events.push({ type: "workflow.approval_required", requestId, runId: run.id, approval: run.approval });
+  }
+  events.push({ type: "workflow.completed", requestId, runId: run.id, status: run.status });
+  return events;
+}
+
+function listToolCapabilities() {
+  return registry.list().map((t) => ({
+    name: t.name,
+    description: t.description,
+    category: t.category,
+    permissionLevel: t.permissionLevel,
+  }));
+}
+
+function createQueuedRun(input: {
+  prompt: string;
+  mode: "simple" | "workflow";
+  sourceMode?: "free" | "clipboard";
+  clipboardText?: string;
+  maxSteps?: number;
+}) {
+  const db = getDb();
+  const config = getActiveProviderConfig();
+  const provider = getLlmProvider();
+  const runId = createWorkflowRun(db, {
+    mode: input.mode,
+    status: "queued",
+    prompt: input.prompt,
+    sourceMode: input.sourceMode ?? (input.clipboardText?.trim() ? "clipboard" : "free"),
+    clipboardText: input.clipboardText,
+    providerId: provider.name,
+    model: config.model,
+    maxSteps: input.maxSteps ?? 8,
+    metadata: {
+      createdBy: "desktop-agent",
+      timeoutSeconds: config.timeout,
+    },
+  });
+
+  createWorkflowStep(db, {
+    runId,
+    stepIndex: 1,
+    kind: "plan",
+    status: "pending",
+    title: input.mode === "workflow" ? "Preparar workflow" : "Preparar resposta simples",
+    detail:
+      input.mode === "workflow"
+        ? "Aguardando a engine de workflow iniciar o plano."
+        : "Aguardando execução direta do agente.",
+    output: {
+      maxSteps: input.maxSteps ?? 8,
+      sourceMode: input.sourceMode ?? (input.clipboardText?.trim() ? "clipboard" : "free"),
+    },
+  });
+
+  return getWorkflowRun(db, runId) as WorkflowRun;
+}
+
+function ensureMcpReady() {
+  ensureDefaultMcpPresets(getDb());
+}
+
 export const agentApi: AgentApi = {
   async ping() {
     return { status: "ok" };
@@ -176,6 +267,138 @@ export const agentApi: AgentApi = {
 
   async getHistory({ limit } = { limit: 20 }) {
     return getRecentInteractions(getDb(), limit);
+  },
+
+  async startRun(input) {
+    const run = createQueuedRun({
+      prompt: input.prompt,
+      mode: input.mode,
+      sourceMode: input.sourceMode,
+      clipboardText: input.clipboardText,
+      maxSteps: input.maxSteps,
+    });
+    const events = workflowEventsForRun(input.requestId, run);
+    for (const event of events) {
+      emitToClient(event);
+    }
+    return { run, events };
+  },
+
+  async cancelRun({ runId }) {
+    const controller = runningRuns.get(runId);
+    if (controller) {
+      controller.abort();
+      runningRuns.delete(runId);
+    }
+
+    const run = getWorkflowRun(getDb(), runId);
+    if (!run || ["completed", "failed", "cancelled"].includes(run.status)) {
+      return { cancelled: Boolean(controller) };
+    }
+
+    updateWorkflowRun(getDb(), runId, {
+      status: "cancelled",
+      completedAt: new Date().toISOString(),
+      errorMessage: "Workflow abortado pelo usuário.",
+    });
+    return { cancelled: true };
+  },
+
+  async getRun({ runId }) {
+    return getWorkflowRun(getDb(), runId);
+  },
+
+  async listRuns({ limit } = { limit: 20 }) {
+    return listWorkflowRuns(getDb(), limit);
+  },
+
+  async resumeRun({ requestId, runId, approved }) {
+    const run = getWorkflowRun(getDb(), runId);
+    if (!run) {
+      throw new Error(`Workflow run não encontrado: ${runId}`);
+    }
+
+    updateWorkflowRun(getDb(), runId, {
+      status: approved ? "queued" : "cancelled",
+      approval: null,
+      completedAt: approved ? null : new Date().toISOString(),
+      errorMessage: approved ? null : "Aprovação negada pelo usuário.",
+    });
+
+    const updated = getWorkflowRun(getDb(), runId) as WorkflowRun;
+    const events = workflowEventsForRun(requestId, updated);
+    for (const event of events) {
+      emitToClient(event);
+    }
+    return { run: updated, events };
+  },
+
+  async listCapabilities() {
+    ensureMcpReady();
+    return {
+      tools: listToolCapabilities(),
+      connectors: listStoredMcpServers(getDb()),
+      templates: listWorkflowTemplates(getDb()),
+    };
+  },
+
+  async listMcpServers() {
+    ensureMcpReady();
+    return listStoredMcpServers(getDb());
+  },
+
+  async saveMcpServer({ server }) {
+    const db = getDb();
+    const id = server.id ?? createStoredMcpServer(db, {
+      name: server.name,
+      command: server.command,
+      args: server.args,
+      env: server.env,
+      enabled: server.enabled,
+      preset: server.preset,
+      permissionPolicy: server.permissionPolicy,
+    });
+
+    if (server.id) {
+      upsertMcpServer(db, {
+        id: server.id,
+        name: server.name,
+        command: server.command,
+        args: server.args,
+        env: server.env,
+        enabled: server.enabled,
+        preset: server.preset,
+        permissionPolicy: server.permissionPolicy,
+      });
+    }
+
+    return getStoredMcpServer(db, id) as NonNullable<ReturnType<typeof getStoredMcpServer>>;
+  },
+
+  async deleteMcpServer({ id }) {
+    deleteStoredMcpServer(getDb(), id);
+  },
+
+  async testMcpServer({ id }) {
+    const db = getDb();
+    const server = getStoredMcpServer(db, id, true);
+    if (!server) {
+      const error = `MCP não encontrado: ${id}`;
+      updateMcpServerStatus(db, id, { lastCheckedAt: new Date().toISOString(), lastError: error });
+      return { ok: false, error };
+    }
+
+    const missingEnv = Object.entries(server.env ?? {})
+      .filter(([, value]) => !value)
+      .map(([key]) => key);
+    if (missingEnv.length > 0) {
+      const error = `Configure ${missingEnv.join(", ")} antes de habilitar este MCP.`;
+      updateMcpServerStatus(db, id, { lastCheckedAt: new Date().toISOString(), lastError: error });
+      return { ok: false, error };
+    }
+
+    updateMcpServerStatus(db, id, { lastCheckedAt: new Date().toISOString(), lastError: null });
+    return { ok: true };
   },
 
   async getSettings(): Promise<AppSettings> {
@@ -313,6 +536,10 @@ export const agentApi: AgentApi = {
       controller.abort();
     }
     runningRequests.clear();
+    for (const controller of runningRuns.values()) {
+      controller.abort();
+    }
+    runningRuns.clear();
     orchestrator.shutdown();
   },
 };

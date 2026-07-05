@@ -1,4 +1,4 @@
-export type { AgentApi } from "./api";
+export type { AgentApi, SaveMcpServerInput } from "./api";
 export type {
   AgentEvent,
   AppSettings,
