@@ -166,6 +166,16 @@ A assinatura deve ser uma "barra de sinais" fina ligada ao pet: uma linha viva q
 - [ ] Criar texto de disclosure antes de pedir permissao.
 - [ ] Nao implementar controle do Mac sem confirmar limites e permissoes.
 
+### P3 - Workflow engine e conectores
+
+- [ ] Criar runs persistidos em SQLite para tarefas simples e workflows avancados.
+- [ ] Separar modo `simple` de modo `workflow`, com tela dedicada para plano, timeline e resultado.
+- [ ] Implementar loop `plan -> act -> observe -> replan/finish` com cancelamento e limite de passos.
+- [ ] Pausar para aprovacao antes de ferramentas sensiveis como rede externa, browser, tela e escrita local.
+- [ ] Adicionar gestor de MCPs com presets desabilitados por padrao e env vars mascaradas.
+- [ ] Adicionar ferramentas web local-first e OCR local-first, com APIs gratuitas/generosas opcionais.
+- [ ] Manter `runAgent` compativel enquanto novas APIs de run entram no app.
+
 ## Criterios de aceite
 
 - O app nao usa mais `Option + Space` como atalho padrao.
