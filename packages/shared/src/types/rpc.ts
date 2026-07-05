@@ -22,6 +22,10 @@ export type AgentEvent =
   | { type: "agent.started"; requestId: string }
   | { type: "agent.thought"; requestId: string; thought: string }
   | { type: "agent.chunk"; requestId: string; chunk: string }
+  | { type: "workflow.started"; requestId: string; runId: string; mode: ExecutionMode }
+  | { type: "workflow.step"; requestId: string; runId: string; step: WorkflowStep }
+  | { type: "workflow.approval_required"; requestId: string; runId: string; approval: ApprovalRequest }
+  | { type: "workflow.completed"; requestId: string; runId: string; status: RunStatus }
   | { type: "tool.started"; requestId: string; toolName: string }
   | { type: "tool.completed"; requestId: string; toolName: string }
   | { type: "tool.failed"; requestId: string; toolName: string; error: string }
@@ -29,7 +33,13 @@ export type AgentEvent =
   | { type: "agent.cancelled"; requestId: string }
   | { type: "agent.completed"; requestId: string };
 
-export type PermissionLevel = "local.read" | "local.write" | "external";
+export type PermissionLevel =
+  | "local.read"
+  | "local.write"
+  | "network"
+  | "browser.control"
+  | "screen.read"
+  | "external";
 
 export type Permission = {
   id: string;
@@ -42,7 +52,7 @@ export type Permission = {
 export type ToolDefinition = {
   name: string;
   description: string;
-  category: "text" | "desktop" | "system";
+  category: "text" | "desktop" | "system" | "web" | "ocr" | "mcp";
   permissionLevel: PermissionLevel;
   inputSchema: z.ZodType;
 };
@@ -120,4 +130,93 @@ export type AppSettings = {
   model: string;
   hidePet: boolean;
   timeout: number;
+};
+
+export type ExecutionMode = "simple" | "workflow";
+
+export type RunStatus = "queued" | "running" | "waiting_approval" | "completed" | "failed" | "cancelled";
+
+export type WorkflowStepStatus = "pending" | "running" | "waiting_approval" | "completed" | "failed" | "skipped";
+
+export type WorkflowStepKind = "plan" | "tool" | "observation" | "approval" | "response" | "hook";
+
+export type WorkflowRun = {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+  mode: ExecutionMode;
+  status: RunStatus;
+  prompt: string;
+  sourceMode: "free" | "clipboard";
+  clipboardPreview: string;
+  providerId: string;
+  model: string;
+  maxSteps: number;
+  currentStep: number;
+  result: string;
+  errorMessage?: string;
+  approval?: ApprovalRequest;
+  metadata: Record<string, unknown>;
+  steps?: WorkflowStep[];
+};
+
+export type WorkflowStep = {
+  id: string;
+  runId: string;
+  stepIndex: number;
+  kind: WorkflowStepKind;
+  status: WorkflowStepStatus;
+  title: string;
+  detail: string;
+  toolName?: string;
+  permissionLevel?: PermissionLevel;
+  input: unknown;
+  output: unknown;
+  errorMessage?: string;
+  requiresApproval: boolean;
+  startedAt?: string;
+  completedAt?: string;
+  createdAt: string;
+};
+
+export type WorkflowTemplate = {
+  id: string;
+  name: string;
+  description: string;
+  prompt: string;
+  mode: ExecutionMode;
+  maxSteps: number;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ConnectorKind = "mcp" | "api" | "local";
+
+export type ConnectorConfig = {
+  id: string;
+  name: string;
+  kind: ConnectorKind;
+  enabled: boolean;
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
+  preset?: boolean;
+  permissionPolicy: PermissionLevel[];
+  lastCheckedAt?: string;
+  lastError?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ApprovalRequest = {
+  id: string;
+  runId: string;
+  stepId?: string;
+  toolName?: string;
+  permissionLevel: PermissionLevel;
+  reason: string;
+  inputPreview: string;
+  createdAt: string;
 };

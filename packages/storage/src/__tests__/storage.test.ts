@@ -2,6 +2,20 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { closeDb, getDb } from "../db";
 import { runMigrations } from "../migrations/001_initial";
 import { createInteraction, getRecentInteractions, searchInteractions } from "../repositories/interactions";
+import {
+  ensureDefaultMcpPresets,
+  listMcpServers,
+  updateMcpServerStatus,
+  upsertMcpServer,
+} from "../repositories/mcp-servers";
+import {
+  createWorkflowRun,
+  createWorkflowStep,
+  getWorkflowRun,
+  listWorkflowRuns,
+  updateWorkflowRun,
+  updateWorkflowStep,
+} from "../repositories/workflows";
 
 describe("Storage Package Tests", () => {
   let db: any;
@@ -24,6 +38,10 @@ describe("Storage Package Tests", () => {
     expect(tableNames).toContain("tool_runs");
     expect(tableNames).toContain("permissions");
     expect(tableNames).toContain("provider_configs");
+    expect(tableNames).toContain("workflow_runs");
+    expect(tableNames).toContain("workflow_steps");
+    expect(tableNames).toContain("workflow_templates");
+    expect(tableNames).toContain("mcp_servers");
   });
 
   test("Should log and retrieve interactions", () => {
@@ -77,5 +95,90 @@ describe("Storage Package Tests", () => {
     const animalResults = searchInteractions(db, "elephant");
     expect(animalResults.length).toBe(1);
     expect(animalResults[0]?.toolName).toBe("text.rewrite");
+  });
+
+  test("Should persist workflow runs with ordered steps", () => {
+    const runId = createWorkflowRun(db, {
+      mode: "workflow",
+      prompt: "Pesquise concorrentes",
+      sourceMode: "free",
+      providerId: "mock",
+      model: "mock-model",
+      maxSteps: 8,
+    });
+
+    const planStepId = createWorkflowStep(db, {
+      runId,
+      stepIndex: 1,
+      kind: "plan",
+      status: "completed",
+      title: "Plano inicial",
+      detail: "Buscar, comparar e resumir.",
+      output: { plan: ["buscar", "comparar"] },
+    });
+
+    const toolStepId = createWorkflowStep(db, {
+      runId,
+      stepIndex: 2,
+      kind: "tool",
+      status: "running",
+      title: "Buscar web",
+      toolName: "web.search",
+      permissionLevel: "network",
+      input: { query: "concorrentes" },
+      requiresApproval: true,
+    });
+
+    updateWorkflowStep(db, toolStepId, {
+      status: "completed",
+      output: { results: 3 },
+      completedAt: "2026-07-05T12:00:00.000Z",
+    });
+    updateWorkflowRun(db, runId, {
+      status: "completed",
+      currentStep: 2,
+      result: "Resumo pronto",
+      completedAt: "2026-07-05T12:00:00.000Z",
+    });
+
+    const run = getWorkflowRun(db, runId);
+    expect(run?.id).toBe(runId);
+    expect(run?.status).toBe("completed");
+    expect(run?.result).toBe("Resumo pronto");
+    expect(run?.steps?.map((step) => step.id)).toEqual([planStepId, toolStepId]);
+    expect(run?.steps?.[1]?.permissionLevel).toBe("network");
+    expect(run?.steps?.[1]?.requiresApproval).toBe(true);
+
+    const recent = listWorkflowRuns(db, 5);
+    expect(recent[0]?.id).toBe(runId);
+  });
+
+  test("Should install MCP presets disabled and mask env values", () => {
+    ensureDefaultMcpPresets(db);
+    upsertMcpServer(db, {
+      id: "custom-search",
+      name: "Custom Search",
+      command: "node",
+      args: ["server.js"],
+      env: { API_KEY: "secret" },
+      enabled: true,
+      preset: false,
+      permissionPolicy: ["network"],
+    });
+    updateMcpServerStatus(db, "custom-search", {
+      lastCheckedAt: "2026-07-05T12:00:00.000Z",
+      lastError: null,
+    });
+
+    const servers = listMcpServers(db);
+    const custom = servers.find((server) => server.id === "custom-search");
+    const playwright = servers.find((server) => server.id === "playwright");
+
+    expect(playwright?.enabled).toBe(false);
+    expect(playwright?.preset).toBe(true);
+    expect(custom?.enabled).toBe(true);
+    expect(custom?.env?.API_KEY).toBe("********");
+    expect(custom?.permissionPolicy).toEqual(["network"]);
+    expect(custom?.lastCheckedAt).toBe("2026-07-05T12:00:00.000Z");
   });
 });

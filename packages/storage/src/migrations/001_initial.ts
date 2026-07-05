@@ -82,4 +82,79 @@ export function runMigrations(db: Database): void {
       value TEXT NOT NULL
     )
   `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS workflow_runs (
+      id TEXT PRIMARY KEY,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      completed_at TEXT,
+      mode TEXT NOT NULL,
+      status TEXT NOT NULL,
+      prompt TEXT NOT NULL,
+      source_mode TEXT NOT NULL DEFAULT 'free',
+      clipboard_preview TEXT NOT NULL DEFAULT '',
+      provider_id TEXT NOT NULL,
+      model TEXT NOT NULL DEFAULT '',
+      max_steps INTEGER NOT NULL DEFAULT 8,
+      current_step INTEGER NOT NULL DEFAULT 0,
+      result TEXT NOT NULL DEFAULT '',
+      error_message TEXT,
+      approval_json TEXT,
+      metadata_json TEXT NOT NULL DEFAULT '{}'
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS workflow_steps (
+      id TEXT PRIMARY KEY,
+      run_id TEXT NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE,
+      step_index INTEGER NOT NULL,
+      kind TEXT NOT NULL,
+      status TEXT NOT NULL,
+      title TEXT NOT NULL,
+      detail TEXT NOT NULL DEFAULT '',
+      tool_name TEXT,
+      permission_level TEXT,
+      input_json TEXT NOT NULL DEFAULT '{}',
+      output_json TEXT NOT NULL DEFAULT '{}',
+      error_message TEXT,
+      requires_approval INTEGER NOT NULL DEFAULT 0,
+      started_at TEXT,
+      completed_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(run_id, step_index)
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS workflow_templates (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      prompt TEXT NOT NULL,
+      mode TEXT NOT NULL,
+      max_steps INTEGER NOT NULL DEFAULT 8,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS mcp_servers (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      command TEXT NOT NULL,
+      args_json TEXT NOT NULL DEFAULT '[]',
+      env_json TEXT NOT NULL DEFAULT '{}',
+      enabled INTEGER NOT NULL DEFAULT 0,
+      preset INTEGER NOT NULL DEFAULT 0,
+      permission_policy_json TEXT NOT NULL DEFAULT '[]',
+      last_checked_at TEXT,
+      last_error TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
 }
