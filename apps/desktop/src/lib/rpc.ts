@@ -33,7 +33,7 @@ export async function initializeRpc(): Promise<AgentApi> {
         // Map events to user-friendly console timeline logs
         switch (event.type) {
           case "agent.started":
-            store.addAgentLog({ type: "info", text: "🧠 Agente iniciado" });
+            store.addAgentLog({ type: "info", text: "Preparando resposta" });
             store.setResult(""); // Clear previous result to start streaming fresh
             break;
           case "agent.thought":
@@ -45,16 +45,16 @@ export async function initializeRpc(): Promise<AgentApi> {
             break;
           }
           case "tool.started":
-            store.addAgentLog({ type: "tool_start", text: `🔧 Executando ${event.toolName}...` });
+            store.addAgentLog({ type: "tool_start", text: `Usando ${event.toolName}` });
             break;
           case "tool.completed":
-            store.addAgentLog({ type: "tool_complete", text: `✅ ${event.toolName} concluído` });
+            store.addAgentLog({ type: "tool_complete", text: `${event.toolName} concluído` });
             break;
           case "tool.failed":
-            store.addAgentLog({ type: "tool_fail", text: `❌ Falha em ${event.toolName}: ${event.error}` });
+            store.addAgentLog({ type: "tool_fail", text: `Falha em ${event.toolName}: ${event.error}` });
             break;
           case "agent.completed":
-            store.addAgentLog({ type: "info", text: "✨ Agente concluído" });
+            store.addAgentLog({ type: "info", text: "Resposta pronta" });
             break;
         }
       },

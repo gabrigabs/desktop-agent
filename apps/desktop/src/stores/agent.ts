@@ -26,9 +26,11 @@ type State = {
   history: Array<{
     id: string;
     timestamp: string;
-    tool_name: string;
-    input_preview: string;
-    output_preview: string;
+    toolName: string;
+    inputPreview: string;
+    outputPreview: string;
+    success?: boolean;
+    errorMessage?: string;
   }>;
   uiMode: "collapsed" | "expanded";
   settings: AppSettings;

@@ -33,6 +33,8 @@ import { HistoryList } from "./history-list";
 
 const GLOBAL_SHORTCUT_LABEL = "Control+Shift+Space";
 
+type InputMode = "free" | "clipboard";
+
 const PINSTRIPES_MODELS = [
   {
     id: "ps/warp",
@@ -109,21 +111,54 @@ const QUICK_ACTIONS = [
   },
 ];
 
-const STARTER_ACTIONS = [
+const FREE_ACTIONS = [
   {
+    id: "pergunta",
     label: "Pergunta livre",
+    description: "Sem contexto",
     icon: Bot,
+    accent: "text-violet-400",
     prompt: "",
   },
   {
+    id: "plano",
     label: "Montar plano",
+    description: "Passos claros",
     icon: CheckSquare,
+    accent: "text-emerald-400",
     prompt: "Monte um plano prático para: ",
   },
   {
+    id: "rascunho",
     label: "Rascunhar texto",
+    description: "Primeira versão",
     icon: PenLine,
+    accent: "text-sky-400",
     prompt: "Rascunhe um texto curto sobre: ",
+  },
+  {
+    id: "checklist",
+    label: "Checklist",
+    description: "Itens acionáveis",
+    icon: ListChecks,
+    accent: "text-lime-400",
+    prompt: "Transforme este objetivo em uma checklist prática: ",
+  },
+  {
+    id: "ideias",
+    label: "Explorar ideias",
+    description: "Opções úteis",
+    icon: Sparkles,
+    accent: "text-amber-400",
+    prompt: "Liste ideias práticas e diferentes para: ",
+  },
+  {
+    id: "decidir",
+    label: "Comparar opções",
+    description: "Prós e contras",
+    icon: Layers,
+    accent: "text-fuchsia-400",
+    prompt: "Compare as opções e recomende um caminho para: ",
   },
 ];
 
@@ -149,6 +184,8 @@ export function CommandPalette() {
   } = useAgentStore();
 
   const [mode, setMode] = useState<"command" | "history">("command");
+  const [inputMode, setInputMode] = useState<InputMode>("free");
+  const [activeTaskMode, setActiveTaskMode] = useState<InputMode>("free");
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [showKey, setShowKey] = useState<boolean>(false);
 
@@ -239,19 +276,28 @@ export function CommandPalette() {
   }, [formProvider, formApiKey, formBaseUrl, formModel]);
 
   const handleExecute = useCallback(
-    async (forceInstruction?: string) => {
+    async (forceInstruction?: string, forceInputMode?: InputMode) => {
       const activeQuery = forceInstruction || query;
       if (!activeQuery.trim()) return;
 
+      const sourceMode = forceInputMode || inputMode;
       setResult(null);
       setError(null);
       setStreaming(true);
+      setActiveTaskMode(sourceMode);
       clearAgentLogs();
 
       try {
         const api = await getAgent();
-        const clipboardContent = isTauriRuntime() ? await readClipboard() : clipboardText;
-        setClipboardText(clipboardContent);
+        const clipboardContent =
+          sourceMode === "clipboard" ? (isTauriRuntime() ? await readClipboard() : clipboardText) : "";
+        if (sourceMode === "clipboard") {
+          setClipboardText(clipboardContent);
+        }
+
+        if (sourceMode === "clipboard" && !clipboardContent.trim()) {
+          throw new Error("Não há texto no clipboard para usar nesta tarefa.");
+        }
 
         const requestId = crypto.randomUUID();
 
@@ -269,7 +315,17 @@ export function CommandPalette() {
         setStreaming(false);
       }
     },
-    [query, clipboardText, setClipboardText, setError, setResult, setStreaming, clearAgentLogs, addAgentLog],
+    [
+      query,
+      inputMode,
+      clipboardText,
+      setClipboardText,
+      setError,
+      setResult,
+      setStreaming,
+      clearAgentLogs,
+      addAgentLog,
+    ],
   );
 
   const handleCopyResult = useCallback(async () => {
@@ -288,11 +344,13 @@ export function CommandPalette() {
     const action = QUICK_ACTIONS.find((item) => item.id === actionId);
     if (!action) return;
 
+    setInputMode("clipboard");
     setQuery(action.prompt);
-    await handleExecute(action.prompt);
+    await handleExecute(action.prompt, "clipboard");
   };
 
   const handleStarterAction = (prompt: string) => {
+    setInputMode("free");
     setQuery(prompt);
     requestAnimationFrame(() => {
       textareaRef.current?.focus();
@@ -375,6 +433,13 @@ export function CommandPalette() {
   const hasClipboard = clipboardText.trim().length > 0;
   const taskActive = streaming || result !== null || Boolean(error) || agentLogs.length > 0;
   const latestLog = agentLogs.length > 0 ? agentLogs[agentLogs.length - 1] : undefined;
+  const visibleLogs = agentLogs.slice(-4).reverse();
+  const inputModeLabel = inputMode === "clipboard" ? "Interagir com clipboard" : "Conteúdo avulso";
+  const taskModeLabel = activeTaskMode === "clipboard" ? "Clipboard" : "Livre";
+  const composerPlaceholder =
+    inputMode === "clipboard"
+      ? "Diga o que fazer com o texto copiado."
+      : "Pergunte algo, peça um rascunho ou comece por uma ação abaixo.";
   const taskStatus = error
     ? "Algo falhou"
     : streaming
@@ -468,13 +533,18 @@ export function CommandPalette() {
                   <ArrowLeft className="w-3.5 h-3.5" />
                   Nova tarefa
                 </button>
-                <span
-                  className={`text-[10px] font-mono uppercase tracking-wider ${
-                    error ? "text-rose-300" : streaming ? "text-amber-300" : "text-emerald-300"
-                  }`}
-                >
-                  {taskStatus}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-1 rounded-md bg-zinc-950/70 border border-zinc-800 text-[10px] font-mono uppercase tracking-wider text-zinc-400">
+                    {taskModeLabel}
+                  </span>
+                  <span
+                    className={`text-[10px] font-mono uppercase tracking-wider ${
+                      error ? "text-rose-300" : streaming ? "text-amber-300" : "text-emerald-300"
+                    }`}
+                  >
+                    {taskStatus}
+                  </span>
+                </div>
               </div>
 
               <section className="rounded-2xl bg-zinc-950/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] p-4 flex flex-col gap-3">
@@ -530,25 +600,27 @@ export function CommandPalette() {
                 </div>
               </section>
 
-              {latestLog && (
-                <section className="rounded-xl bg-zinc-950/45 p-3 flex items-start gap-2.5">
-                  <span
-                    className={`mt-1 w-1.5 h-1.5 rounded-full shrink-0 ${
-                      latestLog.type === "tool_fail"
-                        ? "bg-rose-400"
-                        : latestLog.type === "tool_start"
-                          ? "bg-amber-400 animate-pulse"
-                          : latestLog.type === "tool_complete"
-                            ? "bg-emerald-400"
-                            : "bg-violet-400"
-                    }`}
-                  />
-                  <div className="min-w-0">
-                    <div className="text-[10px] text-zinc-500 font-mono uppercase font-bold">
-                      Último evento
-                    </div>
-                    <p className="text-xs text-zinc-300 leading-relaxed truncate">{latestLog.text}</p>
+              {visibleLogs.length > 0 && (
+                <section className="rounded-xl bg-zinc-950/45 p-3 flex flex-col gap-2">
+                  <div className="text-[10px] text-zinc-500 font-mono uppercase font-bold">
+                    Execução ao vivo
                   </div>
+                  {visibleLogs.map((log) => (
+                    <div key={log.id} className="flex items-start gap-2.5 min-w-0">
+                      <span
+                        className={`mt-1 w-1.5 h-1.5 rounded-full shrink-0 ${
+                          log.type === "tool_fail"
+                            ? "bg-rose-400"
+                            : log.type === "tool_start"
+                              ? "bg-amber-400 animate-pulse"
+                              : log.type === "tool_complete"
+                                ? "bg-emerald-400"
+                                : "bg-violet-400"
+                        }`}
+                      />
+                      <p className="text-xs text-zinc-300 leading-relaxed truncate min-w-0">{log.text}</p>
+                    </div>
+                  ))}
                 </section>
               )}
 
@@ -588,7 +660,12 @@ export function CommandPalette() {
                 </div>
                 <div className="flex-1 p-4 text-sm text-zinc-200 leading-relaxed whitespace-pre-wrap overflow-y-auto custom-scrollbar select-text selection:bg-violet-950">
                   {result ? (
-                    result
+                    <>
+                      {result}
+                      {streaming && (
+                        <span className="inline-block w-1.5 h-4 ml-1 align-[-2px] rounded-sm bg-amber-300 animate-pulse" />
+                      )}
+                    </>
                   ) : (
                     <span className="text-zinc-600">
                       A resposta aparece aqui assim que o agente começar a escrever.
@@ -599,26 +676,65 @@ export function CommandPalette() {
             </div>
           ) : (
             <div className="flex flex-col gap-4">
+              <section className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setInputMode("free")}
+                  className={`min-h-16 rounded-xl border p-3 text-left transition-all cursor-pointer ${
+                    inputMode === "free"
+                      ? "border-violet-500/45 bg-violet-950/20 text-zinc-100"
+                      : "border-zinc-900 bg-zinc-950/50 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800"
+                  }`}
+                >
+                  <Bot className="w-4 h-4 text-violet-300 mb-2" />
+                  <div className="text-xs font-semibold">Conteúdo avulso</div>
+                  <div className="text-[10px] text-zinc-600 mt-0.5">Pergunta, plano ou rascunho</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInputMode("clipboard")}
+                  className={`min-h-16 rounded-xl border p-3 text-left transition-all cursor-pointer ${
+                    inputMode === "clipboard"
+                      ? "border-emerald-500/45 bg-emerald-950/15 text-zinc-100"
+                      : "border-zinc-900 bg-zinc-950/50 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800"
+                  }`}
+                >
+                  <Clipboard
+                    className={`w-4 h-4 mb-2 ${hasClipboard ? "text-emerald-300" : "text-zinc-600"}`}
+                  />
+                  <div className="text-xs font-semibold">Clipboard</div>
+                  <div className="text-[10px] text-zinc-600 mt-0.5">
+                    {hasClipboard
+                      ? `${clipboardText.length} caracteres detectados`
+                      : "Copie texto para ativar"}
+                  </div>
+                </button>
+              </section>
+
               <div className="relative group flex flex-col">
                 <span className="text-[10px] text-zinc-500 font-mono font-bold uppercase mb-1 flex items-center gap-1.5 select-none">
-                  <Bot className="w-3.5 h-3.5 text-violet-400" />
-                  Pedido
+                  {inputMode === "clipboard" ? (
+                    <Clipboard className="w-3.5 h-3.5 text-emerald-400" />
+                  ) : (
+                    <Bot className="w-3.5 h-3.5 text-violet-400" />
+                  )}
+                  {inputModeLabel}
                 </span>
                 <div className="relative w-full">
                   <textarea
                     ref={textareaRef}
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Pergunte algo, peça um rascunho ou use uma ação rápida abaixo."
+                    placeholder={composerPlaceholder}
                     className="w-full min-h-[104px] bg-zinc-950/70 border border-zinc-900 rounded-xl pl-3 pr-12 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-950/50 resize-none transition-all duration-200 select-text"
                     disabled={streaming}
-                    aria-label="Pedido para o agente"
+                    aria-label={inputModeLabel}
                     rows={3}
                   />
                   <button
                     type="button"
                     onClick={() => handleExecute()}
-                    disabled={streaming || !query.trim()}
+                    disabled={streaming || !query.trim() || (inputMode === "clipboard" && !hasClipboard)}
                     className="absolute right-3.5 bottom-3.5 p-2 rounded-lg bg-violet-950/50 border border-violet-800/70 text-violet-300 hover:text-violet-100 hover:bg-violet-900/80 hover:border-violet-500/60 transition-all cursor-pointer disabled:opacity-30 disabled:pointer-events-none"
                     title="Enviar pedido"
                   >
@@ -627,77 +743,61 @@ export function CommandPalette() {
                 </div>
               </div>
 
-              <section className="p-3.5 rounded-xl bg-zinc-950/65 border border-zinc-900 flex flex-col gap-3">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="flex items-center gap-1.5 text-[10px] text-zinc-400 uppercase tracking-wider font-bold select-none">
-                    <Clipboard
-                      className={`w-3.5 h-3.5 ${hasClipboard ? "text-emerald-400" : "text-zinc-600"}`}
-                    />
-                    {hasClipboard ? "Clipboard detectado" : "Sem clipboard"}
-                  </span>
-                  <span className="text-[9px] font-mono bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded text-zinc-500">
-                    {hasClipboard ? `${clipboardText.length} caracteres` : "prompt livre"}
-                  </span>
-                </div>
-                <div className="bg-zinc-900/40 border border-zinc-900/60 rounded-lg p-2.5 text-[11px] text-zinc-400 leading-normal min-h-10 select-text">
-                  {hasClipboard
-                    ? `"${clipboardText.slice(0, 180)}${clipboardText.length > 180 ? "..." : ""}"`
-                    : "Digite uma pergunta acima ou comece com um dos atalhos abaixo. As ações de texto ativam quando houver conteúdo no clipboard."}
-                </div>
-              </section>
+              {inputMode === "clipboard" && (
+                <section className="p-3.5 rounded-xl bg-zinc-950/65 border border-zinc-900 flex flex-col gap-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="flex items-center gap-1.5 text-[10px] text-zinc-400 uppercase tracking-wider font-bold select-none">
+                      <Clipboard
+                        className={`w-3.5 h-3.5 ${hasClipboard ? "text-emerald-400" : "text-zinc-600"}`}
+                      />
+                      {hasClipboard ? "Clipboard detectado" : "Sem clipboard"}
+                    </span>
+                    <span className="text-[9px] font-mono bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded text-zinc-500">
+                      {hasClipboard ? `${clipboardText.length} caracteres` : "aguardando texto"}
+                    </span>
+                  </div>
+                  <div className="bg-zinc-900/40 border border-zinc-900/60 rounded-lg p-2.5 text-[11px] text-zinc-400 leading-normal min-h-10 select-text">
+                    {hasClipboard
+                      ? `"${clipboardText.slice(0, 220)}${clipboardText.length > 220 ? "..." : ""}"`
+                      : "Copie um texto em qualquer app e volte para usar as ações de contexto."}
+                  </div>
+                </section>
+              )}
 
               <section className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] text-zinc-500 font-mono font-bold uppercase select-none">
-                    Ações rápidas
+                    {inputMode === "clipboard" ? "Ações com clipboard" : "Ações livres"}
                   </span>
-                  {!hasClipboard && (
-                    <span className="text-[10px] text-zinc-600 select-none">
-                      copie texto para liberar ações de contexto
-                    </span>
+                  {inputMode === "clipboard" && !hasClipboard && (
+                    <span className="text-[10px] text-zinc-600 select-none">copie texto para liberar</span>
                   )}
                 </div>
                 <div className="grid grid-cols-3 gap-2">
-                  {QUICK_ACTIONS.map((action) => {
+                  {(inputMode === "clipboard" ? QUICK_ACTIONS : FREE_ACTIONS).map((action) => {
                     const Icon = action.icon;
-                    const disabled = action.requiresClipboard && !hasClipboard;
+                    const disabled =
+                      inputMode === "clipboard" &&
+                      "requiresClipboard" in action &&
+                      Boolean(action.requiresClipboard) &&
+                      !hasClipboard;
 
                     return (
                       <button
                         key={action.id}
                         type="button"
-                        onClick={() => handleQuickAction(action.id)}
+                        onClick={() =>
+                          inputMode === "clipboard"
+                            ? handleQuickAction(action.id)
+                            : handleStarterAction(action.prompt)
+                        }
                         disabled={disabled || streaming}
-                        className={`min-h-[68px] rounded-lg bg-zinc-900/80 border border-zinc-850 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-850/80 hover:border-violet-500/30 transition-all cursor-pointer flex flex-col items-start justify-center gap-1 px-2.5 py-2 text-left disabled:opacity-40 disabled:pointer-events-none`}
+                        className="min-h-[72px] rounded-lg bg-zinc-900/80 border border-zinc-800 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-800/80 hover:border-violet-500/30 transition-all cursor-pointer flex flex-col items-start justify-center gap-1 px-2.5 py-2 text-left disabled:opacity-40 disabled:pointer-events-none"
                         title={disabled ? "Copie um texto primeiro" : action.description}
                       >
                         <Icon className={`w-4 h-4 ${action.accent}`} />
                         <span className="text-[10px] font-semibold leading-tight">{action.label}</span>
                         <span className="text-[9px] text-zinc-600 leading-tight">{action.description}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </section>
-
-              <section className="flex flex-col gap-2">
-                <span className="text-[10px] text-zinc-500 font-mono font-bold uppercase select-none">
-                  Começar sem clipboard
-                </span>
-                <div className="flex flex-wrap gap-2">
-                  {STARTER_ACTIONS.map((action) => {
-                    const Icon = action.icon;
-
-                    return (
-                      <button
-                        key={action.label}
-                        type="button"
-                        onClick={() => handleStarterAction(action.prompt)}
-                        disabled={streaming}
-                        className="px-2.5 py-1.5 rounded-md bg-zinc-950/70 border border-zinc-850 text-[10px] font-semibold text-zinc-400 hover:text-zinc-100 hover:border-violet-500/30 transition-colors cursor-pointer disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1.5"
-                      >
-                        <Icon className="w-3.5 h-3.5 text-violet-400" />
-                        {action.label}
                       </button>
                     );
                   })}

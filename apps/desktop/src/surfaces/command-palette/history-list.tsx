@@ -14,9 +14,11 @@ export function HistoryList() {
         const data = (await api.getHistory({ limit: 30 })) as Array<{
           id: string;
           timestamp: string;
-          tool_name: string;
-          input_preview: string;
-          output_preview: string;
+          toolName: string;
+          inputPreview: string;
+          outputPreview: string;
+          success?: boolean;
+          errorMessage?: string;
         }>;
         setHistory(data);
       } catch {
@@ -54,29 +56,47 @@ export function HistoryList() {
         Histórico recente
       </div>
       <div className="flex flex-col gap-2">
-        {history.map((entry) => (
-          <div
-            key={entry.id}
-            className="bg-zinc-950/70 border border-zinc-900 hover:border-zinc-800/80 rounded-xl p-3 hover:bg-zinc-900/40 transition-all duration-200"
-          >
-            <div className="flex items-center justify-between mb-1.5 text-[10px]">
-              <span className="font-bold text-indigo-400 bg-indigo-950/30 px-1.5 py-0.5 rounded border border-indigo-900/30">
-                {entry.tool_name}
-              </span>
-              <span className="text-zinc-600">
-                {new Date(entry.timestamp).toLocaleTimeString("pt-BR", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit",
-                })}
-              </span>
+        {history.map((entry) => {
+          const toolLabel =
+            entry.toolName === "agent.clipboard"
+              ? "Clipboard"
+              : entry.toolName === "agent.chat"
+                ? "Livre"
+                : entry.toolName;
+
+          return (
+            <div
+              key={entry.id}
+              className="bg-zinc-950/70 border border-zinc-900 hover:border-zinc-800/80 rounded-xl p-3 hover:bg-zinc-900/40 transition-all duration-200"
+            >
+              <div className="flex items-center justify-between mb-1.5 text-[10px]">
+                <span
+                  className={`font-bold px-1.5 py-0.5 rounded border ${
+                    entry.success === false
+                      ? "text-rose-300 bg-rose-950/30 border-rose-900/30"
+                      : "text-violet-300 bg-violet-950/30 border-violet-900/30"
+                  }`}
+                >
+                  {toolLabel}
+                </span>
+                <span className="text-zinc-600">
+                  {new Date(entry.timestamp).toLocaleTimeString("pt-BR", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                  })}
+                </span>
+              </div>
+              <p className="text-xs text-zinc-400 truncate italic">"{entry.inputPreview}"</p>
+              {entry.outputPreview && (
+                <p className="text-[11px] text-zinc-600 truncate mt-1">Resultado: {entry.outputPreview}</p>
+              )}
+              {entry.errorMessage && (
+                <p className="text-[11px] text-rose-400 truncate mt-1">Erro: {entry.errorMessage}</p>
+              )}
             </div>
-            <p className="text-xs text-zinc-400 truncate italic">"{entry.input_preview}"</p>
-            {entry.output_preview && (
-              <p className="text-[11px] text-zinc-600 truncate mt-1">Resultado: {entry.output_preview}</p>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

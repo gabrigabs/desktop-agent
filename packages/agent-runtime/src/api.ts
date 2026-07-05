@@ -1,7 +1,13 @@
 import { execSync, spawn } from "node:child_process";
 import { createProvider } from "@desktop-agent/provider-gateway";
 import type { AgentApi, AppSettings } from "@desktop-agent/shared";
-import { getDb, getRecentInteractions, getSetting, setSetting } from "@desktop-agent/storage";
+import {
+  createInteraction,
+  getDb,
+  getRecentInteractions,
+  getSetting,
+  setSetting,
+} from "@desktop-agent/storage";
 import { registry } from "@desktop-agent/tool-registry";
 import { createClipboardTool } from "@desktop-agent/tools-desktop";
 import { createRewriteTool, createSummarizeTool, createTranslateTool } from "@desktop-agent/tools-text";
@@ -120,6 +126,19 @@ const orchestrator = new Orchestrator({ provider: proxyProvider });
 
 export type { AgentApi };
 
+function previewText(value: string, limit = 500) {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  if (normalized.length <= limit) return normalized;
+  return `${normalized.slice(0, limit - 3)}...`;
+}
+
+function formatAgentInputPreview(query: string, clipboardText?: string) {
+  if (clipboardText?.trim()) {
+    return previewText(`Pedido: ${query} | Clipboard: ${clipboardText}`);
+  }
+  return previewText(query);
+}
+
 export const agentApi: AgentApi = {
   async ping() {
     return { status: "ok" };
@@ -217,6 +236,10 @@ export const agentApi: AgentApi = {
   },
 
   async runAgent({ requestId, query, clipboardText }) {
+    const startedAt = Date.now();
+    const providerId = getLlmProvider().name;
+    const inputPreview = formatAgentInputPreview(query, clipboardText);
+    const toolName = clipboardText?.trim() ? "agent.clipboard" : "agent.chat";
     const events: any[] = [];
     const emit = (event: any) => {
       events.push(event);
@@ -227,16 +250,41 @@ export const agentApi: AgentApi = {
       }
     };
 
-    const result = await orchestrator.runAgent(
-      requestId,
-      query,
-      clipboardText,
-      emit,
-      getLlmProvider,
-      () => getActiveProviderConfig().model,
-    );
+    try {
+      const result = await orchestrator.runAgent(
+        requestId,
+        query,
+        clipboardText,
+        emit,
+        getLlmProvider,
+        () => getActiveProviderConfig().model,
+      );
 
-    return { result, events };
+      createInteraction(getDb(), {
+        toolName,
+        providerId,
+        permissionLevel: "external",
+        inputPreview,
+        outputPreview: previewText(result),
+        durationMs: Date.now() - startedAt,
+        success: true,
+      });
+
+      return { result, events };
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      createInteraction(getDb(), {
+        toolName,
+        providerId,
+        permissionLevel: "external",
+        inputPreview,
+        outputPreview: "",
+        durationMs: Date.now() - startedAt,
+        success: false,
+        errorMessage: previewText(errorMessage, 240),
+      });
+      throw err;
+    }
   },
 
   async shutdown() {
