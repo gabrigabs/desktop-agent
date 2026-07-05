@@ -377,12 +377,13 @@ export const agentApi: AgentApi = {
     });
 
     if (server.id) {
+      const existing = getStoredMcpServer(db, server.id, true);
       upsertMcpServer(db, {
         id: server.id,
         name: server.name,
         command: server.command,
         args: server.args,
-        env: server.env,
+        env: server.env ?? existing?.env,
         enabled: server.enabled,
         preset: server.preset,
         permissionPolicy: server.permissionPolicy,

@@ -213,6 +213,7 @@ export function CommandPalette() {
   const [loadingModels, setLoadingModels] = useState(false);
   const [copied, setCopied] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
+  const [testingConnectorId, setTestingConnectorId] = useState<string | null>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -467,6 +468,47 @@ export function CommandPalette() {
     const nextMode = uiMode === "workspace" ? "expanded" : "workspace";
     setUiMode(nextMode);
     await setWindowMode(nextMode);
+  };
+
+  const handleToggleConnector = async (connectorId: string) => {
+    const connector = connectors.find((item) => item.id === connectorId);
+    if (!connector || !connector.command) return;
+
+    try {
+      const api = await getAgent();
+      await api.saveMcpServer({
+        server: {
+          id: connector.id,
+          name: connector.name,
+          command: connector.command,
+          args: connector.args,
+          enabled: !connector.enabled,
+          preset: connector.preset,
+          permissionPolicy: connector.permissionPolicy,
+        },
+      });
+      await refreshCapabilities();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao atualizar conector");
+    }
+  };
+
+  const handleTestConnector = async (connectorId: string) => {
+    setTestingConnectorId(connectorId);
+    try {
+      const api = await getAgent();
+      const result = await api.testMcpServer({ id: connectorId });
+      if (!result.ok) {
+        addAgentLog({ type: "tool_fail", text: result.error || "Conector não passou no teste" });
+      } else {
+        addAgentLog({ type: "info", text: "Conector pronto" });
+      }
+      await refreshCapabilities();
+    } catch (err) {
+      addAgentLog({ type: "tool_fail", text: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setTestingConnectorId(null);
+    }
   };
 
   const handleSaveSettings = async (e: React.FormEvent) => {
@@ -1102,15 +1144,34 @@ export function CommandPalette() {
                       ))}
                     </div>
                   </div>
-                  <span
-                    className={`px-2 py-1 rounded-md text-[9px] font-mono uppercase ${
-                      connector.enabled
-                        ? "bg-emerald-950/35 text-emerald-300 border border-emerald-800/30"
-                        : "bg-zinc-900 text-zinc-500 border border-zinc-800"
-                    }`}
-                  >
-                    {connector.enabled ? "Ativo" : "Desligado"}
-                  </span>
+                  <div className="shrink-0 flex flex-col items-end gap-2">
+                    <span
+                      className={`px-2 py-1 rounded-md text-[9px] font-mono uppercase ${
+                        connector.enabled
+                          ? "bg-emerald-950/35 text-emerald-300 border border-emerald-800/30"
+                          : "bg-zinc-900 text-zinc-500 border border-zinc-800"
+                      }`}
+                    >
+                      {connector.enabled ? "Ativo" : "Desligado"}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleTestConnector(connector.id)}
+                        disabled={testingConnectorId === connector.id}
+                        className="h-7 px-2 rounded-md bg-zinc-900 border border-zinc-800 text-[10px] font-semibold text-zinc-400 hover:text-zinc-100 transition-colors cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+                      >
+                        {testingConnectorId === connector.id ? "Testando" : "Testar"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleConnector(connector.id)}
+                        className="h-7 px-2 rounded-md bg-zinc-900 border border-zinc-800 text-[10px] font-semibold text-zinc-400 hover:text-zinc-100 transition-colors cursor-pointer"
+                      >
+                        {connector.enabled ? "Desligar" : "Ligar"}
+                      </button>
+                    </div>
+                  </div>
                 </section>
               ))}
               {visibleConnectors.length === 0 && (
