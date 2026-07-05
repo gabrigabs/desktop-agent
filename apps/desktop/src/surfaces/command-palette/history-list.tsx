@@ -32,7 +32,7 @@ export function HistoryList() {
     return (
       <div className="flex items-center justify-center py-8">
         <div className="w-4 h-4 border-2 border-zinc-700 border-t-zinc-400 rounded-full animate-spin" />
-        <span className="text-zinc-500 font-mono text-xs ml-2">CARREGANDO LOGS...</span>
+        <span className="text-zinc-500 text-xs ml-2">Carregando histórico...</span>
       </div>
     );
   }
@@ -40,15 +40,18 @@ export function HistoryList() {
   if (history.length === 0) {
     return (
       <div className="text-center py-8 border border-dashed border-zinc-900 rounded-xl">
-        <p className="text-zinc-600 font-mono text-xs">NENHUMA EXECUÇÃO REGISTRADA</p>
+        <p className="text-zinc-500 text-xs font-semibold">Nenhuma conversa ainda</p>
+        <p className="text-zinc-700 text-[11px] mt-1">
+          Os resultados salvos aparecem aqui depois da primeira execução.
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-2.5 font-mono">
+    <div className="flex flex-col gap-2.5">
       <div className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold mb-1">
-        [ SYSTEM RUN LOGS ]
+        Histórico recente
       </div>
       <div className="flex flex-col gap-2">
         {history.map((entry) => (
@@ -69,6 +72,9 @@ export function HistoryList() {
               </span>
             </div>
             <p className="text-xs text-zinc-400 truncate italic">"{entry.input_preview}"</p>
+            {entry.output_preview && (
+              <p className="text-[11px] text-zinc-600 truncate mt-1">Resultado: {entry.output_preview}</p>
+            )}
           </div>
         ))}
       </div>

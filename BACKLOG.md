@@ -112,7 +112,7 @@ A assinatura deve ser uma "barra de sinais" fina ligada ao pet: uma linha viva q
 
 - [x] Revisar dimensoes da janela expandida para comportar mais funcoes sem parecer modal pesado.
 - [x] Reorganizar header para status/modelo/acoes essenciais.
-- [ ] Redesenhar pet colapsado como status compacto e arrastavel.
+- [x] Redesenhar pet colapsado como status compacto e arrastavel.
 - [x] Remover excesso de linguagem terminal (`COMMAND CORE`, `$`, `ERROR`) onde isso atrapalha uso diario.
 - [x] Manter foco de teclado e estados `streaming`, `error`, `success`.
 
@@ -141,10 +141,10 @@ A assinatura deve ser uma "barra de sinais" fina ligada ao pet: uma linha viva q
 
 ### P2 - Historico e scratchpad
 
-- [ ] Tornar historico recente mais acessivel no fluxo principal.
+- [x] Tornar historico recente mais acessivel no fluxo principal.
 - [ ] Adicionar um modo simples de scratchpad local ou preparar espaco visual para isso.
 - [ ] Permitir copiar resultado, copiar prompt e limpar conversa.
-- [ ] Evitar que logs tecnicos dominem a tela em tarefas simples.
+- [x] Evitar que logs tecnicos dominem a tela em tarefas simples.
 
 ### P3 - Permissoes futuras
 

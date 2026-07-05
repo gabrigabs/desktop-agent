@@ -107,15 +107,16 @@ export function App() {
           }
         }}
         data-tauri-drag-region
-        title="Clique para expandir, arraste para mover"
+        title="Abrir Desktop Agent"
+        aria-label="Abrir Desktop Agent"
       >
-        {/* Transparent drag container, centering the floating pet orb */}
-        <div className="w-20 h-20 rounded-full flex items-center justify-center bg-zinc-950/60 backdrop-blur-md border border-zinc-800/50 shadow-lg group-hover:border-indigo-500/40 group-hover:bg-zinc-900/80 transition-all duration-300 relative pointer-events-none">
-          <Pet size={52} />
-          {/* Micro-interaction indicator */}
-          <div className="absolute bottom-1.5 text-[8px] font-mono text-zinc-500 group-hover:text-indigo-400 group-hover:scale-105 transition-all duration-300">
-            AI
-          </div>
+        <div className="w-20 h-20 rounded-2xl flex items-center justify-center bg-zinc-950/70 backdrop-blur-md border border-zinc-800/60 shadow-lg group-hover:border-violet-500/40 group-hover:bg-zinc-900/90 transition-all duration-300 relative pointer-events-none">
+          <Pet size={48} />
+          <div
+            className={`absolute right-2 bottom-2 w-2.5 h-2.5 rounded-full border border-zinc-950 ${
+              connected ? "bg-emerald-400" : "bg-amber-400"
+            }`}
+          />
         </div>
       </div>
     );
