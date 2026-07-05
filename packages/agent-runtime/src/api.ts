@@ -41,7 +41,7 @@ function getActiveProviderConfig() {
   const activeProvider = getSetting(db, "activeProvider") || "mock";
   const apiKey = getSetting(db, "apiKey") || "";
   const baseUrl = getSetting(db, "baseUrl") || "";
-  const model = getSetting(db, "model") || "";
+  const model = getSetting(db, "model") || (activeProvider === "pinstripes" ? "ps/warp" : "");
   const hidePet = getSetting(db, "hidePet") === "true";
   const timeoutVal = getSetting(db, "timeout");
   const timeout = timeoutVal ? Number.parseInt(timeoutVal, 10) : 120;

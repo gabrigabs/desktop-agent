@@ -1,32 +1,129 @@
 import { readText as readClipboard, writeText as writeClipboard } from "@tauri-apps/plugin-clipboard-manager";
 import {
   AlertCircle,
+  Bot,
   Check,
+  CheckSquare,
   Clipboard,
   Clock,
-  Cpu,
   Database,
   Eye,
   EyeOff,
   FileText,
-  Info,
   KeyRound,
   Languages,
   Layers,
   Link,
+  ListChecks,
+  MessageSquare,
+  PenLine,
   Play,
+  Search,
   Settings,
   Sparkles,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getAgent } from "../../lib/rpc";
-import { setWindowMode } from "../../lib/window";
+import { isTauriRuntime, setWindowMode } from "../../lib/window";
 import { useAgentStore } from "../../stores/agent";
 import { HistoryList } from "./history-list";
-import { ResultPreview } from "./result-preview";
 
 const GLOBAL_SHORTCUT_LABEL = "Control+Shift+Space";
+
+const PINSTRIPES_MODELS = [
+  {
+    id: "ps/warp",
+    name: "Warp",
+    description: "Rápido e melhor custo",
+  },
+  {
+    id: "ps/thinking",
+    name: "Thinking",
+    description: "Raciocínio mais profundo",
+  },
+  {
+    id: "ps/pro",
+    name: "Pro",
+    description: "Respostas mais deliberadas",
+  },
+];
+
+const QUICK_ACTIONS = [
+  {
+    id: "melhorar",
+    label: "Melhorar texto",
+    description: "Clareza e tom",
+    icon: Sparkles,
+    accent: "text-amber-400",
+    requiresClipboard: true,
+    prompt: "Melhorar a clareza, tom e legibilidade deste texto",
+  },
+  {
+    id: "resumir",
+    label: "Resumir",
+    description: "Bullets curtos",
+    icon: FileText,
+    accent: "text-sky-400",
+    requiresClipboard: true,
+    prompt: "Resumir este texto em tópicos concisos",
+  },
+  {
+    id: "traduzir",
+    label: "Traduzir",
+    description: "Para inglês",
+    icon: Languages,
+    accent: "text-emerald-400",
+    requiresClipboard: true,
+    prompt: "Traduzir este texto para o inglês mantendo o tom original",
+  },
+  {
+    id: "explicar",
+    label: "Explicar",
+    description: "Em linguagem simples",
+    icon: Search,
+    accent: "text-violet-400",
+    requiresClipboard: true,
+    prompt: "Explique este conteúdo em linguagem simples, com contexto e exemplos curtos",
+  },
+  {
+    id: "tarefas",
+    label: "Extrair tarefas",
+    description: "Ações e donos",
+    icon: ListChecks,
+    accent: "text-lime-400",
+    requiresClipboard: true,
+    prompt:
+      "Extraia tarefas acionáveis deste conteúdo, separando prioridade, responsável quando existir e próximo passo",
+  },
+  {
+    id: "responder",
+    label: "Responder",
+    description: "Mensagem pronta",
+    icon: MessageSquare,
+    accent: "text-rose-400",
+    requiresClipboard: true,
+    prompt: "Escreva uma resposta curta, natural e educada para esta mensagem",
+  },
+];
+
+const STARTER_ACTIONS = [
+  {
+    label: "Pergunta livre",
+    icon: Bot,
+    prompt: "",
+  },
+  {
+    label: "Montar plano",
+    icon: CheckSquare,
+    prompt: "Monte um plano prático para: ",
+  },
+  {
+    label: "Rascunhar texto",
+    icon: PenLine,
+    prompt: "Rascunhe um texto curto sobre: ",
+  },
+];
 
 export function CommandPalette() {
   const {
@@ -50,7 +147,6 @@ export function CommandPalette() {
   } = useAgentStore();
 
   const [mode, setMode] = useState<"command" | "history">("command");
-  const [clipSuggestion, setClipSuggestion] = useState<boolean>(false);
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [showKey, setShowKey] = useState<boolean>(false);
 
@@ -83,14 +179,14 @@ export function CommandPalette() {
 
   // Load and check clipboard content on mount/focus
   const checkClipboard = useCallback(async () => {
+    if (!isTauriRuntime()) {
+      setClipboardText("");
+      return;
+    }
+
     try {
       const text = await readClipboard();
-      if (text && text.trim().length > 0) {
-        setClipboardText(text);
-        setClipSuggestion(true);
-      } else {
-        setClipSuggestion(false);
-      }
+      setClipboardText(text ?? "");
     } catch (err) {
       console.error("Erro ao ler clipboard:", err);
     }
@@ -148,12 +244,11 @@ export function CommandPalette() {
       setResult(null);
       setError(null);
       setStreaming(true);
-      setClipSuggestion(false);
       clearAgentLogs();
 
       try {
         const api = await getAgent();
-        const clipboardContent = await readClipboard();
+        const clipboardContent = isTauriRuntime() ? await readClipboard() : clipboardText;
         setClipboardText(clipboardContent);
 
         const requestId = crypto.randomUUID();
@@ -172,25 +267,34 @@ export function CommandPalette() {
         setStreaming(false);
       }
     },
-    [query, setClipboardText, setError, setResult, setStreaming, clearAgentLogs, addAgentLog],
+    [query, clipboardText, setClipboardText, setError, setResult, setStreaming, clearAgentLogs, addAgentLog],
   );
 
   const handleCopyResult = useCallback(async () => {
     if (result) {
-      await writeClipboard(result);
+      if (isTauriRuntime()) {
+        await writeClipboard(result);
+      } else {
+        await navigator.clipboard?.writeText(result);
+      }
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
   }, [result]);
 
-  const handleQuickAction = async (action: string) => {
-    let prompt = "";
-    if (action === "melhorar") prompt = "Melhorar a clareza, tom e legibilidade deste texto";
-    if (action === "resumir") prompt = "Resumir este texto em tópicos concisos";
-    if (action === "traduzir") prompt = "Traduzir este texto para o inglês mantendo o tom original";
+  const handleQuickAction = async (actionId: string) => {
+    const action = QUICK_ACTIONS.find((item) => item.id === actionId);
+    if (!action) return;
 
+    setQuery(action.prompt);
+    await handleExecute(action.prompt);
+  };
+
+  const handleStarterAction = (prompt: string) => {
     setQuery(prompt);
-    await handleExecute(prompt);
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+    });
   };
 
   const handleSaveSettings = async (e: React.FormEvent) => {
@@ -202,7 +306,7 @@ export function CommandPalette() {
         activeProvider: formProvider,
         apiKey: formApiKey,
         baseUrl: formBaseUrl,
-        model: formModel,
+        model: formProvider === "pinstripes" ? formModel || "ps/warp" : formModel,
         hidePet: formHidePet,
         timeout: Number(formTimeout),
       };
@@ -229,7 +333,6 @@ export function CommandPalette() {
           setShowSettings(false);
         } else if (query || result || error) {
           reset();
-          setClipSuggestion(false);
         } else {
           setUiMode("collapsed");
           await setWindowMode("collapsed");
@@ -250,65 +353,82 @@ export function CommandPalette() {
   // Display name of active provider/model
   const getActiveBadgeText = () => {
     if (settings.activeProvider === "mock") return "Provedor Local (Mock)";
+    if (settings.activeProvider === "pinstripes") {
+      const model = PINSTRIPES_MODELS.find((item) => item.id === settings.model);
+      return `Pinstripes · ${model?.name ?? (settings.model || "Warp")}`;
+    }
     const name = settings.activeProvider.toUpperCase();
     const model = settings.model ? `: ${settings.model}` : "";
     return `${name}${model}`;
   };
 
+  const hasClipboard = clipboardText.trim().length > 0;
+
   return (
-    <div className="flex flex-col h-full w-full bg-zinc-950/20 text-zinc-150 font-sans relative">
-      {/* Active Provider Badge Banner - highly intuitive indicator of status */}
-      <div className="mx-4 mt-3 px-3 py-1.5 rounded-lg bg-indigo-950/20 border border-indigo-900/35 flex items-center justify-between font-mono text-[10px] text-indigo-300">
-        <div className="flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-          <span>
-            Ativo: <strong className="text-zinc-200 select-all">{getActiveBadgeText()}</strong>
-          </span>
+    <div className="flex flex-col h-full w-full bg-zinc-950/20 text-zinc-100 font-sans relative">
+      <div className="px-4 pt-3 pb-2">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-[10px] font-mono uppercase text-zinc-500">Modelo ativo</div>
+            <div className="truncate text-xs font-semibold text-zinc-100 select-all">
+              {getActiveBadgeText()}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowSettings(true)}
+            className="px-2.5 py-1.5 rounded-md bg-zinc-900/70 border border-zinc-800 text-[10px] font-semibold text-zinc-300 hover:text-zinc-100 hover:border-violet-500/40 transition-colors cursor-pointer"
+          >
+            Configurar
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowSettings(true)}
-          className="text-[9px] underline hover:text-indigo-200 cursor-pointer"
-        >
-          configurar
-        </button>
+        <div
+          className={`mt-2 h-0.5 rounded-full ${
+            streaming
+              ? "bg-amber-400 animate-pulse"
+              : result
+                ? "bg-emerald-400"
+                : error
+                  ? "bg-rose-400"
+                  : "bg-violet-400/70"
+          }`}
+        />
       </div>
 
-      {/* Mode Select Tabs & Settings Trigger */}
-      <div className="flex items-center justify-between p-3 border-b border-zinc-900/40 bg-zinc-950/25 mt-1">
+      <div className="flex items-center justify-between px-4 py-2 border-y border-zinc-900/60 bg-zinc-950/25">
         <div className="flex items-center gap-1.5">
           <button
             type="button"
             onClick={() => setMode("command")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all duration-200 cursor-pointer ${
+            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all duration-200 cursor-pointer ${
               mode === "command"
-                ? "bg-zinc-800/70 text-zinc-100 shadow-inner border border-zinc-700/30"
+                ? "bg-zinc-800 text-zinc-100 border border-zinc-700/70"
                 : "text-zinc-500 hover:text-zinc-300"
             }`}
           >
-            COMMAND CORE
+            Perguntar
           </button>
           <button
             type="button"
             onClick={() => setMode("history")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all duration-200 cursor-pointer ${
+            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all duration-200 cursor-pointer ${
               mode === "history"
-                ? "bg-zinc-800/70 text-zinc-100 shadow-inner border border-zinc-700/30"
+                ? "bg-zinc-800 text-zinc-100 border border-zinc-700/70"
                 : "text-zinc-500 hover:text-zinc-300"
             }`}
           >
-            LOGS
+            Histórico
           </button>
         </div>
         <button
           type="button"
           onClick={() => setShowSettings(!showSettings)}
-          className={`p-1.5 rounded-lg hover:bg-zinc-850/80 transition-colors cursor-pointer border border-transparent hover:border-zinc-800 ${
-            showSettings ? "text-indigo-400 bg-zinc-800/60" : "text-zinc-500 hover:text-zinc-300"
+          className={`p-1.5 rounded-md transition-colors cursor-pointer border border-transparent hover:border-zinc-800 ${
+            showSettings ? "text-violet-300 bg-zinc-800/60" : "text-zinc-500 hover:text-zinc-300"
           }`}
-          title="Configurações de Conexão"
+          title="Configurações"
         >
-          <Settings className="w-4 h-4 animate-hover-spin" />
+          <Settings className="w-4 h-4" />
         </button>
       </div>
 
@@ -316,57 +436,125 @@ export function CommandPalette() {
       <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
         {mode === "command" ? (
           <div className="flex flex-col gap-4">
-            {/* Terminal Command Input area */}
             <div className="relative group flex flex-col">
-              <span className="text-[10px] text-zinc-500 font-mono font-bold uppercase mb-1 flex items-center gap-1 select-none">
-                <Cpu className="w-3.5 h-3.5 text-zinc-500" />
-                Instrução do Agente
+              <span className="text-[10px] text-zinc-500 font-mono font-bold uppercase mb-1 flex items-center gap-1.5 select-none">
+                <Bot className="w-3.5 h-3.5 text-violet-400" />
+                Pedido
               </span>
               <div className="relative w-full">
-                <div className="absolute top-3 left-3 text-zinc-650 font-mono text-xs select-none font-bold">
-                  $
-                </div>
                 <textarea
                   ref={textareaRef}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="O que você quer reescrever, traduzir ou analisar no clipboard?"
-                  className="w-full min-h-[96px] bg-zinc-950/70 border border-zinc-900 rounded-xl pl-7 pr-12 py-2.5 text-sm font-mono text-zinc-100 placeholder:text-zinc-700 placeholder:font-mono focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-950/50 resize-none transition-all duration-200 select-text"
+                  placeholder="Pergunte algo, peça um rascunho ou use uma ação rápida abaixo."
+                  className="w-full min-h-[104px] bg-zinc-950/70 border border-zinc-900 rounded-xl pl-3 pr-12 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-950/50 resize-none transition-all duration-200 select-text"
                   disabled={streaming}
+                  aria-label="Pedido para o agente"
                   rows={3}
                 />
                 <button
                   type="button"
                   onClick={() => handleExecute()}
                   disabled={streaming || !query.trim()}
-                  className="absolute right-3.5 bottom-3.5 p-2 rounded-lg bg-indigo-950/40 border border-indigo-900/65 text-indigo-400 hover:text-indigo-200 hover:bg-indigo-900/80 hover:border-indigo-500/50 transition-all cursor-pointer disabled:opacity-30 disabled:pointer-events-none"
-                  title="Executar Comando"
+                  className="absolute right-3.5 bottom-3.5 p-2 rounded-lg bg-violet-950/50 border border-violet-800/70 text-violet-300 hover:text-violet-100 hover:bg-violet-900/80 hover:border-violet-500/60 transition-all cursor-pointer disabled:opacity-30 disabled:pointer-events-none"
+                  title="Enviar pedido"
                 >
                   <Play className="w-3.5 h-3.5 fill-current" />
                 </button>
               </div>
             </div>
 
-            {/* Agent Logs - Premium Retro-console design style */}
-            {agentLogs.length > 0 && (
-              <div className="bg-zinc-950 border border-zinc-900 rounded-xl overflow-hidden font-mono text-[11px] leading-relaxed shadow-lg">
-                {/* Visual Dev Window Header */}
-                <div className="bg-zinc-900/60 px-3 py-1.5 border-b border-zinc-900/80 flex items-center justify-between select-none">
-                  <div className="flex gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500/60" />
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500/60" />
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/60" />
-                  </div>
-                  <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold">
-                    AGY EXECUTION CONSOLE
+            <section className="p-3.5 rounded-xl bg-zinc-950/65 border border-zinc-900 flex flex-col gap-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="flex items-center gap-1.5 text-[10px] text-zinc-400 uppercase tracking-wider font-bold select-none">
+                  <Clipboard
+                    className={`w-3.5 h-3.5 ${hasClipboard ? "text-emerald-400" : "text-zinc-600"}`}
+                  />
+                  {hasClipboard ? "Clipboard detectado" : "Sem clipboard"}
+                </span>
+                <span className="text-[9px] font-mono bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded text-zinc-500">
+                  {hasClipboard ? `${clipboardText.length} caracteres` : "prompt livre"}
+                </span>
+              </div>
+              <div className="bg-zinc-900/40 border border-zinc-900/60 rounded-lg p-2.5 text-[11px] text-zinc-400 leading-normal min-h-10 select-text">
+                {hasClipboard
+                  ? `"${clipboardText.slice(0, 180)}${clipboardText.length > 180 ? "..." : ""}"`
+                  : "Digite uma pergunta acima ou comece com um dos atalhos abaixo. As ações de texto ativam quando houver conteúdo no clipboard."}
+              </div>
+            </section>
+
+            <section className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-zinc-500 font-mono font-bold uppercase select-none">
+                  Ações rápidas
+                </span>
+                {!hasClipboard && (
+                  <span className="text-[10px] text-zinc-600 select-none">
+                    copie texto para liberar ações de contexto
                   </span>
+                )}
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {QUICK_ACTIONS.map((action) => {
+                  const Icon = action.icon;
+                  const disabled = action.requiresClipboard && !hasClipboard;
+
+                  return (
+                    <button
+                      key={action.id}
+                      type="button"
+                      onClick={() => handleQuickAction(action.id)}
+                      disabled={disabled || streaming}
+                      className={`min-h-[68px] rounded-lg bg-zinc-900/80 border border-zinc-850 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-850/80 hover:border-violet-500/30 transition-all cursor-pointer flex flex-col items-start justify-center gap-1 px-2.5 py-2 text-left disabled:opacity-40 disabled:pointer-events-none`}
+                      title={disabled ? "Copie um texto primeiro" : action.description}
+                    >
+                      <Icon className={`w-4 h-4 ${action.accent}`} />
+                      <span className="text-[10px] font-semibold leading-tight">{action.label}</span>
+                      <span className="text-[9px] text-zinc-600 leading-tight">{action.description}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="flex flex-col gap-2">
+              <span className="text-[10px] text-zinc-500 font-mono font-bold uppercase select-none">
+                Começar sem clipboard
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {STARTER_ACTIONS.map((action) => {
+                  const Icon = action.icon;
+
+                  return (
+                    <button
+                      key={action.label}
+                      type="button"
+                      onClick={() => handleStarterAction(action.prompt)}
+                      disabled={streaming}
+                      className="px-2.5 py-1.5 rounded-md bg-zinc-950/70 border border-zinc-850 text-[10px] font-semibold text-zinc-400 hover:text-zinc-100 hover:border-violet-500/30 transition-colors cursor-pointer disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1.5"
+                    >
+                      <Icon className="w-3.5 h-3.5 text-violet-400" />
+                      {action.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            {agentLogs.length > 0 && (
+              <section className="bg-zinc-950 border border-zinc-900 rounded-xl overflow-hidden text-[11px] leading-relaxed shadow-lg">
+                <div className="bg-zinc-900/60 px-3 py-1.5 border-b border-zinc-900/80 flex items-center justify-between select-none">
+                  <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold">
+                    Execução
+                  </span>
+                  <span className="text-[9px] text-zinc-600">{agentLogs.length} eventos</span>
                 </div>
-                <div className="p-3.5 flex flex-col gap-2.5 max-h-48 overflow-y-auto custom-scrollbar select-text selection:bg-indigo-950">
+                <div className="p-3.5 flex flex-col gap-2.5 max-h-40 overflow-y-auto custom-scrollbar select-text selection:bg-violet-950">
                   {agentLogs.map((log) => (
                     <div key={log.id} className="flex gap-2.5 items-start">
-                      <div className="mt-0.5 select-none flex-shrink-0">
+                      <div className="mt-1 select-none flex-shrink-0">
                         {log.type === "thought" && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 inline-block animate-pulse shadow-md shadow-indigo-500/50" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-violet-500 inline-block animate-pulse shadow-md shadow-violet-500/50" />
                         )}
                         {log.type === "tool_start" && (
                           <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block animate-ping" />
@@ -378,18 +566,18 @@ export function CommandPalette() {
                           <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block" />
                         )}
                         {log.type === "info" && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 inline-block" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-sky-500 inline-block" />
                         )}
                       </div>
                       <div className="flex-1 text-zinc-400">
                         {log.type === "thought" && (
-                          <span className="text-indigo-400 font-bold">pensamento: </span>
+                          <span className="text-violet-300 font-bold">pensando: </span>
                         )}
                         {log.type === "tool_start" && (
-                          <span className="text-amber-400 font-bold">ferramenta: </span>
+                          <span className="text-amber-400 font-bold">usando: </span>
                         )}
                         {log.type === "tool_complete" && (
-                          <span className="text-emerald-400 font-bold">sucesso: </span>
+                          <span className="text-emerald-400 font-bold">ok: </span>
                         )}
                         {log.type === "tool_fail" && <span className="text-rose-400 font-bold">falha: </span>}
                         <span>{log.text}</span>
@@ -397,62 +585,14 @@ export function CommandPalette() {
                     </div>
                   ))}
                 </div>
-              </div>
+              </section>
             )}
 
-            {/* Quick Action Suggestion Panel */}
-            {clipSuggestion && clipboardText && !result && !streaming && (
-              <div className="p-4 bg-zinc-950/70 rounded-xl border border-zinc-900 flex flex-col gap-3 font-mono">
-                <div className="flex justify-between items-center text-zinc-500 text-[10px] uppercase tracking-wider font-bold select-none">
-                  <span className="flex items-center gap-1.5 text-zinc-400">
-                    <Clipboard className="w-3.5 h-3.5 text-indigo-400" />
-                    Conteúdo do Clipboard
-                  </span>
-                  <span className="text-[9px] bg-zinc-900 border border-zinc-850 px-2 py-0.5 rounded text-zinc-500">
-                    {clipboardText.length} caracteres
-                  </span>
-                </div>
-
-                {/* Clipboard content preview block */}
-                <div className="bg-zinc-900/40 border border-zinc-900/60 rounded-lg p-2.5 text-[11px] text-zinc-400 leading-normal italic truncate">
-                  "{clipboardText.slice(0, 150)}"
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleQuickAction("melhorar")}
-                    className="py-2.5 rounded-lg bg-zinc-900 border border-zinc-850 hover:border-amber-500/25 text-zinc-300 hover:text-zinc-150 hover:bg-zinc-850/80 transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 text-[10px]"
-                  >
-                    <Sparkles className="w-4.5 h-4.5 text-amber-500" />
-                    <span>Melhorar</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickAction("resumir")}
-                    className="py-2.5 rounded-lg bg-zinc-900 border border-zinc-850 hover:border-blue-500/25 text-zinc-300 hover:text-zinc-150 hover:bg-zinc-850/80 transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 text-[10px]"
-                  >
-                    <FileText className="w-4.5 h-4.5 text-blue-500" />
-                    <span>Resumir</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickAction("traduzir")}
-                    className="py-2.5 rounded-lg bg-zinc-900 border border-zinc-850 hover:border-emerald-500/25 text-zinc-300 hover:text-zinc-150 hover:bg-zinc-850/80 transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 text-[10px]"
-                  >
-                    <Languages className="w-4.5 h-4.5 text-emerald-500" />
-                    <span>Traduzir</span>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Error box card */}
             {error && (
-              <div className="p-3.5 bg-rose-950/20 border border-rose-900/40 rounded-xl text-rose-300 text-xs font-mono flex gap-2.5 items-start">
+              <div className="p-3.5 bg-rose-950/20 border border-rose-900/40 rounded-xl text-rose-300 text-xs flex gap-2.5 items-start">
                 <AlertCircle className="w-4.5 h-4.5 text-rose-500 flex-shrink-0 mt-0.5" />
                 <div className="select-text">
-                  <strong className="text-rose-400 font-bold mr-1">ERROR:</strong>
+                  <strong className="text-rose-400 font-bold mr-1">Erro:</strong>
                   {error}
                 </div>
               </div>
@@ -468,12 +608,11 @@ export function CommandPalette() {
               </div>
             )}
 
-            {/* Output Result Card */}
             {result && (
-              <div className="mt-1 flex flex-col gap-2 font-mono">
+              <div className="mt-1 flex flex-col gap-2">
                 <div className="flex items-center justify-between select-none">
                   <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold">
-                    [ RESULTADO DA EXECUÇÃO ]
+                    Resultado
                   </span>
                   <button
                     type="button"
@@ -481,7 +620,7 @@ export function CommandPalette() {
                     className={`px-3 py-1.5 text-[10px] font-bold rounded-lg border transition-all duration-150 active:scale-95 cursor-pointer flex items-center gap-1.5 ${
                       copied
                         ? "bg-emerald-950/30 border-emerald-800 text-emerald-400"
-                        : "bg-zinc-900 border-zinc-800 text-zinc-350 hover:text-zinc-100 hover:bg-zinc-850"
+                        : "bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-850"
                     }`}
                   >
                     {copied ? (
@@ -489,46 +628,14 @@ export function CommandPalette() {
                     ) : (
                       <Clipboard className="w-3.5 h-3.5 text-indigo-400" />
                     )}
-                    <span>{copied ? "COPIADO" : "COPIAR"}</span>
+                    <span>{copied ? "Copiado" : "Copiar"}</span>
                   </button>
                 </div>
-                <div className="bg-zinc-950 border border-zinc-900 rounded-xl p-4 text-xs text-zinc-200 leading-relaxed whitespace-pre-wrap max-h-60 overflow-y-auto custom-scrollbar select-text selection:bg-indigo-950 select-all border-l-2 border-l-indigo-500">
+                <div className="bg-zinc-950 border border-zinc-900 rounded-xl p-4 text-xs text-zinc-200 leading-relaxed whitespace-pre-wrap max-h-60 overflow-y-auto custom-scrollbar select-text selection:bg-violet-950 border-l-2 border-l-violet-500">
                   {result}
                 </div>
               </div>
             )}
-
-            {/* Hotkeys tips bar */}
-            <div className="mt-2 p-3.5 rounded-xl bg-zinc-950/30 border border-zinc-900/50 text-[10px] font-mono text-zinc-600 space-y-1.5 select-none leading-normal">
-              <div className="flex justify-between items-center">
-                <span className="flex items-center gap-1">
-                  <kbd className="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-[9px] text-zinc-400 font-sans shadow-sm font-bold">
-                    Enter
-                  </kbd>
-                  Executar comando
-                </span>
-                <span className="flex items-center gap-1">
-                  <kbd className="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-[9px] text-zinc-400 font-sans shadow-sm font-bold">
-                    Esc
-                  </kbd>
-                  Limpar tela / Minimizar
-                </span>
-              </div>
-              <div className="flex justify-between items-center pt-1 border-t border-zinc-900/30">
-                <span className="flex items-center gap-1">
-                  <kbd className="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-[9px] text-zinc-400 font-sans shadow-sm font-bold">
-                    Shift+Enter
-                  </kbd>
-                  Nova linha
-                </span>
-                <span className="flex items-center gap-1">
-                  <kbd className="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-[9px] text-zinc-400 font-sans shadow-sm font-bold">
-                    {GLOBAL_SHORTCUT_LABEL}
-                  </kbd>
-                  Atalho global do app
-                </span>
-              </div>
-            </div>
           </div>
         ) : (
           <HistoryList />
@@ -538,11 +645,10 @@ export function CommandPalette() {
       {/* Settings Overlay Drawer Panel */}
       {showSettings && (
         <div className="absolute inset-0 bg-zinc-950/95 backdrop-blur-lg z-30 flex flex-col p-4 font-mono select-none animate-fade-in border border-zinc-900 rounded-2xl">
-          {/* Header */}
           <div className="flex items-center justify-between border-b border-zinc-900/70 pb-3 mb-3">
             <span className="text-xs font-bold text-zinc-300 flex items-center gap-2">
-              <Settings className="w-5 h-5 text-indigo-400" />
-              CONFIGURAÇÃO DE CONEXÃO
+              <Settings className="w-5 h-5 text-violet-400" />
+              Configurações
             </span>
             <button
               type="button"
@@ -554,25 +660,28 @@ export function CommandPalette() {
           </div>
 
           <form onSubmit={handleSaveSettings} className="flex-1 flex flex-col gap-4 overflow-y-auto pr-1">
-            {/* Provider Selection Option */}
             <div className="flex flex-col gap-1.5">
               <span className="text-[10px] text-zinc-500 uppercase font-bold flex items-center gap-1">
                 <Layers className="w-3.5 h-3.5 text-zinc-500" />
-                Provedor de Modelagem
+                Provedor
               </span>
               <select
                 value={formProvider}
                 onChange={(e) => {
-                  setFormProvider(e.target.value);
-                  if (e.target.value === "mock") setFormModel("mock-model");
-                  else if (e.target.value === "pinstripes") setFormModel("ps/warp");
+                  const nextProvider = e.target.value;
+                  setFormProvider(nextProvider);
+                  if (nextProvider === "mock") setFormModel("mock-model");
+                  else if (nextProvider === "pinstripes") {
+                    const currentModel = PINSTRIPES_MODELS.some((model) => model.id === formModel);
+                    setFormModel(currentModel ? formModel : "ps/warp");
+                  }
                 }}
                 className="w-full bg-zinc-900/90 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:border-indigo-500/50 outline-none cursor-pointer hover:bg-zinc-850"
               >
-                <option value="mock">Mock Provedor (Local / Off-line)</option>
-                <option value="openai">OpenAI Compatible (Cloud/Custom)</option>
-                <option value="gemini">Gemini Compatible (Google API)</option>
                 <option value="pinstripes">Pinstripes API</option>
+                <option value="mock">Mock local</option>
+                <option value="openai">OpenAI Compatible</option>
+                <option value="gemini">Gemini Compatible (Google API)</option>
               </select>
             </div>
 
@@ -624,7 +733,6 @@ export function CommandPalette() {
               </div>
             )}
 
-            {/* Dynamic model dropdown list or direct input */}
             {formProvider !== "mock" && formProvider !== "pinstripes" && (
               <div className="flex flex-col gap-1.5">
                 <span className="text-[10px] text-zinc-500 uppercase font-bold flex justify-between items-center">
@@ -663,15 +771,37 @@ export function CommandPalette() {
               </div>
             )}
 
-            {/* Static models labels */}
-            {(formProvider === "mock" || formProvider === "pinstripes") && (
+            {formProvider === "pinstripes" && (
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[10px] text-zinc-500 uppercase font-bold flex items-center gap-1">
+                  <Database className="w-3.5 h-3.5 text-zinc-500" />
+                  Modelo Pinstripes
+                </span>
+                <select
+                  value={formModel || "ps/warp"}
+                  onChange={(e) => setFormModel(e.target.value)}
+                  className="w-full bg-zinc-900/90 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:border-violet-500/50 outline-none cursor-pointer hover:bg-zinc-850"
+                >
+                  {PINSTRIPES_MODELS.map((model) => (
+                    <option key={model.id} value={model.id}>
+                      {model.name} - {model.description}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-[9px] text-zinc-600 leading-normal">
+                  Warp para velocidade, Thinking para raciocínio e Pro para respostas mais deliberadas.
+                </span>
+              </div>
+            )}
+
+            {formProvider === "mock" && (
               <div className="flex flex-col gap-1.5">
                 <span className="text-[10px] text-zinc-500 uppercase font-bold flex items-center gap-1">
                   <Database className="w-3.5 h-3.5 text-zinc-500" />
                   Modelo Ativo
                 </span>
                 <div className="bg-zinc-900 border border-zinc-850 rounded-xl px-3 py-2 text-xs text-zinc-500 font-bold select-none">
-                  {formProvider === "mock" ? "mock-model" : "ps/warp (Automático)"}
+                  mock-model
                 </div>
               </div>
             )}

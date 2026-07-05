@@ -110,34 +110,34 @@ A assinatura deve ser uma "barra de sinais" fina ligada ao pet: uma linha viva q
 
 ### P1 - Redesign do shell
 
-- [ ] Revisar dimensoes da janela expandida para comportar mais funcoes sem parecer modal pesado.
-- [ ] Reorganizar header para status/modelo/acoes essenciais.
+- [x] Revisar dimensoes da janela expandida para comportar mais funcoes sem parecer modal pesado.
+- [x] Reorganizar header para status/modelo/acoes essenciais.
 - [ ] Redesenhar pet colapsado como status compacto e arrastavel.
-- [ ] Remover excesso de linguagem terminal (`COMMAND CORE`, `$`, `ERROR`) onde isso atrapalha uso diario.
-- [ ] Manter foco de teclado e estados `streaming`, `error`, `success`.
+- [x] Remover excesso de linguagem terminal (`COMMAND CORE`, `$`, `ERROR`) onde isso atrapalha uso diario.
+- [x] Manter foco de teclado e estados `streaming`, `error`, `success`.
 
 ### P1 - Acoes de IA alem do clipboard
 
-- [ ] Expandir quick actions para pelo menos:
+- [x] Expandir quick actions para pelo menos:
   - perguntar livremente sem clipboard obrigatorio;
   - explicar texto;
   - extrair tarefas;
   - responder mensagem/email;
   - transformar em checklist;
   - resumir em bullets.
-- [ ] Adaptar prompt/orchestrator para nao sempre assumir que clipboard e o centro da tarefa.
-- [ ] Mostrar quando uma acao vai usar clipboard e quando vai usar apenas o prompt.
-- [ ] Tratar clipboard vazio como estado normal, nao como falha.
+- [x] Adaptar prompt/orchestrator para nao sempre assumir que clipboard e o centro da tarefa.
+- [x] Mostrar quando uma acao vai usar clipboard e quando vai usar apenas o prompt.
+- [x] Tratar clipboard vazio como estado normal, nao como falha.
 
 ### P2 - Pinstripes como provedor principal
 
-- [ ] Mostrar modelos `ps/warp`, `ps/thinking`, `ps/pro` com descricoes:
+- [x] Mostrar modelos `ps/warp`, `ps/thinking`, `ps/pro` com descricoes:
   - Warp: rapido e melhor custo;
   - Thinking: raciocinio mais profundo;
   - Pro: respostas mais deliberadas.
-- [ ] Permitir escolher o modelo Pinstripes, nao apenas travar em `ps/warp`.
-- [ ] Persistir escolha do modelo.
-- [ ] Ajustar badge ativo para ser legivel e menos tecnico.
+- [x] Permitir escolher o modelo Pinstripes, nao apenas travar em `ps/warp`.
+- [x] Persistir escolha do modelo.
+- [x] Ajustar badge ativo para ser legivel e menos tecnico.
 
 ### P2 - Historico e scratchpad
 

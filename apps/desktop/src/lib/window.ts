@@ -2,13 +2,19 @@ import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 
 export const WINDOW_SIZES = {
   collapsed: { width: 120, height: 120 },
-  expanded: { width: 380, height: 560 },
+  expanded: { width: 440, height: 720 },
 };
+
+export function isTauriRuntime() {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
 
 /**
  * Altera o tamanho e o estado da janela entre os modos "Pet Flutuante" (collapsed) e "Painel Expandido" (expanded).
  */
 export async function setWindowMode(mode: "collapsed" | "expanded") {
+  if (!isTauriRuntime()) return;
+
   try {
     const appWindow = getCurrentWindow();
     const size = WINDOW_SIZES[mode];
@@ -36,6 +42,8 @@ export async function setWindowMode(mode: "collapsed" | "expanded") {
  * Alterna se a janela deve sempre ficar no topo de outras aplicações.
  */
 export async function setAlwaysOnTop(alwaysOnTop: boolean) {
+  if (!isTauriRuntime()) return;
+
   try {
     const appWindow = getCurrentWindow();
     await appWindow.setAlwaysOnTop(alwaysOnTop);
@@ -48,6 +56,8 @@ export async function setAlwaysOnTop(alwaysOnTop: boolean) {
  * Oculta a janela atual.
  */
 export async function hideWindow() {
+  if (!isTauriRuntime()) return;
+
   try {
     const appWindow = getCurrentWindow();
     await appWindow.hide();
@@ -60,6 +70,8 @@ export async function hideWindow() {
  * Inicia o arrasto da janela programaticamente (útil para desviar de bloqueios de clique).
  */
 export async function startWindowDrag() {
+  if (!isTauriRuntime()) return;
+
   try {
     const appWindow = getCurrentWindow();
     await appWindow.startDragging();

@@ -1,10 +1,11 @@
 import { listen } from "@tauri-apps/api/event";
-import { Cpu, Minimize2, Pin, Settings } from "lucide-react";
+import { Minimize2, Pin } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Pet } from "./components/ui/pet";
 import {
   setAlwaysOnTop as apiSetAlwaysOnTop,
   hideWindow,
+  isTauriRuntime,
   setWindowMode,
   startWindowDrag,
 } from "./lib/window";
@@ -33,6 +34,8 @@ export function App() {
 
   // Listen to tray-click event emitted from Rust
   useEffect(() => {
+    if (!isTauriRuntime()) return;
+
     let unlistenFn: (() => void) | undefined;
 
     listen<string>("tray-click", (event) => {
@@ -111,7 +114,7 @@ export function App() {
           <Pet size={52} />
           {/* Micro-interaction indicator */}
           <div className="absolute bottom-1.5 text-[8px] font-mono text-zinc-500 group-hover:text-indigo-400 group-hover:scale-105 transition-all duration-300">
-            CORE
+            AI
           </div>
         </div>
       </div>
@@ -119,7 +122,7 @@ export function App() {
   }
 
   return (
-    <div className="w-[380px] h-[560px] flex flex-col glass-panel rounded-2xl overflow-hidden shadow-2xl relative select-none">
+    <div className="w-[440px] h-[720px] flex flex-col glass-panel rounded-2xl overflow-hidden shadow-2xl relative select-none">
       {/* Noise grain texture */}
       <div className="noise-overlay" />
 
@@ -132,7 +135,7 @@ export function App() {
           <Pet size={24} />
           <div className="flex flex-col" data-tauri-drag-region>
             <span className="text-xs font-mono font-bold tracking-wide text-zinc-200" data-tauri-drag-region>
-              AI DESKTOP CORE
+              Desktop Agent
             </span>
             <span
               className="text-[9px] font-mono text-zinc-500 flex items-center gap-1"

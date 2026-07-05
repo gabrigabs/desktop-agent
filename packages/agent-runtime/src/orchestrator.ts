@@ -154,13 +154,14 @@ export class Orchestrator {
     const tools = registry.list();
     const toolsList = tools.map((t) => `- ${t.name}: ${t.description}`).join("\n");
 
-    const systemPrompt = `Você é o "AI Desktop Core", um agente inteligente rodando no desktop do usuário.
-Você tem acesso ao clipboard do sistema e a ferramentas locais.
+    const systemPrompt = `Você é o "Desktop Agent", um agente pessoal leve rodando no desktop do usuário.
+Você pode receber um pedido livre do usuário, o conteúdo atual do clipboard e acesso a ferramentas locais.
 
 Seu objetivo é ajudar o usuário com seu comando.
-Analise a requisição do usuário e o conteúdo do clipboard.
-Se precisar usar uma ferramenta para processar o clipboard, selecione a ferramenta apropriada no JSON de resposta.
-Se não precisar de nenhuma ferramenta, ou se já tiver o resultado final, forneça a resposta diretamente preenchendo o campo "directResponse".
+Analise a requisição do usuário e use o clipboard apenas quando ele for relevante e não estiver vazio.
+Se o clipboard estiver vazio, irrelevante ou a tarefa for uma pergunta geral, responda diretamente preenchendo o campo "directResponse".
+Se precisar usar uma ferramenta local para processar texto do clipboard, selecione a ferramenta apropriada no JSON de resposta.
+Não invente conteúdo de clipboard quando ele vier vazio.
 
 Ferramentas disponíveis:
 ${toolsList}
@@ -178,7 +179,7 @@ IMPORTANTE: Você deve responder ESTRITAMENTE com um objeto JSON no formato abai
       { role: "system", content: systemPrompt },
       {
         role: "user",
-        content: `Comando do usuário: "${query}"\nConteúdo do clipboard: "${clipboardText}"`,
+        content: `Comando do usuário: "${query}"\nConteúdo do clipboard (${clipboardText ? `${clipboardText.length} caracteres` : "vazio"}): "${clipboardText}"`,
       },
     ];
 
@@ -207,7 +208,7 @@ IMPORTANTE: Você deve responder ESTRITAMENTE com um objeto JSON no formato abai
           selectedTool = "text.translate";
         }
 
-        if (selectedTool) {
+        if (selectedTool && clipboardText.trim()) {
           emit({
             type: "agent.thought",
             requestId,
@@ -227,8 +228,9 @@ IMPORTANTE: Você deve responder ESTRITAMENTE com um objeto JSON no formato abai
           const words = text.split(" ");
           let acc = "";
           for (const word of words) {
-            acc += word + " ";
-            emit({ type: "agent.chunk", requestId, chunk: word + " " });
+            const chunk = `${word} `;
+            acc += chunk;
+            emit({ type: "agent.chunk", requestId, chunk });
             await new Promise((r) => setTimeout(r, 20));
           }
           finalResult = acc;
@@ -237,8 +239,9 @@ IMPORTANTE: Você deve responder ESTRITAMENTE com um objeto JSON no formato abai
           const words = text.split(" ");
           let acc = "";
           for (const word of words) {
-            acc += word + " ";
-            emit({ type: "agent.chunk", requestId, chunk: word + " " });
+            const chunk = `${word} `;
+            acc += chunk;
+            emit({ type: "agent.chunk", requestId, chunk });
             await new Promise((r) => setTimeout(r, 20));
           }
           finalResult = acc;
@@ -311,20 +314,21 @@ IMPORTANTE: Você deve responder ESTRITAMENTE com um objeto JSON no formato abai
         const finalMessages = [
           {
             role: "system",
-            content: "Você é o AI Desktop Core. Escreva a resposta final direta para o usuário baseando-se no histórico e na requisição do usuário. Escreva em formato Markdown claro e objetivo, sem encapsular em blocos de código JSON."
+            content:
+              "Você é o AI Desktop Core. Escreva a resposta final direta para o usuário baseando-se no histórico e na requisição do usuário. Escreva em formato Markdown claro e objetivo, sem encapsular em blocos de código JSON.",
           },
           ...messages.slice(1),
           {
             role: "assistant",
-            content: parsed.thought ? `Pensamento: ${parsed.thought}` : ""
-          }
+            content: parsed.thought ? `Pensamento: ${parsed.thought}` : "",
+          },
         ];
 
         let accumulatedText = "";
         for await (const chunk of provider.stream({
           model,
           messages: finalMessages,
-          temperature: 0.3
+          temperature: 0.3,
         })) {
           if (chunk.content) {
             accumulatedText += chunk.content;
