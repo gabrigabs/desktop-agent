@@ -3,6 +3,7 @@ import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 export const WINDOW_SIZES = {
   collapsed: { width: 104, height: 104 },
   expanded: { width: 480, height: 760 },
+  workspace: { width: 860, height: 760 },
 };
 
 export function isTauriRuntime() {
@@ -12,7 +13,7 @@ export function isTauriRuntime() {
 /**
  * Altera o tamanho e o estado da janela entre os modos "Pet Flutuante" (collapsed) e "Painel Expandido" (expanded).
  */
-export async function setWindowMode(mode: "collapsed" | "expanded") {
+export async function setWindowMode(mode: "collapsed" | "expanded" | "workspace") {
   if (!isTauriRuntime()) return;
 
   try {
@@ -30,7 +31,7 @@ export async function setWindowMode(mode: "collapsed" | "expanded") {
     await appWindow.setResizable(false);
 
     // Configura o comportamento de foco
-    if (mode === "expanded") {
+    if (mode === "expanded" || mode === "workspace") {
       await appWindow.setFocus();
     }
   } catch (err) {

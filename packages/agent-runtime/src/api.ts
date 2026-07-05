@@ -259,6 +259,7 @@ export const agentApi: AgentApi = {
 
     const controller = new AbortController();
     runningRuns.set(run.id, controller);
+    runningRequests.set(input.requestId, controller);
     const events: AgentEvent[] = [];
     const runner = new WorkflowRunner({
       orchestrator,
@@ -281,6 +282,7 @@ export const agentApi: AgentApi = {
       return { run: completedRun, events };
     } finally {
       runningRuns.delete(run.id);
+      runningRequests.delete(input.requestId);
     }
   },
 
@@ -320,6 +322,7 @@ export const agentApi: AgentApi = {
 
     const controller = new AbortController();
     runningRuns.set(runId, controller);
+    runningRequests.set(requestId, controller);
     const events: AgentEvent[] = [];
     const runner = new WorkflowRunner({
       orchestrator,
@@ -343,6 +346,7 @@ export const agentApi: AgentApi = {
       return { run, events };
     } finally {
       runningRuns.delete(runId);
+      runningRequests.delete(requestId);
     }
   },
 

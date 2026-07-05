@@ -16,13 +16,16 @@ import {
   Layers,
   Link,
   ListChecks,
+  Maximize2,
   MessageSquare,
   PenLine,
   Play,
   RefreshCw,
   Search,
   Settings,
+  ShieldCheck,
   Sparkles,
+  Workflow,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -181,12 +184,20 @@ export function CommandPalette() {
     agentLogs,
     addAgentLog,
     clearAgentLogs,
+    executionMode,
+    setExecutionMode,
+    workflowRun,
+    setWorkflowRun,
+    connectors,
+    setConnectors,
+    uiMode,
   } = useAgentStore();
 
-  const [mode, setMode] = useState<"command" | "history">("command");
+  const [mode, setMode] = useState<"command" | "history" | "connectors">("command");
   const [inputMode, setInputMode] = useState<InputMode>("free");
   const [activeTaskMode, setActiveTaskMode] = useState<InputMode>("free");
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
+  const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [showKey, setShowKey] = useState<boolean>(false);
 
@@ -216,6 +227,20 @@ export function CommandPalette() {
       setFormTimeout(settings.timeout || 120);
     }
   }, [showSettings, settings]);
+
+  const refreshCapabilities = useCallback(async () => {
+    try {
+      const api = await getAgent();
+      const capabilities = await api.listCapabilities();
+      setConnectors(capabilities.connectors);
+    } catch (err) {
+      console.error("Failed to refresh capabilities:", err);
+    }
+  }, [setConnectors]);
+
+  useEffect(() => {
+    refreshCapabilities();
+  }, [refreshCapabilities]);
 
   // Load and check clipboard content on mount/focus
   const checkClipboard = useCallback(async () => {
@@ -286,9 +311,11 @@ export function CommandPalette() {
       setError(null);
       setStreaming(true);
       setActiveTaskMode(sourceMode);
+      setWorkflowRun(null);
       clearAgentLogs();
 
       let requestId: string | null = null;
+      let runId: string | null = null;
       try {
         const api = await getAgent();
         const clipboardContent =
@@ -303,30 +330,43 @@ export function CommandPalette() {
 
         requestId = crypto.randomUUID();
         setActiveRequestId(requestId);
+        setActiveRunId(null);
 
-        const res = await api.runAgent({
+        const res = await api.startRun({
           requestId,
-          query: activeQuery,
+          prompt: activeQuery,
+          mode: executionMode,
+          sourceMode,
           clipboardText: clipboardContent,
+          maxSteps: executionMode === "workflow" ? 8 : 1,
         });
 
-        setResult(res.result);
+        runId = res.run.id;
+        setActiveRunId(runId);
+        setWorkflowRun(res.run);
+        setResult(res.run.result || "");
+        if (res.run.status === "failed" || res.run.status === "cancelled") {
+          setError(res.run.errorMessage || "Workflow encerrado sem resultado.");
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Erro ao executar comando");
         addAgentLog({ type: "tool_fail", text: err instanceof Error ? err.message : String(err) });
       } finally {
         setStreaming(false);
         setActiveRequestId((current) => (current === requestId ? null : current));
+        setActiveRunId((current) => (current === runId ? null : current));
       }
     },
     [
       query,
       inputMode,
+      executionMode,
       clipboardText,
       setClipboardText,
       setError,
       setResult,
       setStreaming,
+      setWorkflowRun,
       clearAgentLogs,
       addAgentLog,
     ],
@@ -345,11 +385,16 @@ export function CommandPalette() {
   }, [result]);
 
   const handleAbort = useCallback(async () => {
-    if (!activeRequestId) return;
+    const runId = activeRunId || workflowRun?.id;
+    if (!activeRequestId && !runId) return;
 
     try {
       const api = await getAgent();
-      await api.cancelAgent({ requestId: activeRequestId });
+      if (runId) {
+        await api.cancelRun({ runId });
+      } else if (activeRequestId) {
+        await api.cancelAgent({ requestId: activeRequestId });
+      }
     } catch (err) {
       console.error("Failed to cancel request:", err);
     } finally {
@@ -357,8 +402,39 @@ export function CommandPalette() {
       setStreaming(false);
       addAgentLog({ type: "tool_fail", text: "Execução abortada pelo usuário" });
       setActiveRequestId(null);
+      setActiveRunId(null);
     }
-  }, [activeRequestId, setError, setStreaming, addAgentLog]);
+  }, [activeRequestId, activeRunId, workflowRun?.id, setError, setStreaming, addAgentLog]);
+
+  const handleApproval = useCallback(
+    async (approved: boolean) => {
+      if (!workflowRun) return;
+
+      const requestId = crypto.randomUUID();
+      setActiveRequestId(requestId);
+      setActiveRunId(workflowRun.id);
+      setStreaming(approved);
+      setError(null);
+
+      try {
+        const api = await getAgent();
+        const res = await api.resumeRun({ requestId, runId: workflowRun.id, approved });
+        setWorkflowRun(res.run);
+        setResult(res.run.result || "");
+        if (res.run.status === "failed" || res.run.status === "cancelled") {
+          setError(res.run.errorMessage || "Workflow encerrado.");
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Erro ao retomar workflow");
+        addAgentLog({ type: "tool_fail", text: err instanceof Error ? err.message : String(err) });
+      } finally {
+        setStreaming(false);
+        setActiveRequestId((current) => (current === requestId ? null : current));
+        setActiveRunId((current) => (current === workflowRun.id ? null : current));
+      }
+    },
+    [workflowRun, setError, setResult, setStreaming, setWorkflowRun, addAgentLog],
+  );
 
   const handleQuickAction = async (actionId: string) => {
     const action = QUICK_ACTIONS.find((item) => item.id === actionId);
@@ -379,10 +455,18 @@ export function CommandPalette() {
 
   const handleNewTask = () => {
     reset();
+    setWorkflowRun(null);
+    setActiveRunId(null);
     setMode("command");
     requestAnimationFrame(() => {
       textareaRef.current?.focus();
     });
+  };
+
+  const handleWorkspaceMode = async () => {
+    const nextMode = uiMode === "workspace" ? "expanded" : "workspace";
+    setUiMode(nextMode);
+    await setWindowMode(nextMode);
   };
 
   const handleSaveSettings = async (e: React.FormEvent) => {
@@ -451,16 +535,20 @@ export function CommandPalette() {
   };
 
   const hasClipboard = clipboardText.trim().length > 0;
-  const taskActive = streaming || result !== null || Boolean(error) || agentLogs.length > 0;
+  const taskActive = streaming || result !== null || Boolean(error) || agentLogs.length > 0 || Boolean(workflowRun);
   const latestLog = agentLogs.length > 0 ? agentLogs[agentLogs.length - 1] : undefined;
   const visibleLogs = agentLogs.slice(-4).reverse();
   const inputModeLabel = inputMode === "clipboard" ? "Interagir com clipboard" : "Conteúdo avulso";
-  const taskModeLabel = activeTaskMode === "clipboard" ? "Clipboard" : "Livre";
+  const taskModeLabel = `${executionMode === "workflow" ? "Workflow" : "Simples"} · ${
+    activeTaskMode === "clipboard" ? "Clipboard" : "Livre"
+  }`;
   const composerPlaceholder =
     inputMode === "clipboard"
       ? "Diga o que fazer com o texto copiado."
       : "Pergunte algo, peça um rascunho ou comece por uma ação abaixo.";
-  const taskStatus = error
+  const taskStatus = workflowRun?.status === "waiting_approval"
+    ? "Aguardando aprovação"
+    : error
     ? "Algo falhou"
     : streaming
       ? latestLog?.type === "tool_start"
@@ -469,6 +557,9 @@ export function CommandPalette() {
       : result
         ? "Resultado pronto"
         : "Preparando";
+  const workflowSteps = workflowRun?.steps ?? [];
+  const approval = workflowRun?.approval;
+  const visibleConnectors = connectors.slice(0, 7);
 
   return (
     <div className="flex flex-col h-full w-full bg-zinc-950/20 text-zinc-100 font-sans relative">
@@ -525,6 +616,17 @@ export function CommandPalette() {
           >
             Histórico
           </button>
+          <button
+            type="button"
+            onClick={() => setMode("connectors")}
+            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all duration-200 cursor-pointer ${
+              mode === "connectors"
+                ? "bg-zinc-800 text-zinc-100 border border-zinc-700/70"
+                : "text-zinc-500 hover:text-zinc-300"
+            }`}
+          >
+            Conectores
+          </button>
         </div>
         <button
           type="button"
@@ -575,6 +677,19 @@ export function CommandPalette() {
                       Parar
                     </button>
                   )}
+                  <button
+                    type="button"
+                    onClick={handleWorkspaceMode}
+                    className={`h-7 px-2 rounded-md border text-[10px] font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
+                      uiMode === "workspace"
+                        ? "bg-violet-950/30 border-violet-700/50 text-violet-200"
+                        : "bg-zinc-950/60 border-zinc-800 text-zinc-400 hover:text-zinc-100"
+                    }`}
+                    title={uiMode === "workspace" ? "Voltar ao painel compacto" : "Abrir workspace"}
+                  >
+                    <Maximize2 className="w-3.5 h-3.5" />
+                    Workspace
+                  </button>
                 </div>
               </div>
 
@@ -630,6 +745,82 @@ export function CommandPalette() {
                   })}
                 </div>
               </section>
+
+              {workflowSteps.length > 0 && (
+                <section className="rounded-xl bg-zinc-950/55 border border-zinc-900/70 p-3 flex flex-col gap-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="text-[10px] text-zinc-500 font-mono uppercase font-bold flex items-center gap-1.5">
+                      <Workflow className="w-3.5 h-3.5 text-violet-300" />
+                      Timeline
+                    </div>
+                    <span className="text-[9px] text-zinc-600 font-mono">
+                      {workflowSteps.length} passos
+                    </span>
+                  </div>
+                  <div className="grid gap-2">
+                    {workflowSteps.map((step) => (
+                      <div
+                        key={step.id}
+                        className="grid grid-cols-[18px_1fr_auto] items-start gap-2 rounded-lg bg-zinc-900/45 px-2.5 py-2"
+                      >
+                        <span
+                          className={`mt-1.5 w-2 h-2 rounded-full ${
+                            step.status === "completed"
+                              ? "bg-emerald-400"
+                              : step.status === "running"
+                                ? "bg-amber-400 animate-pulse"
+                                : step.status === "waiting_approval"
+                                  ? "bg-violet-400 animate-pulse"
+                                  : step.status === "failed"
+                                    ? "bg-rose-400"
+                                    : "bg-zinc-700"
+                          }`}
+                        />
+                        <div className="min-w-0">
+                          <div className="text-xs font-semibold text-zinc-200 truncate">{step.title}</div>
+                          <div className="text-[10px] text-zinc-500 leading-relaxed line-clamp-2">
+                            {step.detail || step.kind}
+                          </div>
+                        </div>
+                        <span className="text-[9px] font-mono uppercase text-zinc-600">{step.kind}</span>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {approval && (
+                <section className="rounded-xl bg-violet-950/20 border border-violet-800/40 p-3.5 flex flex-col gap-3">
+                  <div className="flex items-start gap-2.5">
+                    <ShieldCheck className="w-4.5 h-4.5 text-violet-300 mt-0.5 shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold text-violet-100">Aprovação necessária</div>
+                      <p className="text-[11px] text-violet-200/80 leading-relaxed mt-1">
+                        {approval.reason} Permissão: {approval.permissionLevel}.
+                      </p>
+                      <p className="text-[10px] text-zinc-500 mt-1 truncate">{approval.inputPreview}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleApproval(true)}
+                      disabled={streaming}
+                      className="h-8 px-3 rounded-md bg-violet-500 text-zinc-950 text-[11px] font-bold hover:bg-violet-300 transition-colors cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+                    >
+                      Aprovar e continuar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleApproval(false)}
+                      disabled={streaming}
+                      className="h-8 px-3 rounded-md bg-zinc-950/70 border border-zinc-800 text-[11px] font-semibold text-zinc-400 hover:text-zinc-100 transition-colors cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+                    >
+                      Recusar
+                    </button>
+                  </div>
+                </section>
+              )}
 
               {visibleLogs.length > 0 && (
                 <section className="rounded-xl bg-zinc-950/45 p-3 flex flex-col gap-2">
@@ -707,6 +898,36 @@ export function CommandPalette() {
             </div>
           ) : (
             <div className="flex flex-col gap-4">
+              <section className="rounded-xl bg-zinc-950/65 border border-zinc-900 p-1 grid grid-cols-2 gap-1">
+                <button
+                  type="button"
+                  onClick={() => setExecutionMode("simple")}
+                  className={`min-h-12 rounded-lg px-3 text-left transition-colors cursor-pointer ${
+                    executionMode === "simple"
+                      ? "bg-zinc-800 text-zinc-100"
+                      : "text-zinc-500 hover:text-zinc-300"
+                  }`}
+                >
+                  <div className="text-xs font-semibold">Simples</div>
+                  <div className="text-[10px] text-zinc-600">Resposta rápida</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExecutionMode("workflow")}
+                  className={`min-h-12 rounded-lg px-3 text-left transition-colors cursor-pointer ${
+                    executionMode === "workflow"
+                      ? "bg-violet-950/35 text-violet-100 border border-violet-800/30"
+                      : "text-zinc-500 hover:text-zinc-300"
+                  }`}
+                >
+                  <div className="text-xs font-semibold flex items-center gap-1.5">
+                    <Workflow className="w-3.5 h-3.5" />
+                    Workflow
+                  </div>
+                  <div className="text-[10px] text-zinc-600">Loop com plano e aprovação</div>
+                </button>
+              </section>
+
               <section className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
@@ -836,8 +1057,69 @@ export function CommandPalette() {
               </section>
             </div>
           )
-        ) : (
+        ) : mode === "history" ? (
           <HistoryList />
+        ) : (
+          <div className="flex flex-col gap-3">
+            <section className="rounded-xl bg-zinc-950/60 border border-zinc-900 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs font-semibold text-zinc-200">Conectores e capacidades</div>
+                  <div className="text-[10px] text-zinc-600 mt-0.5">
+                    MCPs ficam desligados por padrão. Ações sensíveis pedem aprovação no workflow.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={refreshCapabilities}
+                  className="h-8 px-2.5 rounded-md bg-zinc-900 border border-zinc-800 text-[10px] font-semibold text-zinc-400 hover:text-zinc-100 transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  Atualizar
+                </button>
+              </div>
+            </section>
+
+            <div className="grid gap-2">
+              {visibleConnectors.map((connector) => (
+                <section
+                  key={connector.id}
+                  className="rounded-xl bg-zinc-950/55 border border-zinc-900 p-3 flex items-start justify-between gap-3"
+                >
+                  <div className="min-w-0">
+                    <div className="text-xs font-semibold text-zinc-200 truncate">{connector.name}</div>
+                    <div className="text-[10px] text-zinc-600 mt-1 truncate">
+                      {connector.command || connector.kind}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {connector.permissionPolicy.map((permission) => (
+                        <span
+                          key={permission}
+                          className="px-1.5 py-0.5 rounded bg-zinc-900 text-[9px] font-mono text-zinc-500"
+                        >
+                          {permission}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <span
+                    className={`px-2 py-1 rounded-md text-[9px] font-mono uppercase ${
+                      connector.enabled
+                        ? "bg-emerald-950/35 text-emerald-300 border border-emerald-800/30"
+                        : "bg-zinc-900 text-zinc-500 border border-zinc-800"
+                    }`}
+                  >
+                    {connector.enabled ? "Ativo" : "Desligado"}
+                  </span>
+                </section>
+              ))}
+              {visibleConnectors.length === 0 && (
+                <section className="rounded-xl bg-zinc-950/55 border border-zinc-900 p-4 text-xs text-zinc-500">
+                  Nenhum conector carregado ainda.
+                </section>
+              )}
+            </div>
+          </div>
         )}
       </div>
 

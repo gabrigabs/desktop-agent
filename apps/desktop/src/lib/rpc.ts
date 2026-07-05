@@ -44,6 +44,49 @@ export async function initializeRpc(): Promise<AgentApi> {
             store.setResult(currentResult + event.chunk);
             break;
           }
+          case "workflow.started":
+            store.addAgentLog({
+              type: "info",
+              text: event.mode === "workflow" ? "Workflow iniciado" : "Modo simples iniciado",
+            });
+            store.setWorkflowRun({
+              id: event.runId,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              mode: event.mode,
+              status: "running",
+              prompt: "",
+              sourceMode: "free",
+              clipboardPreview: "",
+              providerId: "",
+              model: "",
+              maxSteps: event.mode === "workflow" ? 8 : 1,
+              currentStep: 0,
+              result: "",
+              metadata: {},
+              steps: [],
+            });
+            store.setResult("");
+            break;
+          case "workflow.step":
+            store.upsertWorkflowStep(event.step);
+            break;
+          case "workflow.approval_required":
+            store.setWorkflowApproval(event.approval);
+            store.addAgentLog({ type: "info", text: "Aguardando aprovação para continuar" });
+            break;
+          case "workflow.completed":
+            store.setWorkflowStatus(event.status);
+            store.addAgentLog({
+              type: event.status === "completed" ? "info" : event.status === "waiting_approval" ? "thought" : "tool_fail",
+              text:
+                event.status === "completed"
+                  ? "Workflow concluído"
+                  : event.status === "waiting_approval"
+                    ? "Workflow pausado"
+                    : "Workflow encerrado",
+            });
+            break;
           case "tool.started":
             store.addAgentLog({ type: "tool_start", text: `Usando ${event.toolName}` });
             break;
@@ -81,6 +124,9 @@ export async function initializeRpc(): Promise<AgentApi> {
     // Load settings from database
     const settings = await agent.getSettings();
     store.setSettings(settings);
+
+    const capabilities = await agent.listCapabilities();
+    store.setConnectors(capabilities.connectors);
   } catch (err) {
     store.setConnected(false);
     console.error("Failed to connect to agent runtime:", err);

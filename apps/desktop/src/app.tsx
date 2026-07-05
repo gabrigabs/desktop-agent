@@ -1,5 +1,5 @@
 import { listen } from "@tauri-apps/api/event";
-import { Minimize2, Pin } from "lucide-react";
+import { Maximize2, Minimize2, Pin } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Pet } from "./components/ui/pet";
 import {
@@ -71,6 +71,12 @@ export function App() {
     }
   };
 
+  const handleWorkspace = async () => {
+    const nextMode = uiMode === "workspace" ? "expanded" : "workspace";
+    setUiMode(nextMode);
+    await setWindowMode(nextMode);
+  };
+
   const toggleAlwaysOnTop = () => {
     setAlwaysOnTopState(!alwaysOnTop);
   };
@@ -124,7 +130,9 @@ export function App() {
   }
 
   return (
-    <div className="w-[480px] h-[760px] flex flex-col agent-shell rounded-[24px] overflow-hidden relative select-none">
+    <div
+      className={`${uiMode === "workspace" ? "w-[860px]" : "w-[480px]"} h-[760px] flex flex-col agent-shell rounded-[24px] overflow-hidden relative select-none`}
+    >
       {/* Custom Titlebar / Header */}
       <header
         className="h-12 flex items-center justify-between px-4 border-b border-zinc-800/60 bg-zinc-950/40 relative z-10"
@@ -159,6 +167,16 @@ export function App() {
         </div>
 
         <div className="flex items-center gap-1.5 relative z-20">
+          {/* Always on top toggle */}
+          <button
+            type="button"
+            onClick={handleWorkspace}
+            className={`p-1.5 rounded-md hover:bg-zinc-800/80 transition-colors ${uiMode === "workspace" ? "text-violet-300" : "text-zinc-500 hover:text-zinc-300"}`}
+            title={uiMode === "workspace" ? "Voltar ao painel compacto" : "Abrir workspace"}
+          >
+            <Maximize2 className="w-3.5 h-3.5" />
+          </button>
+
           {/* Always on top toggle */}
           <button
             type="button"

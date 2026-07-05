@@ -1,4 +1,13 @@
-import type { AgentEvent, AppSettings } from "@desktop-agent/shared";
+import type {
+  AgentEvent,
+  AppSettings,
+  ApprovalRequest,
+  ConnectorConfig,
+  ExecutionMode,
+  RunStatus,
+  WorkflowRun,
+  WorkflowStep,
+} from "@desktop-agent/shared";
 import { create } from "zustand";
 
 type ToolDef = {
@@ -23,6 +32,9 @@ type State = {
   streaming: boolean;
   events: AgentEvent[];
   error: string | null;
+  executionMode: ExecutionMode;
+  workflowRun: WorkflowRun | null;
+  connectors: ConnectorConfig[];
   history: Array<{
     id: string;
     timestamp: string;
@@ -32,7 +44,7 @@ type State = {
     success?: boolean;
     errorMessage?: string;
   }>;
-  uiMode: "collapsed" | "expanded";
+  uiMode: "collapsed" | "expanded" | "workspace";
   settings: AppSettings;
   agentLogs: AgentLogEntry[];
 
@@ -44,8 +56,14 @@ type State = {
   setStreaming: (v: boolean) => void;
   addEvent: (e: AgentEvent) => void;
   setError: (e: string | null) => void;
+  setExecutionMode: (mode: ExecutionMode) => void;
+  setWorkflowRun: (run: WorkflowRun | null) => void;
+  upsertWorkflowStep: (step: WorkflowStep) => void;
+  setWorkflowApproval: (approval: ApprovalRequest | undefined) => void;
+  setWorkflowStatus: (status: RunStatus) => void;
+  setConnectors: (connectors: ConnectorConfig[]) => void;
   setHistory: (h: State["history"]) => void;
-  setUiMode: (m: "collapsed" | "expanded") => void;
+  setUiMode: (m: "collapsed" | "expanded" | "workspace") => void;
   setSettings: (s: AppSettings) => void;
   addAgentLog: (entry: Omit<AgentLogEntry, "id" | "timestamp">) => void;
   clearAgentLogs: () => void;
@@ -70,6 +88,9 @@ export const useAgentStore = create<State>((set) => ({
   streaming: false,
   events: [],
   error: null,
+  executionMode: "simple",
+  workflowRun: null,
+  connectors: [],
   history: [],
   uiMode: "expanded",
   settings: defaultSettings,
@@ -83,6 +104,46 @@ export const useAgentStore = create<State>((set) => ({
   setStreaming: (streaming) => set({ streaming }),
   addEvent: (event) => set((s) => ({ events: [...s.events, event] })),
   setError: (error) => set({ error }),
+  setExecutionMode: (executionMode) => set({ executionMode }),
+  setWorkflowRun: (workflowRun) => set({ workflowRun }),
+  upsertWorkflowStep: (step) =>
+    set((s) => {
+      const current = s.workflowRun;
+      if (!current || current.id !== step.runId) {
+        return s;
+      }
+
+      const nextSteps = [...(current.steps ?? []).filter((item) => item.id !== step.id), step].sort(
+        (a, b) => a.stepIndex - b.stepIndex,
+      );
+      return {
+        workflowRun: {
+          ...current,
+          currentStep: Math.max(current.currentStep, step.stepIndex),
+          steps: nextSteps,
+        },
+      };
+    }),
+  setWorkflowApproval: (approval) =>
+    set((s) => ({
+      workflowRun: s.workflowRun
+        ? {
+            ...s.workflowRun,
+            approval,
+            status: approval ? "waiting_approval" : s.workflowRun.status,
+          }
+        : s.workflowRun,
+    })),
+  setWorkflowStatus: (status) =>
+    set((s) => ({
+      workflowRun: s.workflowRun
+        ? {
+            ...s.workflowRun,
+            status,
+          }
+        : s.workflowRun,
+    })),
+  setConnectors: (connectors) => set({ connectors }),
   setHistory: (history) => set({ history }),
   setUiMode: (uiMode) => set({ uiMode }),
   setSettings: (settings) => set({ settings }),
@@ -105,6 +166,7 @@ export const useAgentStore = create<State>((set) => ({
       streaming: false,
       events: [],
       error: null,
+      workflowRun: null,
       agentLogs: [],
     }),
 }));
