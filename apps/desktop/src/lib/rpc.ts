@@ -5,7 +5,7 @@ import { tauriShellStdioTransport } from "kkrpc/tauri";
 import { useAgentStore } from "../stores/agent";
 
 type FrontendApi = {
-  onEvent(event: { type: string; toolName?: string; error?: string }): Promise<void>;
+  onEvent(event: any): Promise<void>;
 };
 
 let agent: AgentApi | null = null;
@@ -27,14 +27,39 @@ export async function initializeRpc(): Promise<AgentApi> {
   channel = new RPCChannel<FrontendApi, AgentApi>(transport, {
     expose: {
       async onEvent(event) {
-        store.addEvent({
-          type: event.type as AgentEvent["type"],
-          requestId: "",
-          toolName: event.toolName ?? "",
-          error: event.error ?? "",
-        } as AgentEvent);
+        // Forward event to native events store
+        store.addEvent(event as AgentEvent);
+
+        // Map events to user-friendly console timeline logs
+        switch (event.type) {
+          case "agent.started":
+            store.addAgentLog({ type: "info", text: "🧠 Agente iniciado" });
+            store.setResult(""); // Clear previous result to start streaming fresh
+            break;
+          case "agent.thought":
+            store.addAgentLog({ type: "thought", text: event.thought });
+            break;
+          case "agent.chunk": {
+            const currentResult = useAgentStore.getState().result || "";
+            store.setResult(currentResult + event.chunk);
+            break;
+          }
+          case "tool.started":
+            store.addAgentLog({ type: "tool_start", text: `🔧 Executando ${event.toolName}...` });
+            break;
+          case "tool.completed":
+            store.addAgentLog({ type: "tool_complete", text: `✅ ${event.toolName} concluído` });
+            break;
+          case "tool.failed":
+            store.addAgentLog({ type: "tool_fail", text: `❌ Falha em ${event.toolName}: ${event.error}` });
+            break;
+          case "agent.completed":
+            store.addAgentLog({ type: "info", text: "✨ Agente concluído" });
+            break;
+        }
       },
     },
+    timeout: 0,
   });
 
   agent = channel.getAPI();
@@ -45,8 +70,13 @@ export async function initializeRpc(): Promise<AgentApi> {
       store.setConnected(true);
     }
 
+    // Load initial tools list
     const tools = await agent.listTools();
     store.setTools(tools);
+
+    // Load settings from database
+    const settings = await agent.getSettings();
+    store.setSettings(settings);
   } catch (err) {
     store.setConnected(false);
     console.error("Failed to connect to agent runtime:", err);

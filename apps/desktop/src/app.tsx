@@ -1,12 +1,18 @@
 import { listen } from "@tauri-apps/api/event";
+import { Cpu, Minimize2, Pin, Settings } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Pet } from "./components/ui/pet";
-import { setAlwaysOnTop as apiSetAlwaysOnTop, setWindowMode, startWindowDrag } from "./lib/window";
+import {
+  setAlwaysOnTop as apiSetAlwaysOnTop,
+  hideWindow,
+  setWindowMode,
+  startWindowDrag,
+} from "./lib/window";
 import { useAgentStore } from "./stores/agent";
 import { CommandPalette } from "./surfaces/command-palette";
 
 export function App() {
-  const { connected, uiMode, setUiMode } = useAgentStore();
+  const { connected, uiMode, setUiMode, settings } = useAgentStore();
   const [alwaysOnTop, setAlwaysOnTopState] = useState(true);
   const dragStart = useRef({ x: 0, y: 0 });
 
@@ -14,6 +20,16 @@ export function App() {
   useEffect(() => {
     apiSetAlwaysOnTop(alwaysOnTop);
   }, [alwaysOnTop]);
+
+  // Sync pet hide visibility lifecycle
+  useEffect(() => {
+    if (settings.hidePet && uiMode === "collapsed") {
+      hideWindow();
+      // Auto expand to expanded mode so that next time the shortcut is pressed, it shows the command palette directly
+      setUiMode("expanded");
+      setWindowMode("expanded");
+    }
+  }, [settings.hidePet, uiMode, setUiMode]);
 
   // Listen to tray-click event emitted from Rust
   useEffect(() => {
@@ -40,8 +56,16 @@ export function App() {
   };
 
   const handleCollapse = async () => {
-    setUiMode("collapsed");
-    await setWindowMode("collapsed");
+    if (settings.hidePet) {
+      setUiMode("collapsed");
+      await hideWindow();
+      // Instantly reset mode to expanded for next launch
+      setUiMode("expanded");
+      await setWindowMode("expanded");
+    } else {
+      setUiMode("collapsed");
+      await setWindowMode("collapsed");
+    }
   };
 
   const toggleAlwaysOnTop = () => {
@@ -65,7 +89,7 @@ export function App() {
     }
   };
 
-  if (uiMode === "collapsed") {
+  if (uiMode === "collapsed" && !settings.hidePet) {
     return (
       // biome-ignore lint/a11y/useSemanticElements: We need a div here to allow programmatic Tauri window dragging
       <div
@@ -140,21 +164,7 @@ export function App() {
             className={`p-1.5 rounded-md hover:bg-zinc-800/80 transition-colors ${alwaysOnTop ? "text-indigo-400" : "text-zinc-500 hover:text-zinc-300"}`}
             title={alwaysOnTop ? "Fixado no topo" : "Fixar no topo"}
           >
-            <svg
-              className="w-3.5 h-3.5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              role="img"
-            >
-              <title>Toggle Pin always on top</title>
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-              />
-            </svg>
+            <Pin className="w-3.5 h-3.5" />
           </button>
 
           {/* Collapse Button */}
@@ -162,19 +172,9 @@ export function App() {
             type="button"
             onClick={handleCollapse}
             className="p-1.5 rounded-md text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/80 transition-colors"
-            title="Minimizar para o Pet"
+            title={settings.hidePet ? "Ocultar janela" : "Minimizar para o Pet"}
           >
-            <svg
-              className="w-3.5 h-3.5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              role="img"
-            >
-              <title>Collapse window</title>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M18 12H6" />
-            </svg>
+            <Minimize2 className="w-3.5 h-3.5" />
           </button>
         </div>
       </header>

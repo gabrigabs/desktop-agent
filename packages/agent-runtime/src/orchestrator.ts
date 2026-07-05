@@ -138,6 +138,212 @@ export class Orchestrator {
     yield { type: "agent.completed", requestId };
   }
 
+  async runAgent(
+    requestId: string,
+    query: string,
+    clipboardText: string,
+    emit: (event: AgentEvent) => void,
+    getLlmProviderFn: () => any,
+    getActiveModelFn: () => string,
+  ): Promise<string> {
+    emit({ type: "agent.started", requestId });
+
+    const provider = getLlmProviderFn();
+    const model = getActiveModelFn() || "gpt-4o";
+
+    const tools = registry.list();
+    const toolsList = tools.map((t) => `- ${t.name}: ${t.description}`).join("\n");
+
+    const systemPrompt = `Você é o "AI Desktop Core", um agente inteligente rodando no desktop do usuário.
+Você tem acesso ao clipboard do sistema e a ferramentas locais.
+
+Seu objetivo é ajudar o usuário com seu comando.
+Analise a requisição do usuário e o conteúdo do clipboard.
+Se precisar usar uma ferramenta para processar o clipboard, selecione a ferramenta apropriada no JSON de resposta.
+Se não precisar de nenhuma ferramenta, ou se já tiver o resultado final, forneça a resposta diretamente preenchendo o campo "directResponse".
+
+Ferramentas disponíveis:
+${toolsList}
+
+IMPORTANTE: Você deve responder ESTRITAMENTE com um objeto JSON no formato abaixo, sem blocos de código markdown ou texto extra:
+{
+  "thought": "Explicação passo a passo do que você está fazendo",
+  "toolName": "nome.da.ferramenta" ou null,
+  "toolInput": { ... argumentos da ferramenta ... } ou null,
+  "directResponse": "sua resposta final legível para o usuário" ou null
+}
+`;
+
+    const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
+      { role: "system", content: systemPrompt },
+      {
+        role: "user",
+        content: `Comando do usuário: "${query}"\nConteúdo do clipboard: "${clipboardText}"`,
+      },
+    ];
+
+    let steps = 0;
+    const maxSteps = 5;
+    let finalResult = "";
+
+    while (steps < maxSteps) {
+      steps++;
+
+      if (provider.name === "mock") {
+        emit({ type: "agent.thought", requestId, thought: "Analisando comando no modo mock..." });
+        await new Promise((r) => setTimeout(r, 600));
+
+        let selectedTool = "";
+        const normalizedQuery = query.toLowerCase();
+        if (
+          normalizedQuery.includes("melhor") ||
+          normalizedQuery.includes("rewrite") ||
+          normalizedQuery.includes("corrig")
+        ) {
+          selectedTool = "text.rewrite";
+        } else if (normalizedQuery.includes("resum")) {
+          selectedTool = "text.summarize";
+        } else if (normalizedQuery.includes("traduz")) {
+          selectedTool = "text.translate";
+        }
+
+        if (selectedTool) {
+          emit({
+            type: "agent.thought",
+            requestId,
+            thought: `Executando ferramenta ${selectedTool} para a requisição: ${query}`,
+          });
+          await new Promise((r) => setTimeout(r, 600));
+          const executionResult = await this.execute(requestId, selectedTool, {
+            text: clipboardText,
+            instruction: query,
+          });
+          const text =
+            (executionResult.result.output as any).rewritten ||
+            (executionResult.result.output as any).summary ||
+            (executionResult.result.output as any).translation ||
+            JSON.stringify(executionResult.result.output);
+
+          const words = text.split(" ");
+          let acc = "";
+          for (const word of words) {
+            acc += word + " ";
+            emit({ type: "agent.chunk", requestId, chunk: word + " " });
+            await new Promise((r) => setTimeout(r, 20));
+          }
+          finalResult = acc;
+        } else {
+          const text = `[Mock] Executado com sucesso. Comando: "${query}". Clipboard: "${clipboardText.slice(0, 50)}".`;
+          const words = text.split(" ");
+          let acc = "";
+          for (const word of words) {
+            acc += word + " ";
+            emit({ type: "agent.chunk", requestId, chunk: word + " " });
+            await new Promise((r) => setTimeout(r, 20));
+          }
+          finalResult = acc;
+        }
+        break;
+      }
+
+      emit({ type: "agent.thought", requestId, thought: "Pensando na próxima ação..." });
+      const res = await provider.complete({
+        model,
+        messages,
+        temperature: 0.2,
+      });
+
+      const responseText = res.content.trim();
+      let parsed: {
+        thought: string;
+        toolName: string | null;
+        toolInput: any;
+        directResponse: string | null;
+      };
+
+      try {
+        const jsonText = responseText
+          .replace(/```json/g, "")
+          .replace(/```/g, "")
+          .trim();
+        parsed = JSON.parse(jsonText);
+      } catch (err) {
+        console.error("Failed to parse agent JSON response:", responseText, err);
+        parsed = {
+          thought: "Falha ao analisar JSON. Tratando como resposta direta.",
+          toolName: null,
+          toolInput: null,
+          directResponse: responseText,
+        };
+      }
+
+      if (parsed.thought) {
+        emit({ type: "agent.thought", requestId, thought: parsed.thought });
+      }
+
+      if (parsed.toolName) {
+        emit({ type: "agent.thought", requestId, thought: `Executando ferramenta: ${parsed.toolName}` });
+        try {
+          const execution = await this.execute(requestId, parsed.toolName, parsed.toolInput);
+          const outputString = JSON.stringify(execution.result.output);
+
+          messages.push({
+            role: "assistant",
+            content: JSON.stringify(parsed),
+          });
+          messages.push({
+            role: "user",
+            content: `Resultado da ferramenta ${parsed.toolName}: ${outputString}`,
+          });
+        } catch (toolErr) {
+          const errorMsg = toolErr instanceof Error ? toolErr.message : String(toolErr);
+          messages.push({
+            role: "assistant",
+            content: JSON.stringify(parsed),
+          });
+          messages.push({
+            role: "user",
+            content: `Erro ao executar ferramenta ${parsed.toolName}: ${errorMsg}`,
+          });
+        }
+      } else {
+        emit({ type: "agent.thought", requestId, thought: "Gerando resposta final com streaming..." });
+        const finalMessages = [
+          {
+            role: "system",
+            content: "Você é o AI Desktop Core. Escreva a resposta final direta para o usuário baseando-se no histórico e na requisição do usuário. Escreva em formato Markdown claro e objetivo, sem encapsular em blocos de código JSON."
+          },
+          ...messages.slice(1),
+          {
+            role: "assistant",
+            content: parsed.thought ? `Pensamento: ${parsed.thought}` : ""
+          }
+        ];
+
+        let accumulatedText = "";
+        for await (const chunk of provider.stream({
+          model,
+          messages: finalMessages,
+          temperature: 0.3
+        })) {
+          if (chunk.content) {
+            accumulatedText += chunk.content;
+            emit({ type: "agent.chunk", requestId, chunk: chunk.content });
+          }
+        }
+        finalResult = accumulatedText || parsed.directResponse || responseText;
+        break;
+      }
+    }
+
+    if (!finalResult) {
+      finalResult = "Não foi possível obter uma resposta do agente.";
+    }
+
+    emit({ type: "agent.completed", requestId });
+    return finalResult;
+  }
+
   shutdown(): void {
     closeDb();
   }

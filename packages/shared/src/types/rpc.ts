@@ -20,6 +20,8 @@ export type RpcError = {
 
 export type AgentEvent =
   | { type: "agent.started"; requestId: string }
+  | { type: "agent.thought"; requestId: string; thought: string }
+  | { type: "agent.chunk"; requestId: string; chunk: string }
   | { type: "tool.started"; requestId: string; toolName: string }
   | { type: "tool.completed"; requestId: string; toolName: string }
   | { type: "tool.failed"; requestId: string; toolName: string; error: string }
@@ -101,4 +103,13 @@ export type AuditEntry = {
   durationMs: number;
   success: boolean;
   errorMessage?: string;
+};
+
+export type AppSettings = {
+  activeProvider: string;
+  apiKey: string;
+  baseUrl: string;
+  model: string;
+  hidePet: boolean;
+  timeout: number;
 };

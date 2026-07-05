@@ -99,13 +99,13 @@ A assinatura deve ser uma "barra de sinais" fina ligada ao pet: uma linha viva q
 - [x] Ler objetivo do goal.
 - [x] Pesquisar padroes externos.
 - [x] Ler estrutura local do app.
-- [ ] Commitar este backlog.
+- [x] Commitar este backlog.
 
 ### P1 - Atalho e copia de interface
 
-- [ ] Alterar atalho global em Rust de `Alt/Option + Space` para `Control + Shift + Space`.
-- [ ] Atualizar todos os textos de UI que mencionam `Option + Space`.
-- [ ] Se possivel, centralizar label do atalho para evitar divergencia futura.
+- [x] Alterar atalho global em Rust de `Alt/Option + Space` para `Control + Shift + Space`.
+- [x] Atualizar todos os textos de UI que mencionam `Option + Space`.
+- [x] Se possivel, centralizar label do atalho para evitar divergencia futura.
 - [ ] Validar que tray ainda abre/foca a janela.
 
 ### P1 - Redesign do shell

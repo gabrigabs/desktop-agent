@@ -8,12 +8,14 @@ export type ProviderFactoryConfig =
   | {
       kind: "pinstripes";
       apiKey: string;
+      timeout?: number;
     }
   | {
       kind: "openai-compatible";
       apiKey: string;
       baseUrl?: string;
       name?: string;
+      timeout?: number;
     };
 
 export function createProvider(config: ProviderFactoryConfig): LlmProvider {
@@ -26,6 +28,7 @@ export function createProvider(config: ProviderFactoryConfig): LlmProvider {
         kind: "pinstripes",
         apiKey: config.apiKey,
         baseUrl: "https://api.pinstripes.io/v1",
+        timeout: config.timeout,
       });
     case "openai-compatible":
       return new OpenAICompatibleProvider(config);

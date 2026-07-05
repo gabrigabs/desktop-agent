@@ -56,7 +56,7 @@ desktop-agent/
 ## MVP Flow
 
 ```
-Copy text → Cmd+Space → type "melhore isso" → Enter
+Copy text → Control+Shift+Space → type "melhore isso" → Enter
   → Agent reads clipboard
   → Executes text.rewrite tool
   → Provider generates response

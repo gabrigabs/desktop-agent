@@ -1,6 +1,7 @@
 export type { AgentApi } from "./api";
 export type {
   AgentEvent,
+  AppSettings,
   AuditEntry,
   CompletionChunk,
   CompletionInput,

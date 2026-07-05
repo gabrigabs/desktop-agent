@@ -9,6 +9,7 @@ export class OpenAICompatibleProvider implements LlmProvider {
   private apiKey: string;
   private baseUrl: string;
   private fetchFn: FetchFn;
+  private timeout: number;
 
   constructor(config: {
     name?: string;
@@ -16,12 +17,14 @@ export class OpenAICompatibleProvider implements LlmProvider {
     apiKey: string;
     baseUrl?: string;
     fetchFn?: FetchFn;
+    timeout?: number;
   }) {
     this.name = config.name ?? "openai-compatible";
     this.kind = config.kind ?? "openai-compatible";
     this.apiKey = config.apiKey;
     this.baseUrl = config.baseUrl ?? "https://api.openai.com/v1";
     this.fetchFn = config.fetchFn ?? globalThis.fetch;
+    this.timeout = config.timeout ?? 120000; // Default 120s
   }
 
   async complete(input: CompletionInput): Promise<CompletionOutput> {
@@ -31,6 +34,7 @@ export class OpenAICompatibleProvider implements LlmProvider {
         "Content-Type": "application/json",
         Authorization: `Bearer ${this.apiKey}`,
       },
+      signal: AbortSignal.timeout(this.timeout),
       body: JSON.stringify({
         model: input.model,
         messages: input.messages,
@@ -69,6 +73,7 @@ export class OpenAICompatibleProvider implements LlmProvider {
         "Content-Type": "application/json",
         Authorization: `Bearer ${this.apiKey}`,
       },
+      signal: AbortSignal.timeout(this.timeout),
       body: JSON.stringify({
         model: input.model,
         messages: input.messages,
@@ -105,13 +110,14 @@ export class OpenAICompatibleProvider implements LlmProvider {
           }
 
           const parsed = JSON.parse(json) as {
-            choices: {
-              delta: { content?: string };
-              finish_reason: string | null;
+            choices?: {
+              delta?: { content?: string };
+              finish_reason?: string | null;
             }[];
           };
-          const delta = parsed.choices[0]?.delta.content ?? "";
-          const isDone = parsed.choices[0]?.finish_reason != null;
+          const choice = parsed.choices?.[0];
+          const delta = choice?.delta?.content ?? "";
+          const isDone = choice?.finish_reason != null;
 
           if (delta) {
             yield { content: delta, done: isDone };

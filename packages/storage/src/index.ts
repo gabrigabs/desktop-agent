@@ -5,3 +5,8 @@ export {
   getRecentInteractions,
   searchInteractions,
 } from "./repositories/interactions";
+export {
+  getAllSettings,
+  getSetting,
+  setSetting,
+} from "./repositories/settings";

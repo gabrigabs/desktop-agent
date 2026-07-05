@@ -1,7 +1,7 @@
 mod sidecar;
 
 use tauri::Manager;
-use tauri_plugin_global_shortcut::ShortcutState;
+use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 pub fn run() {
     tauri::Builder::default()
@@ -29,6 +29,10 @@ pub fn run() {
             {
                 app.set_activation_policy(tauri::ActivationPolicy::Accessory);
             }
+
+            // Register global shortcut: Control+Shift+Space
+            let shortcut = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::Space);
+            let _ = app.global_shortcut().register(shortcut);
 
             // Setup System Tray Icon
             let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/32x32.png")).expect("failed to load tray icon");

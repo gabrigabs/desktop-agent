@@ -1,4 +1,4 @@
-import type { AgentEvent, ProviderConfig, ToolResult } from "./types/rpc";
+import type { AgentEvent, AppSettings, ProviderConfig, ToolResult } from "./types/rpc";
 
 export type AgentApi = {
   ping(): Promise<{ status: string }>;
@@ -9,5 +9,12 @@ export type AgentApi = {
   listTools(): Promise<{ name: string; description: string; category: string }[]>;
   getProviders(): Promise<ProviderConfig[]>;
   getHistory(input?: { limit?: number }): Promise<unknown[]>;
+  getSettings(): Promise<AppSettings>;
+  saveSettings(settings: AppSettings): Promise<void>;
+  fetchModels(provider: string, apiKey: string, baseUrl?: string): Promise<string[]>;
+  runAgent(input: { requestId: string; query: string; clipboardText: string }): Promise<{
+    result: string;
+    events: AgentEvent[];
+  }>;
   shutdown(): Promise<void>;
 };

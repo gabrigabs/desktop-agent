@@ -75,4 +75,11 @@ export function runMigrations(db: Database): void {
       models TEXT NOT NULL DEFAULT '[]'
     )
   `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    )
+  `);
 }

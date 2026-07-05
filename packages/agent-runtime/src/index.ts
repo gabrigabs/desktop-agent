@@ -1,10 +1,12 @@
 import { RPCChannel } from "kkrpc";
 import { nodeStdioTransport } from "kkrpc/stdio";
-import { agentApi } from "./api";
+import { agentApi, setClientApi } from "./api";
 
 function main() {
   const transport = nodeStdioTransport();
-  const channel = new RPCChannel(transport, { expose: agentApi });
+  const channel = new RPCChannel(transport, { expose: agentApi, timeout: 0 });
+
+  setClientApi(channel.getAPI());
 
   process.on("SIGTERM", () => {
     agentApi.shutdown();
