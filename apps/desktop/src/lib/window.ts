@@ -20,15 +20,22 @@ export async function setWindowMode(mode: "collapsed" | "expanded" | "workspace"
     const appWindow = getCurrentWindow();
     const size = WINDOW_SIZES[mode];
 
-    // Garante que a janela está temporariamente redimensionável para aplicar o novo tamanho
+    // Garante que a janela está temporariamente redimensionável para aplicar o novo tamanho.
     await appWindow.setResizable(true);
+    if (mode !== "workspace") {
+      await appWindow.unmaximize();
+    }
     await appWindow.setSize(new LogicalSize(size.width, size.height));
 
-    // Aguarda um curto intervalo para que a animação/redimensionamento do SO termine antes de travar a janela
+    if (mode === "workspace") {
+      await appWindow.maximize();
+    }
+
+    // Aguarda um curto intervalo para que a animação/redimensionamento do SO termine antes de travar a janela.
     await new Promise((r) => setTimeout(r, 150));
 
-    // Desabilita redimensionamento manual pelo usuário para manter o design pixel-perfect
-    await appWindow.setResizable(false);
+    // No workspace, manter a janela redimensionável evita crop quando o SO ajusta dimensões.
+    await appWindow.setResizable(mode === "workspace");
 
     // Configura o comportamento de foco
     if (mode === "expanded" || mode === "workspace") {

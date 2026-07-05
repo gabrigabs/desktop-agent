@@ -241,6 +241,9 @@ export function CommandPalette() {
   const [copied, setCopied] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
   const [testingConnectorId, setTestingConnectorId] = useState<string | null>(null);
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window === "undefined" ? 480 : window.innerWidth,
+  );
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -255,6 +258,16 @@ export function CommandPalette() {
       setFormTimeout(settings.timeout || 120);
     }
   }, [showSettings, settings]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setViewportWidth(window.innerWidth);
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const refreshCapabilities = useCallback(async () => {
     try {
@@ -634,7 +647,8 @@ export function CommandPalette() {
   const workflowSteps = workflowRun?.steps ?? [];
   const approval = workflowRun?.approval;
   const visibleConnectors = connectors.slice(0, 7);
-  const workspaceMode = uiMode === "workspace";
+  const workspaceRequested = uiMode === "workspace";
+  const workspaceMode = workspaceRequested && viewportWidth >= 760;
 
   return (
     <div className="flex flex-col h-full w-full bg-zinc-950/20 text-zinc-100 font-sans relative">
