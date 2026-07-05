@@ -5,7 +5,7 @@ import { tauriShellStdioTransport } from "kkrpc/tauri";
 import { useAgentStore } from "../stores/agent";
 
 type FrontendApi = {
-  onEvent(event: any): Promise<void>;
+  onEvent(event: AgentEvent): Promise<void>;
 };
 
 let agent: AgentApi | null = null;
@@ -78,7 +78,12 @@ export async function initializeRpc(): Promise<AgentApi> {
           case "workflow.completed":
             store.setWorkflowStatus(event.status);
             store.addAgentLog({
-              type: event.status === "completed" ? "info" : event.status === "waiting_approval" ? "thought" : "tool_fail",
+              type:
+                event.status === "completed"
+                  ? "info"
+                  : event.status === "waiting_approval"
+                    ? "thought"
+                    : "tool_fail",
               text:
                 event.status === "completed"
                   ? "Workflow concluído"
@@ -125,8 +130,12 @@ export async function initializeRpc(): Promise<AgentApi> {
     const settings = await agent.getSettings();
     store.setSettings(settings);
 
-    const capabilities = await agent.listCapabilities();
-    store.setConnectors(capabilities.connectors);
+    try {
+      const capabilities = await agent.listCapabilities();
+      store.setConnectors(capabilities.connectors);
+    } catch (err) {
+      console.error("Failed to load agent capabilities:", err);
+    }
   } catch (err) {
     store.setConnected(false);
     console.error("Failed to connect to agent runtime:", err);

@@ -11,7 +11,7 @@ export type WebToolContext = {
 const searchSchema = z.object({
   query: z.string().min(1),
   maxResults: z.number().int().min(1).max(20).optional(),
-  provider: z.enum(["auto", "brave", "tavily"]).optional(),
+  provider: z.enum(["auto", "brave", "tavily", "jina"]).optional(),
   apiKey: z.string().optional(),
 });
 
@@ -19,7 +19,7 @@ const extractSchema = z.object({
   url: z.string().url(),
   maxCharacters: z.number().int().min(500).max(20000).optional(),
   apiKey: z.string().optional(),
-  provider: z.enum(["local", "firecrawl"]).optional(),
+  provider: z.enum(["local", "firecrawl", "jina"]).optional(),
 });
 
 const crawlSchema = z.object({
@@ -52,13 +52,17 @@ function htmlToText(html: string) {
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, "\"")
+    .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'");
 
   return {
     title: normalizeWhitespace(title),
     text: normalizeWhitespace(body),
   };
+}
+
+function authHeaders(apiKey?: string): Record<string, string> {
+  return apiKey ? { authorization: `Bearer ${apiKey}` } : {};
 }
 
 function extractLinks(baseUrl: string, html: string) {
@@ -72,9 +76,7 @@ function extractLinks(baseUrl: string, html: string) {
       if (url.origin === base.origin && (url.protocol === "http:" || url.protocol === "https:")) {
         links.add(url.toString());
       }
-    } catch {
-      continue;
-    }
+    } catch {}
   }
   return Array.from(links);
 }
@@ -93,7 +95,9 @@ async function localExtract(ctx: WebToolContext | undefined, url: string, maxCha
 
   const contentType = res.headers.get("content-type") ?? "";
   const raw = await res.text();
-  const parsed = contentType.includes("html") ? htmlToText(raw) : { title: "", text: normalizeWhitespace(raw) };
+  const parsed = contentType.includes("html")
+    ? htmlToText(raw)
+    : { title: "", text: normalizeWhitespace(raw) };
 
   return {
     url,
@@ -104,7 +108,12 @@ async function localExtract(ctx: WebToolContext | undefined, url: string, maxCha
   };
 }
 
-async function firecrawlExtract(ctx: WebToolContext | undefined, url: string, apiKey: string, maxCharacters: number) {
+async function firecrawlExtract(
+  ctx: WebToolContext | undefined,
+  url: string,
+  apiKey: string,
+  maxCharacters: number,
+) {
   const fetcher = getFetch(ctx);
   const res = await fetcher("https://api.firecrawl.dev/v2/scrape", {
     method: "POST",
@@ -135,7 +144,46 @@ async function firecrawlExtract(ctx: WebToolContext | undefined, url: string, ap
   };
 }
 
-async function braveSearch(ctx: WebToolContext | undefined, query: string, apiKey: string, maxResults: number) {
+async function jinaExtract(
+  ctx: WebToolContext | undefined,
+  url: string,
+  apiKey: string | undefined,
+  maxCharacters: number,
+) {
+  const fetcher = getFetch(ctx);
+  const res = await fetcher(`https://r.jina.ai/${url}`, {
+    headers: {
+      accept: "text/plain",
+      ...authHeaders(apiKey),
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Jina Reader retornou HTTP ${res.status}`);
+  }
+
+  const content = await res.text();
+  const normalized = normalizeWhitespace(content);
+  return {
+    url,
+    title:
+      normalized
+        .split("\n")
+        .find((line) => line.startsWith("Title:"))
+        ?.replace("Title:", "")
+        .trim() ?? "",
+    content: normalized.slice(0, maxCharacters),
+    truncated: normalized.length > maxCharacters,
+    provider: "jina",
+  };
+}
+
+async function braveSearch(
+  ctx: WebToolContext | undefined,
+  query: string,
+  apiKey: string,
+  maxResults: number,
+) {
   const fetcher = getFetch(ctx);
   const res = await fetcher(
     `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=${maxResults}`,
@@ -167,7 +215,12 @@ async function braveSearch(ctx: WebToolContext | undefined, query: string, apiKe
   };
 }
 
-async function tavilySearch(ctx: WebToolContext | undefined, query: string, apiKey: string, maxResults: number) {
+async function tavilySearch(
+  ctx: WebToolContext | undefined,
+  query: string,
+  apiKey: string,
+  maxResults: number,
+) {
   const fetcher = getFetch(ctx);
   const res = await fetcher("https://api.tavily.com/search", {
     method: "POST",
@@ -198,18 +251,61 @@ async function tavilySearch(ctx: WebToolContext | undefined, query: string, apiK
   };
 }
 
+async function jinaSearch(
+  ctx: WebToolContext | undefined,
+  query: string,
+  apiKey: string | undefined,
+  maxResults: number,
+) {
+  const fetcher = getFetch(ctx);
+  const searchUrl = `https://s.jina.ai/${encodeURIComponent(query)}`;
+  const res = await fetcher(searchUrl, {
+    headers: {
+      accept: "text/plain",
+      ...authHeaders(apiKey),
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Jina Search retornou HTTP ${res.status}`);
+  }
+
+  const content = await res.text();
+  return {
+    provider: "jina",
+    results: [
+      {
+        title: `Busca Jina: ${query}`,
+        url: searchUrl,
+        snippet: content.slice(0, 4000),
+      },
+    ].slice(0, maxResults),
+    content,
+  };
+}
+
 export function createWebSearchTool(ctx?: WebToolContext): RegisteredTool {
   return {
     name: "web.search",
-    description: "Busca na web usando Brave/Tavily quando uma chave estiver configurada",
+    description: "Busca na web usando Brave/Tavily quando houver chave e Jina Search como fallback",
     category: "web",
     permissionLevel: "network",
     inputSchema: searchSchema,
     async handler(input) {
       const parsed = searchSchema.parse(input);
       const maxResults = parsed.maxResults ?? 5;
-      const braveKey = parsed.provider !== "tavily" ? parsed.apiKey || getEnv(ctx, "BRAVE_API_KEY") : "";
-      const tavilyKey = parsed.provider !== "brave" ? parsed.apiKey || getEnv(ctx, "TAVILY_API_KEY") : "";
+      const braveKey =
+        parsed.provider !== "tavily" && parsed.provider !== "jina"
+          ? parsed.apiKey || getEnv(ctx, "BRAVE_API_KEY")
+          : "";
+      const tavilyKey =
+        parsed.provider !== "brave" && parsed.provider !== "jina"
+          ? parsed.apiKey || getEnv(ctx, "TAVILY_API_KEY")
+          : "";
+      const jinaKey =
+        parsed.provider !== "brave" && parsed.provider !== "tavily"
+          ? parsed.apiKey || getEnv(ctx, "JINA_API_KEY")
+          : "";
 
       if (braveKey) {
         return braveSearch(ctx, parsed.query, braveKey, maxResults);
@@ -218,11 +314,7 @@ export function createWebSearchTool(ctx?: WebToolContext): RegisteredTool {
         return tavilySearch(ctx, parsed.query, tavilyKey, maxResults);
       }
 
-      return {
-        provider: "none",
-        results: [],
-        message: "Configure BRAVE_API_KEY ou TAVILY_API_KEY para busca web com plano gratuito/generoso.",
-      };
+      return jinaSearch(ctx, parsed.query, jinaKey, maxResults);
     },
   };
 }
@@ -230,17 +322,22 @@ export function createWebSearchTool(ctx?: WebToolContext): RegisteredTool {
 export function createWebExtractTool(ctx?: WebToolContext): RegisteredTool {
   return {
     name: "web.extract",
-    description: "Extrai texto limpo de uma página web, localmente por padrão",
+    description: "Extrai texto limpo de uma página web localmente, via Jina Reader ou Firecrawl opcional",
     category: "web",
     permissionLevel: "network",
     inputSchema: extractSchema,
     async handler(input) {
       const parsed = extractSchema.parse(input);
       const maxCharacters = parsed.maxCharacters ?? 6000;
-      const firecrawlKey = parsed.provider === "firecrawl" ? parsed.apiKey || getEnv(ctx, "FIRECRAWL_API_KEY") : "";
+      const firecrawlKey =
+        parsed.provider === "firecrawl" ? parsed.apiKey || getEnv(ctx, "FIRECRAWL_API_KEY") : "";
+      const jinaKey = parsed.provider === "jina" ? parsed.apiKey || getEnv(ctx, "JINA_API_KEY") : "";
 
       if (parsed.provider === "firecrawl" && firecrawlKey) {
         return firecrawlExtract(ctx, parsed.url, firecrawlKey, maxCharacters);
+      }
+      if (parsed.provider === "jina") {
+        return jinaExtract(ctx, parsed.url, jinaKey, maxCharacters);
       }
 
       return localExtract(ctx, parsed.url, maxCharacters);

@@ -21,9 +21,7 @@ function parseJson<T>(value: unknown, fallback: T): T {
 }
 
 function maskEnv(env: Record<string, string>): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(env).map(([key, value]) => [key, value ? "********" : ""]),
-  );
+  return Object.fromEntries(Object.entries(env).map(([key, value]) => [key, value ? "********" : ""]));
 }
 
 export function upsertMcpServer(
@@ -146,14 +144,14 @@ export function ensureDefaultMcpPresets(db: Database): void {
       id: "filesystem-scoped",
       name: "Filesystem escopado",
       command: "npx",
-      args: ["-y", "@modelcontextprotocol/server-filesystem", "${HOME}/Desktop"],
+      args: ["-y", "@modelcontextprotocol/server-filesystem", "$HOME/Desktop"],
       permissionPolicy: ["local.read", "local.write"],
     },
     {
       id: "sqlite-readonly",
       name: "SQLite read-only",
       command: "uvx",
-      args: ["mcp-server-sqlite", "--db-path", "${HOME}/.desktop-agent/data.db"],
+      args: ["mcp-server-sqlite", "--db-path", "$HOME/.desktop-agent/data.db"],
       permissionPolicy: ["local.read"],
     },
     {
@@ -187,6 +185,14 @@ export function ensureDefaultMcpPresets(db: Database): void {
       args: ["-y", "firecrawl-mcp"],
       env: { FIRECRAWL_API_KEY: "" },
       permissionPolicy: ["network", "external"],
+    },
+    {
+      id: "jina-reader",
+      name: "Jina Reader/Search",
+      command: "direct",
+      args: ["r.jina.ai", "s.jina.ai"],
+      env: { JINA_API_KEY: "" },
+      permissionPolicy: ["network"],
     },
   ];
 

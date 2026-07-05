@@ -6,11 +6,6 @@ export {
   searchInteractions,
 } from "./repositories/interactions";
 export {
-  getAllSettings,
-  getSetting,
-  setSetting,
-} from "./repositories/settings";
-export {
   createMcpServer,
   deleteMcpServer,
   ensureDefaultMcpPresets,
@@ -19,6 +14,11 @@ export {
   updateMcpServerStatus,
   upsertMcpServer,
 } from "./repositories/mcp-servers";
+export {
+  getAllSettings,
+  getSetting,
+  setSetting,
+} from "./repositories/settings";
 export {
   createWorkflowRun,
   createWorkflowStep,

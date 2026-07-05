@@ -1,8 +1,8 @@
 export type { AgentApi, SaveMcpServerInput } from "./api";
 export type {
   AgentEvent,
-  AppSettings,
   ApprovalRequest,
+  AppSettings,
   AuditEntry,
   CompletionChunk,
   CompletionInput,
@@ -14,10 +14,10 @@ export type {
   PermissionLevel,
   ProviderConfig,
   ProviderKind,
-  RunStatus,
   RpcError,
   RpcRequest,
   RpcResponse,
+  RunStatus,
   ToolChunk,
   ToolDefinition,
   ToolResult,

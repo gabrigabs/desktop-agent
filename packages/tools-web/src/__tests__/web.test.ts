@@ -5,9 +5,12 @@ describe("web tools", () => {
   test("extracts text from html with injected fetch", async () => {
     const tool = createWebExtractTool({
       fetch: async () =>
-        new Response("<html><head><title>Example</title></head><body><h1>Hello</h1><script>bad()</script><p>World</p></body></html>", {
-          headers: { "content-type": "text/html" },
-        }),
+        new Response(
+          "<html><head><title>Example</title></head><body><h1>Hello</h1><script>bad()</script><p>World</p></body></html>",
+          {
+            headers: { "content-type": "text/html" },
+          },
+        ),
     });
 
     const result = (await tool.handler({ url: "https://example.com", maxCharacters: 500 })) as {
@@ -23,16 +26,19 @@ describe("web tools", () => {
     expect(result.provider).toBe("local");
   });
 
-  test("returns configuration guidance when search keys are missing", async () => {
-    const tool = createWebSearchTool({ getEnv: () => undefined });
+  test("falls back to Jina Search when search keys are missing", async () => {
+    const tool = createWebSearchTool({
+      getEnv: () => undefined,
+      fetch: async (input) => new Response(`Jina result for ${String(input)}`),
+    });
     const result = (await tool.handler({ query: "desktop agent" })) as {
       provider: string;
-      results: unknown[];
-      message: string;
+      results: Array<{ snippet: string; url: string }>;
+      content: string;
     };
 
-    expect(result.provider).toBe("none");
-    expect(result.results).toEqual([]);
-    expect(result.message).toContain("BRAVE_API_KEY");
+    expect(result.provider).toBe("jina");
+    expect(result.results[0]?.url).toContain("https://s.jina.ai/");
+    expect(result.content).toContain("Jina result");
   });
 });

@@ -1,6 +1,7 @@
 import { execSync, spawn } from "node:child_process";
+import type { LlmProvider } from "@desktop-agent/provider-gateway";
 import { createProvider } from "@desktop-agent/provider-gateway";
-import type { AgentApi, AgentEvent, AppSettings, WorkflowRun } from "@desktop-agent/shared";
+import type { AgentApi, AgentEvent, AppSettings, CompletionInput, WorkflowRun } from "@desktop-agent/shared";
 import {
   createInteraction,
   createMcpServer as createStoredMcpServer,
@@ -28,10 +29,14 @@ import { createWebCrawlTool, createWebExtractTool, createWebSearchTool } from "@
 import { Orchestrator } from "./orchestrator";
 import { WorkflowRunner } from "./workflow-runner";
 
+type ClientApi = {
+  onEvent(event: AgentEvent): Promise<void>;
+};
+
 // Client API reference for streaming events
-let clientApi: any = null;
-export function setClientApi(api: any) {
-  clientApi = api;
+let clientApi: ClientApi | null = null;
+export function setClientApi(api: unknown) {
+  clientApi = api as ClientApi;
 }
 
 const runningRequests = new Map<string, AbortController>();
@@ -109,20 +114,20 @@ function getLlmProvider() {
 }
 
 // Proxy provider that dynamically resolves to the active provider on every call
-const proxyProvider = {
+const proxyProvider: LlmProvider = {
   get name() {
     return getLlmProvider().name;
   },
   get kind() {
     return getLlmProvider().kind;
   },
-  complete(input: any) {
+  complete(input: CompletionInput) {
     return getLlmProvider().complete(input);
   },
-  stream(input: any) {
+  stream(input: CompletionInput) {
     return getLlmProvider().stream(input);
   },
-} as any;
+};
 
 // Get dynamic context for text tools
 const ctx = {
@@ -146,6 +151,7 @@ registry.register(createOcrImageTool());
 registry.register(createScreenshotOcrTool());
 
 const orchestrator = new Orchestrator({ provider: proxyProvider });
+ensureMcpReady();
 
 export type { AgentApi };
 
@@ -164,7 +170,7 @@ function formatAgentInputPreview(query: string, clipboardText?: string) {
 
 function emitToClient(event: AgentEvent) {
   if (clientApi?.onEvent) {
-    clientApi.onEvent(event).catch((err: any) => {
+    clientApi.onEvent(event).catch((err: unknown) => {
       console.error("Failed to emit event to client:", err);
     });
   }
@@ -366,15 +372,17 @@ export const agentApi: AgentApi = {
 
   async saveMcpServer({ server }) {
     const db = getDb();
-    const id = server.id ?? createStoredMcpServer(db, {
-      name: server.name,
-      command: server.command,
-      args: server.args,
-      env: server.env,
-      enabled: server.enabled,
-      preset: server.preset,
-      permissionPolicy: server.permissionPolicy,
-    });
+    const id =
+      server.id ??
+      createStoredMcpServer(db, {
+        name: server.name,
+        command: server.command,
+        args: server.args,
+        env: server.env,
+        enabled: server.enabled,
+        preset: server.preset,
+        permissionPolicy: server.permissionPolicy,
+      });
 
     if (server.id) {
       const existing = getStoredMcpServer(db, server.id, true);
@@ -485,11 +493,11 @@ export const agentApi: AgentApi = {
     const toolName = clipboardText?.trim() ? "agent.clipboard" : "agent.chat";
     const controller = new AbortController();
     runningRequests.set(requestId, controller);
-    const events: any[] = [];
-    const emit = (event: any) => {
+    const events: AgentEvent[] = [];
+    const emit = (event: AgentEvent) => {
       events.push(event);
       if (clientApi?.onEvent) {
-        clientApi.onEvent(event).catch((err: any) => {
+        clientApi.onEvent(event).catch((err: unknown) => {
           console.error("Failed to emit event to client:", err);
         });
       }

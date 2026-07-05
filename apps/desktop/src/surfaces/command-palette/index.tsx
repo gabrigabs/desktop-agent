@@ -116,6 +116,33 @@ const QUICK_ACTIONS = [
 
 const FREE_ACTIONS = [
   {
+    id: "pesquisar-web",
+    label: "Pesquisar web",
+    description: "Jina + fontes",
+    icon: Search,
+    accent: "text-cyan-400",
+    prompt: "Pesquise na web com fontes e próximos passos sobre: ",
+    executionMode: "workflow",
+  },
+  {
+    id: "ler-url",
+    label: "Ler URL",
+    description: "r.jina.ai",
+    icon: Link,
+    accent: "text-emerald-400",
+    prompt: "Leia e extraia os pontos importantes desta URL: ",
+    executionMode: "workflow",
+  },
+  {
+    id: "ocr-tela",
+    label: "Ler tela",
+    description: "OCR com aprovação",
+    icon: Eye,
+    accent: "text-amber-400",
+    prompt: "Use OCR para ler a tela e extrair tarefas acionáveis",
+    executionMode: "workflow",
+  },
+  {
     id: "pergunta",
     label: "Pergunta livre",
     description: "Sem contexto",
@@ -446,8 +473,11 @@ export function CommandPalette() {
     await handleExecute(action.prompt, "clipboard");
   };
 
-  const handleStarterAction = (prompt: string) => {
+  const handleStarterAction = (prompt: string, modeOverride?: "simple" | "workflow") => {
     setInputMode("free");
+    if (modeOverride) {
+      setExecutionMode(modeOverride);
+    }
     setQuery(prompt);
     requestAnimationFrame(() => {
       textareaRef.current?.focus();
@@ -472,7 +502,7 @@ export function CommandPalette() {
 
   const handleToggleConnector = async (connectorId: string) => {
     const connector = connectors.find((item) => item.id === connectorId);
-    if (!connector || !connector.command) return;
+    if (!connector?.command) return;
 
     try {
       const api = await getAgent();
@@ -577,7 +607,8 @@ export function CommandPalette() {
   };
 
   const hasClipboard = clipboardText.trim().length > 0;
-  const taskActive = streaming || result !== null || Boolean(error) || agentLogs.length > 0 || Boolean(workflowRun);
+  const taskActive =
+    streaming || result !== null || Boolean(error) || agentLogs.length > 0 || Boolean(workflowRun);
   const latestLog = agentLogs.length > 0 ? agentLogs[agentLogs.length - 1] : undefined;
   const visibleLogs = agentLogs.slice(-4).reverse();
   const inputModeLabel = inputMode === "clipboard" ? "Interagir com clipboard" : "Conteúdo avulso";
@@ -588,20 +619,22 @@ export function CommandPalette() {
     inputMode === "clipboard"
       ? "Diga o que fazer com o texto copiado."
       : "Pergunte algo, peça um rascunho ou comece por uma ação abaixo.";
-  const taskStatus = workflowRun?.status === "waiting_approval"
-    ? "Aguardando aprovação"
-    : error
-    ? "Algo falhou"
-    : streaming
-      ? latestLog?.type === "tool_start"
-        ? "Usando ferramenta"
-        : "Pensando"
-      : result
-        ? "Resultado pronto"
-        : "Preparando";
+  const taskStatus =
+    workflowRun?.status === "waiting_approval"
+      ? "Aguardando aprovação"
+      : error
+        ? "Algo falhou"
+        : streaming
+          ? latestLog?.type === "tool_start"
+            ? "Usando ferramenta"
+            : "Pensando"
+          : result
+            ? "Resultado pronto"
+            : "Preparando";
   const workflowSteps = workflowRun?.steps ?? [];
   const approval = workflowRun?.approval;
   const visibleConnectors = connectors.slice(0, 7);
+  const workspaceMode = uiMode === "workspace";
 
   return (
     <div className="flex flex-col h-full w-full bg-zinc-950/20 text-zinc-100 font-sans relative">
@@ -683,11 +716,17 @@ export function CommandPalette() {
       </div>
 
       {/* Tab Contents */}
-      <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+      <div className={`flex-1 overflow-y-auto custom-scrollbar ${workspaceMode ? "p-5" : "p-4"}`}>
         {mode === "command" ? (
           taskActive ? (
-            <div className="min-h-full flex flex-col gap-4">
-              <div className="flex items-center justify-between gap-3">
+            <div
+              className={
+                workspaceMode
+                  ? "min-h-full grid grid-cols-[minmax(0,1fr)_340px] gap-4 items-start"
+                  : "min-h-full flex flex-col gap-4"
+              }
+            >
+              <div className={`${workspaceMode ? "col-span-2" : ""} flex items-center justify-between gap-3`}>
                 <button
                   type="button"
                   onClick={handleNewTask}
@@ -789,15 +828,15 @@ export function CommandPalette() {
               </section>
 
               {workflowSteps.length > 0 && (
-                <section className="rounded-xl bg-zinc-950/55 border border-zinc-900/70 p-3 flex flex-col gap-2.5">
+                <section
+                  className={`${workspaceMode ? "col-start-2 row-span-2" : ""} rounded-xl bg-zinc-950/55 border border-zinc-900/70 p-3 flex flex-col gap-2.5`}
+                >
                   <div className="flex items-center justify-between">
                     <div className="text-[10px] text-zinc-500 font-mono uppercase font-bold flex items-center gap-1.5">
                       <Workflow className="w-3.5 h-3.5 text-violet-300" />
                       Timeline
                     </div>
-                    <span className="text-[9px] text-zinc-600 font-mono">
-                      {workflowSteps.length} passos
-                    </span>
+                    <span className="text-[9px] text-zinc-600 font-mono">{workflowSteps.length} passos</span>
                   </div>
                   <div className="grid gap-2">
                     {workflowSteps.map((step) => (
@@ -832,7 +871,9 @@ export function CommandPalette() {
               )}
 
               {approval && (
-                <section className="rounded-xl bg-violet-950/20 border border-violet-800/40 p-3.5 flex flex-col gap-3">
+                <section
+                  className={`${workspaceMode ? "col-start-2" : ""} rounded-xl bg-violet-950/20 border border-violet-800/40 p-3.5 flex flex-col gap-3`}
+                >
                   <div className="flex items-start gap-2.5">
                     <ShieldCheck className="w-4.5 h-4.5 text-violet-300 mt-0.5 shrink-0" />
                     <div className="min-w-0">
@@ -865,7 +906,9 @@ export function CommandPalette() {
               )}
 
               {visibleLogs.length > 0 && (
-                <section className="rounded-xl bg-zinc-950/45 p-3 flex flex-col gap-2">
+                <section
+                  className={`${workspaceMode ? "col-start-2" : ""} rounded-xl bg-zinc-950/45 p-3 flex flex-col gap-2`}
+                >
                   <div className="text-[10px] text-zinc-500 font-mono uppercase font-bold">
                     Execução ao vivo
                   </div>
@@ -898,7 +941,9 @@ export function CommandPalette() {
                 </section>
               )}
 
-              <section className="flex-1 min-h-[260px] rounded-2xl bg-zinc-950/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] overflow-hidden flex flex-col">
+              <section
+                className={`${workspaceMode ? "min-h-[480px]" : "flex-1 min-h-[260px]"} rounded-2xl bg-zinc-950/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] overflow-hidden flex flex-col`}
+              >
                 <div className="px-4 py-3 flex items-center justify-between bg-zinc-900/40">
                   <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold">
                     {streaming ? "Resposta em andamento" : "Resultado"}
@@ -939,8 +984,16 @@ export function CommandPalette() {
               </section>
             </div>
           ) : (
-            <div className="flex flex-col gap-4">
-              <section className="rounded-xl bg-zinc-950/65 border border-zinc-900 p-1 grid grid-cols-2 gap-1">
+            <div
+              className={
+                workspaceMode
+                  ? "grid grid-cols-[340px_minmax(0,1fr)] gap-4 items-start"
+                  : "flex flex-col gap-4"
+              }
+            >
+              <section
+                className={`${workspaceMode ? "col-span-2" : ""} rounded-xl bg-zinc-950/65 border border-zinc-900 p-1 grid grid-cols-2 gap-1`}
+              >
                 <button
                   type="button"
                   onClick={() => setExecutionMode("simple")}
@@ -970,7 +1023,36 @@ export function CommandPalette() {
                 </button>
               </section>
 
-              <section className="grid grid-cols-2 gap-2">
+              <section
+                className={`${workspaceMode ? "col-span-2" : ""} rounded-xl bg-zinc-950/45 border border-zinc-900 px-3 py-2 flex items-center justify-between gap-3`}
+              >
+                <div className="min-w-0 flex items-center gap-2 overflow-hidden">
+                  <span className="text-[10px] font-mono uppercase text-zinc-500 shrink-0">MCPs</span>
+                  <div className="flex items-center gap-1.5 overflow-hidden">
+                    {visibleConnectors.slice(0, workspaceMode ? 6 : 3).map((connector) => (
+                      <span
+                        key={connector.id}
+                        className={`px-2 py-1 rounded-md text-[9px] font-semibold whitespace-nowrap ${
+                          connector.enabled
+                            ? "bg-emerald-950/30 text-emerald-300 border border-emerald-800/30"
+                            : "bg-zinc-900 text-zinc-500 border border-zinc-800"
+                        }`}
+                      >
+                        {connector.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMode("connectors")}
+                  className="h-7 px-2 rounded-md bg-zinc-900 border border-zinc-800 text-[10px] font-semibold text-zinc-400 hover:text-zinc-100 transition-colors cursor-pointer"
+                >
+                  Gerenciar
+                </button>
+              </section>
+
+              <section className={`${workspaceMode ? "col-start-1" : ""} grid grid-cols-2 gap-2`}>
                 <button
                   type="button"
                   onClick={() => setInputMode("free")}
@@ -1005,7 +1087,9 @@ export function CommandPalette() {
                 </button>
               </section>
 
-              <div className="relative group flex flex-col">
+              <div
+                className={`${workspaceMode ? "col-start-2 row-span-2" : ""} relative group flex flex-col`}
+              >
                 <span className="text-[10px] text-zinc-500 font-mono font-bold uppercase mb-1 flex items-center gap-1.5 select-none">
                   {inputMode === "clipboard" ? (
                     <Clipboard className="w-3.5 h-3.5 text-emerald-400" />
@@ -1038,7 +1122,9 @@ export function CommandPalette() {
               </div>
 
               {inputMode === "clipboard" && (
-                <section className="p-3.5 rounded-xl bg-zinc-950/65 border border-zinc-900 flex flex-col gap-3">
+                <section
+                  className={`${workspaceMode ? "col-start-1" : ""} p-3.5 rounded-xl bg-zinc-950/65 border border-zinc-900 flex flex-col gap-3`}
+                >
                   <div className="flex items-center justify-between gap-3">
                     <span className="flex items-center gap-1.5 text-[10px] text-zinc-400 uppercase tracking-wider font-bold select-none">
                       <Clipboard
@@ -1058,7 +1144,7 @@ export function CommandPalette() {
                 </section>
               )}
 
-              <section className="flex flex-col gap-2">
+              <section className={`${workspaceMode ? "col-start-2" : ""} flex flex-col gap-2`}>
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] text-zinc-500 font-mono font-bold uppercase select-none">
                     {inputMode === "clipboard" ? "Ações com clipboard" : "Ações livres"}
@@ -1075,6 +1161,11 @@ export function CommandPalette() {
                       "requiresClipboard" in action &&
                       Boolean(action.requiresClipboard) &&
                       !hasClipboard;
+                    const actionExecutionMode =
+                      "executionMode" in action &&
+                      (action.executionMode === "simple" || action.executionMode === "workflow")
+                        ? action.executionMode
+                        : undefined;
 
                     return (
                       <button
@@ -1083,7 +1174,7 @@ export function CommandPalette() {
                         onClick={() =>
                           inputMode === "clipboard"
                             ? handleQuickAction(action.id)
-                            : handleStarterAction(action.prompt)
+                            : handleStarterAction(action.prompt, actionExecutionMode)
                         }
                         disabled={disabled || streaming}
                         className="min-h-[72px] rounded-lg bg-zinc-900/80 border border-zinc-800 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-800/80 hover:border-violet-500/30 transition-all cursor-pointer flex flex-col items-start justify-center gap-1 px-2.5 py-2 text-left disabled:opacity-40 disabled:pointer-events-none"

@@ -130,9 +130,7 @@ export function App() {
   }
 
   return (
-    <div
-      className={`${uiMode === "workspace" ? "w-[860px]" : "w-[480px]"} h-[760px] flex flex-col agent-shell rounded-[24px] overflow-hidden relative select-none`}
-    >
+    <div className="w-screen h-screen flex flex-col agent-shell rounded-[24px] overflow-hidden relative select-none">
       {/* Custom Titlebar / Header */}
       <header
         className="h-12 flex items-center justify-between px-4 border-b border-zinc-800/60 bg-zinc-950/40 relative z-10"

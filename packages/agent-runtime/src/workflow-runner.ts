@@ -150,7 +150,12 @@ export class WorkflowRunner {
         errorMessage: "Aprovação negada pelo usuário.",
       });
       const cancelledRun = getWorkflowRun(getDb(), run.id) as WorkflowRun;
-      this.emit({ type: "workflow.completed", requestId: input.requestId, runId: run.id, status: "cancelled" });
+      this.emit({
+        type: "workflow.completed",
+        requestId: input.requestId,
+        runId: run.id,
+        status: "cancelled",
+      });
       return cancelledRun;
     }
 
@@ -173,6 +178,7 @@ export class WorkflowRunner {
       input: payload.toolInput ?? {},
       reason: "Execução retomada após aprovação.",
     });
+    this.recordObservation(input, toolOutput);
     return this.finishWorkflow(input, [toolOutput]);
   }
 
@@ -284,6 +290,7 @@ export class WorkflowRunner {
     }
 
     const toolOutput = await this.executeTool(input, toolPlan);
+    this.recordObservation(input, toolOutput);
     return this.finishWorkflow(input, [toolOutput]);
   }
 
@@ -331,7 +338,12 @@ export class WorkflowRunner {
       detail: "Workflow pausado aguardando aprovação.",
     });
     this.emit({ type: "workflow.approval_required", requestId: input.requestId, runId: run.id, approval });
-    this.emit({ type: "workflow.completed", requestId: input.requestId, runId: run.id, status: "waiting_approval" });
+    this.emit({
+      type: "workflow.completed",
+      requestId: input.requestId,
+      runId: run.id,
+      status: "waiting_approval",
+    });
     return getWorkflowRun(getDb(), run.id) as WorkflowRun;
   }
 
@@ -380,6 +392,20 @@ export class WorkflowRunner {
     });
 
     return execution.result.output;
+  }
+
+  private recordObservation(input: RunInput, toolOutput: unknown) {
+    this.createStep(input.requestId, input.runId, {
+      kind: "observation",
+      status: "completed",
+      title: "Observação",
+      detail: "Resultado auditado; próximos passos definidos antes da resposta final.",
+      output: {
+        preview: stringifyOutput(toolOutput).slice(0, 1200),
+        next: "finish",
+      },
+      completedAt: nowIso(),
+    });
   }
 
   private async finishWorkflow(input: RunInput, observations: unknown[]): Promise<WorkflowRun> {
@@ -464,6 +490,7 @@ export class WorkflowRunner {
   private selectTool(prompt: string, clipboardText: string): ToolPlan | null {
     const query = normalize(prompt);
     const hasClipboard = clipboardText.trim().length > 0;
+    const urlMatch = prompt.match(/https?:\/\/[^\s]+/i);
 
     if (hasClipboard && (query.includes("melhor") || query.includes("rewrite") || query.includes("corrig"))) {
       return {
@@ -486,18 +513,23 @@ export class WorkflowRunner {
         input: { text: clipboardText, targetLanguage: "inglês" },
       };
     }
-    if (query.includes("pesquis") || query.includes("buscar") || query.includes("notícia") || query.includes("web")) {
-      return {
-        toolName: "web.search",
-        reason: "Buscar contexto atual na web.",
-        input: { query: prompt, maxResults: 5 },
-      };
-    }
-    if (query.includes("scrap") || query.includes("extrair página") || query.includes("url")) {
+    if (urlMatch) {
       return {
         toolName: "web.extract",
-        reason: "Extrair conteúdo de uma página.",
-        input: { url: prompt, maxCharacters: 6000 },
+        reason: "Ler e normalizar conteúdo de uma URL com Jina Reader.",
+        input: { url: urlMatch?.[0] ?? prompt.trim(), maxCharacters: 8000, provider: "jina" },
+      };
+    }
+    if (
+      query.includes("pesquis") ||
+      query.includes("buscar") ||
+      query.includes("notícia") ||
+      query.includes("web")
+    ) {
+      return {
+        toolName: "web.search",
+        reason: "Buscar contexto atual com Jina Search.",
+        input: { query: prompt, maxResults: 5, provider: "jina" },
       };
     }
     if (query.includes("ocr") || query.includes("screenshot") || query.includes("tela")) {

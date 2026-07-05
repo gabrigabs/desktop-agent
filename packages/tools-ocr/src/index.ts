@@ -37,7 +37,9 @@ async function runTesseract(imagePath: string, language: string) {
     return stdout.trim();
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    throw new Error(`OCR local indisponível. Instale tesseract ou configure OCR_SPACE_API_KEY. Detalhe: ${message}`);
+    throw new Error(
+      `OCR local indisponível. Instale tesseract ou configure OCR_SPACE_API_KEY. Detalhe: ${message}`,
+    );
   }
 }
 
@@ -67,7 +69,10 @@ async function runOcrSpace(imagePath: string, language: string, apiKey: string) 
     throw new Error(error || "OCR.space não conseguiu processar a imagem.");
   }
 
-  return (data.ParsedResults ?? []).map((item) => item.ParsedText ?? "").join("\n").trim();
+  return (data.ParsedResults ?? [])
+    .map((item) => item.ParsedText ?? "")
+    .join("\n")
+    .trim();
 }
 
 async function captureScreenshot() {

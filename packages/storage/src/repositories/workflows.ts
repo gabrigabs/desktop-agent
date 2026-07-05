@@ -271,10 +271,7 @@ export function createWorkflowTemplate(
 }
 
 export function listWorkflowTemplates(db: Database): WorkflowTemplate[] {
-  return db
-    .query("SELECT * FROM workflow_templates ORDER BY name ASC")
-    .all()
-    .map(mapWorkflowTemplate);
+  return db.query("SELECT * FROM workflow_templates ORDER BY name ASC").all().map(mapWorkflowTemplate);
 }
 
 function mapWorkflowRun(row: unknown): WorkflowRun {

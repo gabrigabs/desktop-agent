@@ -136,7 +136,13 @@ export type ExecutionMode = "simple" | "workflow";
 
 export type RunStatus = "queued" | "running" | "waiting_approval" | "completed" | "failed" | "cancelled";
 
-export type WorkflowStepStatus = "pending" | "running" | "waiting_approval" | "completed" | "failed" | "skipped";
+export type WorkflowStepStatus =
+  | "pending"
+  | "running"
+  | "waiting_approval"
+  | "completed"
+  | "failed"
+  | "skipped";
 
 export type WorkflowStepKind = "plan" | "tool" | "observation" | "approval" | "response" | "hook";
 
