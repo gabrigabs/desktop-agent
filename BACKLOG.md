@@ -11,6 +11,9 @@ Transformar o prototipo em um agente pessoal leve para macOS, com uma interface 
 - Tauri ja oferece global shortcut, tray e janela sempre no topo, que sao exatamente os blocos que o app usa e deve manter. Fontes: https://v2.tauri.app/plugin/global-shortcut/ e https://v2.tauri.app/learn/system-tray/
 - Raycast AI aponta bons padroes para este produto: acesso por hotkey, janela flutuante discreta, presets/modelos, anexos/contexto e comandos que viram acoes do sistema. Fonte: https://www.raycast.com/core-features/ai
 - Raycast Notes reforca uma direcao boa para o pet: notas/scratchpad leves, menu bar, janela flutuante acima dos apps e comandos de IA sobre conteudo escrito. Fonte: https://www.raycast.com/core-features/notes
+- ChatGPT Desktop reforca funcoes uteis para um assistente leve: atalho global, conversa flutuante, screenshots, arquivos e busca web como fontes de contexto. Fonte: https://chatgpt.com/features/desktop/
+- ChatGPT Work with Apps mostra um padrao importante para contexto de apps ativos: usar barra flutuante, apps suportados e permissao explicita por integracao, sem prometer controle amplo do Mac. Fonte: https://help.openai.com/en/articles/10119604-work-with-apps-on-macos
+- Notion posiciona IA como espaco de trabalho com busca, notas e contexto acumulado, um bom norte para historico/scratchpad local antes de automacoes maiores. Fonte: https://www.notion.com/
 - Recursos que controlam o Mac por acessibilidade precisam ser explicados com clareza e permissao explicita, porque a Apple alerta que apps com esse acesso podem controlar o computador e acessar informacoes pessoais. Fonte: https://support.apple.com/guide/mac-help/allow-accessibility-apps-to-access-your-mac-mh43185/mac
 
 ## Estado atual observado
@@ -145,6 +148,17 @@ A assinatura deve ser uma "barra de sinais" fina ligada ao pet: uma linha viva q
 - [ ] Adicionar um modo simples de scratchpad local ou preparar espaco visual para isso.
 - [ ] Permitir copiar resultado, copiar prompt e limpar conversa.
 - [x] Evitar que logs tecnicos dominem a tela em tarefas simples.
+
+### P2 - Funcoes uteis pesquisadas
+
+- [ ] Busca web com citacoes: acao livre para pesquisar assunto atual, devolver resposta curta e guardar fontes no historico.
+- [ ] Screenshot/OCR da tela: capturar uma area ou janela, explicar o conteudo e extrair proximos passos, com disclosure de permissao de Screen Recording.
+- [ ] Scratchpad rapido: nota local sempre acessivel pelo pet, com acoes de resumir, transformar em plano, limpar e copiar.
+- [ ] Biblioteca de prompts: salvar comandos favoritos do usuario, separar por `texto`, `codigo`, `mensagem`, `reuniao` e `pesquisa`.
+- [ ] Arquivos como contexto: resumir PDF/Markdown/texto pequeno e extrair tarefas, sem misturar esse fluxo com clipboard.
+- [ ] Apps ativos com permissao explicita: primeiro ler contexto de apps suportados; so depois pensar em acoes de escrita/controle.
+- [ ] Rotinas leves: transformar historico ou clipboard em lembrete, checklist do dia ou resumo semanal local.
+- [ ] Comparar modelos Pinstripes: botao para reenviar a mesma tarefa no Warp/Thinking/Pro e comparar resultado/custo estimado.
 
 ### P3 - Permissoes futuras
 
