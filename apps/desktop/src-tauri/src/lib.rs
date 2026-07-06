@@ -3,8 +3,8 @@ mod sidecar;
 use tauri::Manager;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
-const EXPANDED_WIDTH: f64 = 480.0;
-const EXPANDED_HEIGHT: f64 = 760.0;
+const NORMAL_WIDTH: f64 = 520.0;
+const NORMAL_HEIGHT: f64 = 820.0;
 
 pub fn run() {
     tauri::Builder::default()
@@ -42,7 +42,8 @@ pub fn run() {
             let _ = app.global_shortcut().register(shortcut);
 
             // Setup System Tray Icon
-            let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/32x32.png")).expect("failed to load tray icon");
+            let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/32x32.png"))
+                .expect("failed to load tray icon");
             let _tray = tauri::tray::TrayIconBuilder::new()
                 .icon(icon)
                 .icon_as_template(true)
@@ -60,10 +61,13 @@ pub fn run() {
                                 let _ = window.set_resizable(true);
                                 let _ = window.set_min_size::<tauri::Size>(None);
                                 let _ = window.set_fullscreen(false);
+                                let _ = window.set_simple_fullscreen(false);
                                 let _ = window.unmaximize();
-                                let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize::new(EXPANDED_WIDTH, EXPANDED_HEIGHT)));
+                                let _ = window.set_size(tauri::Size::Logical(
+                                    tauri::LogicalSize::new(NORMAL_WIDTH, NORMAL_HEIGHT),
+                                ));
                                 let _ = window.move_window(Position::TrayCenter);
-                                let _ = window.emit("tray-click", "expanded");
+                                let _ = window.emit("tray-click", "normal");
                                 let _ = window.show();
                                 let _ = window.set_focus();
                             }

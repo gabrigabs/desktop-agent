@@ -72,10 +72,12 @@ function getActiveProviderConfig() {
   const baseUrl = getSetting(db, "baseUrl") || "";
   const model = getSetting(db, "model") || (activeProvider === "pinstripes" ? "ps/warp" : "");
   const hidePet = getSetting(db, "hidePet") === "true";
+  const alwaysOnTop = getSetting(db, "alwaysOnTop") === "true";
+  const lastWindowMode = getSetting(db, "lastWindowMode") || "normal";
   const timeoutVal = getSetting(db, "timeout");
   const timeout = timeoutVal ? Number.parseInt(timeoutVal, 10) : 120;
 
-  return { activeProvider, apiKey, baseUrl, model, hidePet, timeout };
+  return { activeProvider, apiKey, baseUrl, model, hidePet, alwaysOnTop, lastWindowMode, timeout };
 }
 
 // Dynamically create the LLM provider based on current database settings
@@ -205,7 +207,7 @@ function createQueuedRun(input: {
     model: config.model,
     maxSteps: input.maxSteps ?? 8,
     metadata: {
-      createdBy: "desktop-agent",
+      createdBy: "helix",
       timeoutSeconds: config.timeout,
     },
   });
@@ -435,6 +437,8 @@ export const agentApi: AgentApi = {
       baseUrl: config.baseUrl,
       model: config.model,
       hidePet: config.hidePet,
+      alwaysOnTop: config.alwaysOnTop,
+      lastWindowMode: config.lastWindowMode as AppSettings["lastWindowMode"],
       timeout: config.timeout,
     };
   },
@@ -446,6 +450,8 @@ export const agentApi: AgentApi = {
     setSetting(db, "baseUrl", settings.baseUrl);
     setSetting(db, "model", settings.model);
     setSetting(db, "hidePet", settings.hidePet ? "true" : "false");
+    setSetting(db, "alwaysOnTop", settings.alwaysOnTop ? "true" : "false");
+    setSetting(db, "lastWindowMode", settings.lastWindowMode);
     setSetting(db, "timeout", String(settings.timeout));
   },
 

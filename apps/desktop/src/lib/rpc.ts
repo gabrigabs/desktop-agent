@@ -11,6 +11,7 @@ type FrontendApi = {
 let agent: AgentApi | null = null;
 let channel: RPCChannel<FrontendApi, AgentApi> | null = null;
 let child: Child | null = null;
+let beforeUnloadHandler: (() => void) | null = null;
 
 export function isMissingRpcMethodError(err: unknown, method?: string) {
   const message = err instanceof Error ? err.message : String(err);
@@ -32,6 +33,13 @@ export async function initializeRpc(): Promise<AgentApi> {
 
   const cmd = Command.sidecar("binaries/agent-runtime");
   child = await cmd.spawn();
+
+  if (!beforeUnloadHandler) {
+    beforeUnloadHandler = () => {
+      void destroyRpc();
+    };
+    window.addEventListener("beforeunload", beforeUnloadHandler);
+  }
 
   const transport = tauriShellStdioTransport({
     stdout: cmd.stdout,
@@ -132,9 +140,6 @@ export async function initializeRpc(): Promise<AgentApi> {
 
   try {
     const ping = await agent.ping();
-    if (ping.status === "ok") {
-      store.setConnected(true);
-    }
 
     // Load initial tools list
     const tools = await agent.listTools();
@@ -143,6 +148,10 @@ export async function initializeRpc(): Promise<AgentApi> {
     // Load settings from database
     const settings = await agent.getSettings();
     store.setSettings(settings);
+
+    if (ping.status === "ok") {
+      store.setConnected(true);
+    }
 
     try {
       const capabilities = await agent.listCapabilities();
@@ -173,6 +182,10 @@ export async function restartRpc(): Promise<AgentApi> {
 }
 
 export async function destroyRpc(): Promise<void> {
+  if (beforeUnloadHandler) {
+    window.removeEventListener("beforeunload", beforeUnloadHandler);
+    beforeUnloadHandler = null;
+  }
   if (channel) {
     channel.destroy();
     channel = null;

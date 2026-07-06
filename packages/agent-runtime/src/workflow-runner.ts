@@ -469,7 +469,7 @@ export class WorkflowRunner {
         {
           role: "system",
           content:
-            "Você é o Desktop Agent em modo workflow. Responda de forma objetiva em Markdown, explicando o resultado e próximos passos quando útil.",
+            "Você é o Helix em modo workflow. Responda de forma objetiva em Markdown, explicando o resultado e próximos passos quando útil.",
         },
         {
           role: "user",

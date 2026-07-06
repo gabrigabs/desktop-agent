@@ -1,5 +1,5 @@
 export { closeDb, type Database, getDb } from "./db";
-export { runMigrations } from "./migrations/001_initial";
+export { runMigrations } from "./migrations";
 export {
   createInteraction,
   getRecentInteractions,

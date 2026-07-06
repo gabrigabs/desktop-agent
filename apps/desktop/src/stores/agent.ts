@@ -5,6 +5,7 @@ import type {
   ConnectorConfig,
   ExecutionMode,
   RunStatus,
+  Turn,
   WorkflowRun,
   WorkflowStep,
 } from "@desktop-agent/shared";
@@ -23,11 +24,14 @@ export type AgentLogEntry = {
   timestamp: number;
 };
 
+export type UiMode = "collapsed" | "mini" | "normal" | "expanded";
+
 type State = {
   connected: boolean;
   tools: ToolDef[];
   query: string;
   clipboardText: string;
+  messages: Turn[];
   result: string | null;
   streaming: boolean;
   events: AgentEvent[];
@@ -44,7 +48,7 @@ type State = {
     success?: boolean;
     errorMessage?: string;
   }>;
-  uiMode: "collapsed" | "expanded" | "workspace";
+  uiMode: UiMode;
   settings: AppSettings;
   agentLogs: AgentLogEntry[];
 
@@ -52,6 +56,10 @@ type State = {
   setTools: (tools: ToolDef[]) => void;
   setQuery: (q: string) => void;
   setClipboardText: (t: string) => void;
+  setMessages: (messages: Turn[]) => void;
+  addTurn: (turn: Turn) => void;
+  updateLastTurn: (update: Partial<Turn>) => void;
+  clearMessages: () => void;
   setResult: (r: string | null) => void;
   setStreaming: (v: boolean) => void;
   addEvent: (e: AgentEvent) => void;
@@ -63,7 +71,7 @@ type State = {
   setWorkflowStatus: (status: RunStatus) => void;
   setConnectors: (connectors: ConnectorConfig[]) => void;
   setHistory: (h: State["history"]) => void;
-  setUiMode: (m: "collapsed" | "expanded" | "workspace") => void;
+  setUiMode: (m: UiMode) => void;
   setSettings: (s: AppSettings) => void;
   addAgentLog: (entry: Omit<AgentLogEntry, "id" | "timestamp">) => void;
   clearAgentLogs: () => void;
@@ -76,6 +84,8 @@ const defaultSettings: AppSettings = {
   baseUrl: "",
   model: "",
   hidePet: false,
+  alwaysOnTop: false,
+  lastWindowMode: "normal",
   timeout: 120,
 };
 
@@ -147,6 +157,7 @@ export const useAgentStore = create<State>((set) => ({
   tools: [],
   query: "",
   clipboardText: "",
+  messages: [],
   result: null,
   streaming: false,
   events: [],
@@ -155,7 +166,7 @@ export const useAgentStore = create<State>((set) => ({
   workflowRun: null,
   connectors: defaultConnectors,
   history: [],
-  uiMode: "expanded",
+  uiMode: "normal",
   settings: defaultSettings,
   agentLogs: [],
 
@@ -163,6 +174,18 @@ export const useAgentStore = create<State>((set) => ({
   setTools: (tools) => set({ tools }),
   setQuery: (query) => set({ query }),
   setClipboardText: (clipboardText) => set({ clipboardText }),
+  setMessages: (messages) => set({ messages }),
+  addTurn: (turn) => set((s) => ({ messages: [...s.messages, turn] })),
+  updateLastTurn: (update) =>
+    set((s) => {
+      if (s.messages.length === 0) return s;
+      const messages = [...s.messages];
+      const last = messages[messages.length - 1];
+      if (!last) return s;
+      messages[messages.length - 1] = { ...last, ...update };
+      return { messages };
+    }),
+  clearMessages: () => set({ messages: [] }),
   setResult: (result) => set({ result }),
   setStreaming: (streaming) => set({ streaming }),
   addEvent: (event) => set((s) => ({ events: [...s.events, event] })),
@@ -225,6 +248,7 @@ export const useAgentStore = create<State>((set) => ({
   reset: () =>
     set({
       query: "",
+      messages: [],
       result: null,
       streaming: false,
       events: [],

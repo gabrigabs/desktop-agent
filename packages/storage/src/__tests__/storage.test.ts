@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { closeDb, getDb } from "../db";
-import { runMigrations } from "../migrations/001_initial";
+import { runMigrations } from "../migrations";
 import { createInteraction, getRecentInteractions, searchInteractions } from "../repositories/interactions";
 import {
   ensureDefaultMcpPresets,
@@ -38,10 +38,25 @@ describe("Storage Package Tests", () => {
     expect(tableNames).toContain("tool_runs");
     expect(tableNames).toContain("permissions");
     expect(tableNames).toContain("provider_configs");
+    expect(tableNames).toContain("_migrations");
+    expect(tableNames).toContain("conversations");
+    expect(tableNames).toContain("turns");
     expect(tableNames).toContain("workflow_runs");
     expect(tableNames).toContain("workflow_steps");
     expect(tableNames).toContain("workflow_templates");
     expect(tableNames).toContain("mcp_servers");
+
+    const migrations = db.query("SELECT version FROM _migrations ORDER BY version").all() as {
+      version: number;
+    }[];
+    expect(migrations.map((migration) => migration.version)).toEqual([1, 2, 3, 4]);
+
+    const settings = db.query("SELECT key, value FROM app_settings ORDER BY key").all() as {
+      key: string;
+      value: string;
+    }[];
+    expect(settings).toContainEqual({ key: "alwaysOnTop", value: "false" });
+    expect(settings).toContainEqual({ key: "lastWindowMode", value: "normal" });
   });
 
   test("Should log and retrieve interactions", () => {

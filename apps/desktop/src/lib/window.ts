@@ -1,37 +1,42 @@
 import { currentMonitor, getCurrentWindow, LogicalPosition, LogicalSize } from "@tauri-apps/api/window";
 
+export type WindowMode = "collapsed" | "mini" | "normal" | "expanded";
+
 export const WINDOW_SIZES = {
   collapsed: { width: 104, height: 104 },
-  expanded: { width: 480, height: 760 },
-  workspace: { width: 1180, height: 820 },
+  mini: { width: 392, height: 460 },
+  normal: { width: 520, height: 820 },
+  expanded: { width: 1180, height: 820 },
 };
 
 export function isTauriRuntime() {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
-async function getWorkspaceBounds() {
+async function getExpandedWindowBounds() {
   const monitor = await currentMonitor();
   if (!monitor) {
-    return { x: 40, y: 40, width: WINDOW_SIZES.workspace.width, height: WINDOW_SIZES.workspace.height };
+    return { x: 40, y: 40, width: WINDOW_SIZES.expanded.width, height: WINDOW_SIZES.expanded.height };
   }
 
-  const margin = 24;
+  const margin = 56;
   const position = monitor.workArea.position.toLogical(monitor.scaleFactor);
   const size = monitor.workArea.size.toLogical(monitor.scaleFactor);
+  const width = Math.min(WINDOW_SIZES.expanded.width, Math.max(860, Math.round(size.width - margin * 2)));
+  const height = Math.min(WINDOW_SIZES.expanded.height, Math.max(620, Math.round(size.height - margin * 2)));
 
   return {
-    x: Math.round(position.x + margin),
-    y: Math.round(position.y + margin),
-    width: Math.max(780, Math.round(size.width - margin * 2)),
-    height: Math.max(620, Math.round(size.height - margin * 2)),
+    x: Math.round(position.x + Math.max(0, (size.width - width) / 2)),
+    y: Math.round(position.y + Math.max(0, (size.height - height) / 2)),
+    width,
+    height,
   };
 }
 
 /**
- * Altera o tamanho e o estado da janela entre os modos "Pet Flutuante" (collapsed) e "Painel Expandido" (expanded).
+ * Altera o tamanho e o estado da janela entre os modos de visualização do app.
  */
-export async function setWindowMode(mode: "collapsed" | "expanded" | "workspace") {
+export async function setWindowMode(mode: WindowMode, options?: { alwaysOnTop?: boolean }) {
   if (!isTauriRuntime()) return;
 
   try {
@@ -42,8 +47,8 @@ export async function setWindowMode(mode: "collapsed" | "expanded" | "workspace"
     await appWindow.setResizable(true);
     await appWindow.setMaxSize(null);
 
-    if (mode === "workspace") {
-      const bounds = await getWorkspaceBounds();
+    if (mode === "expanded") {
+      const bounds = await getExpandedWindowBounds();
       await appWindow.setMinSize(new LogicalSize(760, 560));
       await appWindow.setFullscreen(false);
       await appWindow.setSimpleFullscreen(false);
@@ -52,16 +57,10 @@ export async function setWindowMode(mode: "collapsed" | "expanded" | "workspace"
       await appWindow.setPosition(new LogicalPosition(bounds.x, bounds.y));
       await appWindow.show();
 
-      await new Promise((r) => setTimeout(r, 180));
-
-      const actualSize = await appWindow.innerSize();
-      const scaleFactor = await appWindow.scaleFactor();
-      const logicalSize = actualSize.toLogical(scaleFactor);
-      if (logicalSize.width < 760 || logicalSize.height < 560) {
-        await appWindow.setSimpleFullscreen(true);
-      }
-
       await appWindow.setResizable(true);
+      if (options?.alwaysOnTop !== undefined) {
+        await appWindow.setAlwaysOnTop(options.alwaysOnTop);
+      }
       await appWindow.setFocus();
       return;
     }
@@ -77,9 +76,12 @@ export async function setWindowMode(mode: "collapsed" | "expanded" | "workspace"
     await new Promise((r) => setTimeout(r, 150));
 
     await appWindow.setResizable(false);
+    if (options?.alwaysOnTop !== undefined) {
+      await appWindow.setAlwaysOnTop(options.alwaysOnTop);
+    }
 
     // Configura o comportamento de foco
-    if (mode === "expanded") {
+    if (mode !== "collapsed") {
       await appWindow.setFocus();
     }
   } catch (err) {

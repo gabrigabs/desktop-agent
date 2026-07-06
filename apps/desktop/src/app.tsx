@@ -1,7 +1,9 @@
 import { listen } from "@tauri-apps/api/event";
-import { Maximize2, Minimize2, Pin } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Maximize2, Minimize2, Pin, Sparkles } from "lucide-react";
+import { useCallback, useEffect, useRef } from "react";
+import { ErrorBoundary } from "./components/ui/error-boundary";
 import { Pet } from "./components/ui/pet";
+import { getAgent } from "./lib/rpc";
 import {
   setAlwaysOnTop as apiSetAlwaysOnTop,
   hideWindow,
@@ -13,24 +15,61 @@ import { useAgentStore } from "./stores/agent";
 import { CommandPalette } from "./surfaces/command-palette";
 
 export function App() {
-  const { connected, uiMode, setUiMode, settings } = useAgentStore();
-  const [alwaysOnTop, setAlwaysOnTopState] = useState(false);
+  const { connected, uiMode, setUiMode, settings, setSettings } = useAgentStore();
   const dragStart = useRef({ x: 0, y: 0 });
+  const restoredWindowMode = useRef(false);
+
+  const saveAppSettings = useCallback(
+    async (nextSettings: typeof settings) => {
+      setSettings(nextSettings);
+      try {
+        const api = await getAgent();
+        await api.saveSettings(nextSettings);
+      } catch (err) {
+        console.error("Failed to persist app settings:", err);
+      }
+    },
+    [setSettings],
+  );
+
+  const applyWindowMode = useCallback(
+    async (mode: typeof uiMode) => {
+      setUiMode(mode);
+      await setWindowMode(mode, { alwaysOnTop: settings.alwaysOnTop });
+
+      if (settings.lastWindowMode !== mode) {
+        await saveAppSettings({ ...settings, lastWindowMode: mode });
+      }
+    },
+    [saveAppSettings, setUiMode, settings],
+  );
 
   // Ensure always on top is synced with state
   useEffect(() => {
-    apiSetAlwaysOnTop(alwaysOnTop);
-  }, [alwaysOnTop]);
+    apiSetAlwaysOnTop(settings.alwaysOnTop);
+  }, [settings.alwaysOnTop]);
+
+  // Restore persisted window mode once settings are loaded from the sidecar.
+  useEffect(() => {
+    if (!connected || restoredWindowMode.current) return;
+
+    restoredWindowMode.current = true;
+    const mode =
+      settings.hidePet && settings.lastWindowMode === "collapsed" ? "normal" : settings.lastWindowMode;
+    setUiMode(mode);
+    setWindowMode(mode, { alwaysOnTop: settings.alwaysOnTop });
+  }, [connected, settings.alwaysOnTop, settings.hidePet, settings.lastWindowMode, setUiMode]);
 
   // Sync pet hide visibility lifecycle
   useEffect(() => {
     if (settings.hidePet && uiMode === "collapsed") {
       hideWindow();
-      // Auto expand to expanded mode so that next time the shortcut is pressed, it shows the command palette directly
-      setUiMode("expanded");
-      setWindowMode("expanded");
+      // Auto expand to normal mode so that next time the shortcut is pressed, it shows the command palette directly
+      setUiMode("normal");
+      setWindowMode("normal", { alwaysOnTop: settings.alwaysOnTop });
+      saveAppSettings({ ...settings, lastWindowMode: "normal" });
     }
-  }, [settings.hidePet, uiMode, setUiMode]);
+  }, [saveAppSettings, settings, uiMode, setUiMode]);
 
   // Listen to tray-click event emitted from Rust
   useEffect(() => {
@@ -39,8 +78,8 @@ export function App() {
     let unlistenFn: (() => void) | undefined;
 
     listen<string>("tray-click", (event) => {
-      if (event.payload === "expanded") {
-        setUiMode("expanded");
+      if (event.payload === "normal") {
+        applyWindowMode("normal");
       }
     }).then((fn) => {
       unlistenFn = fn;
@@ -51,34 +90,38 @@ export function App() {
         unlistenFn();
       }
     };
-  }, [setUiMode]);
+  }, [applyWindowMode]);
 
-  const handleExpand = async () => {
-    setUiMode("expanded");
-    await setWindowMode("expanded");
+  const handleNormal = async () => {
+    await applyWindowMode("normal");
+  };
+
+  const handleMini = async () => {
+    await applyWindowMode("mini");
   };
 
   const handleCollapse = async () => {
     if (settings.hidePet) {
       setUiMode("collapsed");
       await hideWindow();
-      // Instantly reset mode to expanded for next launch
-      setUiMode("expanded");
-      await setWindowMode("expanded");
+      // Instantly reset mode to normal for next launch
+      setUiMode("normal");
+      await setWindowMode("normal", { alwaysOnTop: settings.alwaysOnTop });
+      await saveAppSettings({ ...settings, lastWindowMode: "normal" });
     } else {
-      setUiMode("collapsed");
-      await setWindowMode("collapsed");
+      await applyWindowMode("collapsed");
     }
   };
 
-  const handleWorkspace = async () => {
-    const nextMode = uiMode === "workspace" ? "expanded" : "workspace";
-    setUiMode(nextMode);
-    await setWindowMode(nextMode);
+  const handleExpanded = async () => {
+    const nextMode = uiMode === "expanded" ? "normal" : "expanded";
+    await applyWindowMode(nextMode);
   };
 
-  const toggleAlwaysOnTop = () => {
-    setAlwaysOnTopState(!alwaysOnTop);
+  const toggleAlwaysOnTop = async () => {
+    const nextSettings = { ...settings, alwaysOnTop: !settings.alwaysOnTop };
+    await apiSetAlwaysOnTop(nextSettings.alwaysOnTop);
+    await saveAppSettings(nextSettings);
   };
 
   const handleMouseDown = async (e: React.MouseEvent) => {
@@ -94,9 +137,13 @@ export function App() {
     const dist = Math.sqrt(dx * dx + dy * dy);
     // Se o mouse moveu menos de 5 pixels, tratamos como clique para expandir
     if (dist < 5) {
-      handleExpand();
+      handleNormal();
     }
   };
+
+  const modeLabel = uiMode === "expanded" ? "expandido" : uiMode === "mini" ? "mini" : "normal";
+  const shellRadius =
+    uiMode === "expanded" ? "rounded-[18px]" : uiMode === "mini" ? "rounded-[20px]" : "rounded-[24px]";
 
   if (uiMode === "collapsed" && !settings.hidePet) {
     return (
@@ -109,12 +156,12 @@ export function App() {
         onMouseUp={handleMouseUp}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
-            handleExpand();
+            handleNormal();
           }
         }}
         data-tauri-drag-region
-        title="Abrir Desktop Agent"
-        aria-label="Abrir Desktop Agent"
+        title="Abrir Helix"
+        aria-label="Abrir Helix"
       >
         <div className="w-[92px] h-[92px] rounded-full flex items-center justify-center transition-transform duration-300 group-hover:scale-105 relative pointer-events-none bg-zinc-950/90 shadow-[0_0_0_1px_rgba(255,255,255,0.28),0_0_0_7px_rgba(255,255,255,0.07),0_20px_45px_rgba(0,0,0,0.58)] backdrop-blur-md">
           <div className="absolute inset-2 rounded-full bg-[radial-gradient(circle_at_50%_42%,rgba(244,114,182,0.24),rgba(9,9,11,0)_62%)]" />
@@ -130,7 +177,9 @@ export function App() {
   }
 
   return (
-    <div className="w-screen h-screen flex flex-col agent-shell rounded-[24px] overflow-hidden relative select-none">
+    <div
+      className={`w-screen h-screen flex flex-col agent-shell ${shellRadius} overflow-hidden relative select-none`}
+    >
       {/* Custom Titlebar / Header */}
       <header
         className="h-12 flex items-center justify-between px-4 border-b border-zinc-800/60 bg-zinc-950/40 relative z-10"
@@ -140,7 +189,7 @@ export function App() {
           <Pet size={24} />
           <div className="flex flex-col" data-tauri-drag-region>
             <span className="text-xs font-mono font-bold tracking-wide text-zinc-200" data-tauri-drag-region>
-              Desktop Agent
+              Helix
             </span>
             <span
               className="text-[9px] font-mono text-zinc-500 flex items-center gap-1"
@@ -149,7 +198,7 @@ export function App() {
               <span
                 className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`}
               />
-              {connected ? "online" : "connecting"}
+              {connected ? `online · ${modeLabel}` : `connecting · ${modeLabel}`}
             </span>
           </div>
         </div>
@@ -165,12 +214,22 @@ export function App() {
         </div>
 
         <div className="flex items-center gap-1.5 relative z-20">
-          {/* Always on top toggle */}
+          {/* Mini mode toggle */}
           <button
             type="button"
-            onClick={handleWorkspace}
-            className={`p-1.5 rounded-md hover:bg-zinc-800/80 transition-colors ${uiMode === "workspace" ? "text-violet-300" : "text-zinc-500 hover:text-zinc-300"}`}
-            title={uiMode === "workspace" ? "Voltar ao painel compacto" : "Abrir workspace"}
+            onClick={handleMini}
+            className={`p-1.5 rounded-md hover:bg-zinc-800/80 transition-colors ${uiMode === "mini" ? "text-amber-300" : "text-zinc-500 hover:text-zinc-300"}`}
+            title={uiMode === "mini" ? "Modo mini ativo" : "Abrir modo mini"}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Expanded mode toggle */}
+          <button
+            type="button"
+            onClick={handleExpanded}
+            className={`p-1.5 rounded-md hover:bg-zinc-800/80 transition-colors ${uiMode === "expanded" ? "text-violet-300" : "text-zinc-500 hover:text-zinc-300"}`}
+            title={uiMode === "expanded" ? "Voltar ao modo normal" : "Abrir modo expandido"}
           >
             <Maximize2 className="w-3.5 h-3.5" />
           </button>
@@ -179,8 +238,8 @@ export function App() {
           <button
             type="button"
             onClick={toggleAlwaysOnTop}
-            className={`p-1.5 rounded-md hover:bg-zinc-800/80 transition-colors ${alwaysOnTop ? "text-indigo-400" : "text-zinc-500 hover:text-zinc-300"}`}
-            title={alwaysOnTop ? "Fixado no topo" : "Fixar no topo"}
+            className={`p-1.5 rounded-md hover:bg-zinc-800/80 transition-colors ${settings.alwaysOnTop ? "text-indigo-400" : "text-zinc-500 hover:text-zinc-300"}`}
+            title={settings.alwaysOnTop ? "Fixado no topo" : "Fixar no topo"}
           >
             <Pin className="w-3.5 h-3.5" />
           </button>
@@ -199,7 +258,9 @@ export function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 overflow-hidden relative z-10">
-        <CommandPalette />
+        <ErrorBoundary>
+          <CommandPalette />
+        </ErrorBoundary>
       </main>
     </div>
   );

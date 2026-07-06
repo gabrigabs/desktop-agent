@@ -123,16 +123,42 @@ export type AuditEntry = {
   errorMessage?: string;
 };
 
+export type WindowMode = "collapsed" | "mini" | "normal" | "expanded";
+
 export type AppSettings = {
   activeProvider: string;
   apiKey: string;
   baseUrl: string;
   model: string;
   hidePet: boolean;
+  alwaysOnTop: boolean;
+  lastWindowMode: WindowMode;
   timeout: number;
 };
 
 export type ExecutionMode = "simple" | "workflow";
+
+export type MessageBlock =
+  | { type: "text"; content: string }
+  | { type: "thinking"; content: string; collapsed?: boolean }
+  | {
+      type: "tool_call";
+      toolName: string;
+      status: "running" | "done" | "failed";
+      input?: unknown;
+      output?: unknown;
+    }
+  | { type: "error"; message: string };
+
+export type Turn = {
+  id: string;
+  role: "user" | "assistant" | "system";
+  blocks: MessageBlock[];
+  status: "streaming" | "complete" | "error" | "cancelled";
+  timestamp: number;
+  sourceMode: "free" | "clipboard";
+  executionMode: ExecutionMode;
+};
 
 export type RunStatus = "queued" | "running" | "waiting_approval" | "completed" | "failed" | "cancelled";
 

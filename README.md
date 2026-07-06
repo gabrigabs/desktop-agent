@@ -1,6 +1,8 @@
-# Desktop Agent
+# Helix
 
-Context-aware desktop assistant with command palette, clipboard integration, and local AI tool execution.
+Lightweight macOS copilot with a floating command surface, optional clipboard context, Pinstripes-first model selection, and local AI tool execution.
+
+See [PLANO.md](/Users/gabrielbezerrarodrigues/dev/desktop-agent/PLANO.md) for the current product plan. [BACKLOG.md](/Users/gabrielbezerrarodrigues/dev/desktop-agent/BACKLOG.md) is kept as historical context.
 
 ## Architecture
 
@@ -57,7 +59,7 @@ desktop-agent/
 
 ```
 Copy text → Control+Shift+Space → type "melhore isso" → Enter
-  → Agent reads clipboard
+  → Helix reads clipboard when relevant
   → Executes text.rewrite tool
   → Provider generates response
   → UI shows preview
@@ -73,7 +75,7 @@ Copy text → Control+Shift+Space → type "melhore isso" → Enter
 | `bun run build:sidecar`  | Compile agent runtime to binary |
 | `bun run desktop:dev`    | Start Tauri dev mode            |
 | `bun run desktop:build`  | Build distributable app         |
-| `bun run build:packages` | Typecheck all packages          |
+| `bun run build:packages` | Typecheck all workspaces        |
 | `bun test`               | Run all tests                   |
 | `bun run lint`           | Lint all code                   |
 | `bun run format`         | Format all code                 |

@@ -270,9 +270,6 @@ export function CommandPalette() {
   const [copied, setCopied] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
   const [testingConnectorId, setTestingConnectorId] = useState<string | null>(null);
-  const [viewportWidth, setViewportWidth] = useState(() =>
-    typeof window === "undefined" ? 480 : window.innerWidth,
-  );
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -287,16 +284,6 @@ export function CommandPalette() {
       setFormTimeout(settings.timeout || 120);
     }
   }, [showSettings, settings]);
-
-  useEffect(() => {
-    const handleResize = () => {
-      setViewportWidth(window.innerWidth);
-    };
-
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
 
   const refreshCapabilities = useCallback(async () => {
     try {
@@ -585,10 +572,44 @@ export function CommandPalette() {
     });
   };
 
-  const handleWorkspaceMode = async () => {
-    const nextMode = uiMode === "workspace" ? "expanded" : "workspace";
+  const persistWindowMode = useCallback(
+    async (nextMode: typeof uiMode) => {
+      const nextSettings = { ...settings, lastWindowMode: nextMode };
+      setSettings(nextSettings);
+      try {
+        const api = await getAgent();
+        await api.saveSettings(nextSettings);
+      } catch (err) {
+        console.error("Failed to persist window mode:", err);
+      }
+    },
+    [setSettings, settings],
+  );
+
+  const handleOpenMode = async (nextMode: "mini" | "normal" | "expanded") => {
     setUiMode(nextMode);
-    await setWindowMode(nextMode);
+    await setWindowMode(nextMode, { alwaysOnTop: settings.alwaysOnTop });
+    await persistWindowMode(nextMode);
+  };
+
+  const handleMiniStarterAction = async (prompt: string, modeOverride?: "simple" | "workflow") => {
+    setInputMode("free");
+    if (modeOverride) {
+      setExecutionMode(modeOverride);
+    }
+    setQuery(prompt);
+    setMode("command");
+    await handleOpenMode("normal");
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+    });
+  };
+
+  const handleExpandedMode = async () => {
+    const nextMode = uiMode === "expanded" ? "normal" : "expanded";
+    setUiMode(nextMode);
+    await setWindowMode(nextMode, { alwaysOnTop: settings.alwaysOnTop });
+    await persistWindowMode(nextMode);
   };
 
   const handleToggleConnector = async (connectorId: string) => {
@@ -641,6 +662,7 @@ export function CommandPalette() {
     try {
       const api = await getAgent();
       const newSettings = {
+        ...settings,
         activeProvider: formProvider,
         apiKey: formApiKey,
         baseUrl: formBaseUrl,
@@ -672,15 +694,29 @@ export function CommandPalette() {
         } else if (query || result || error) {
           reset();
         } else {
-          setUiMode("collapsed");
-          await setWindowMode("collapsed");
+          const nextMode = uiMode === "expanded" ? "normal" : uiMode === "normal" ? "mini" : "collapsed";
+          setUiMode(nextMode);
+          await setWindowMode(nextMode, { alwaysOnTop: settings.alwaysOnTop });
+          await persistWindowMode(nextMode);
         }
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleExecute, streaming, query, result, error, reset, setUiMode, showSettings]);
+  }, [
+    handleExecute,
+    streaming,
+    query,
+    result,
+    error,
+    reset,
+    setUiMode,
+    showSettings,
+    uiMode,
+    settings.alwaysOnTop,
+    persistWindowMode,
+  ]);
 
   useEffect(() => {
     if (mode === "command" && textareaRef.current && !showSettings) {
@@ -728,8 +764,656 @@ export function CommandPalette() {
   const workflowSteps = workflowRun?.steps ?? [];
   const approval = workflowRun?.approval;
   const visibleConnectors = connectors.slice(0, 7);
-  const workspaceRequested = uiMode === "workspace";
-  const workspaceMode = workspaceRequested && viewportWidth >= 760;
+  const expandedMode = uiMode === "expanded";
+  const miniClipboardActions = QUICK_ACTIONS.slice(0, 6);
+  const miniFreeActions = FREE_ACTIONS.filter((action) =>
+    ["pergunta", "plano", "pesquisar-web"].includes(action.id),
+  );
+
+  if (uiMode === "mini") {
+    return (
+      <div className="flex h-full w-full flex-col bg-zinc-950/20 text-zinc-100 font-sans relative">
+        <div className="flex-1 overflow-y-auto custom-scrollbar px-3 pt-3 pb-3">
+          <section className="rounded-xl bg-zinc-950/60 border border-zinc-900 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-[10px] font-mono uppercase text-zinc-500">Modo mini</div>
+                <div className="truncate text-xs font-semibold text-zinc-100">Ações rápidas</div>
+              </div>
+              <span
+                className={`px-2 py-1 rounded-md text-[9px] font-mono uppercase ${
+                  error
+                    ? "bg-rose-950/35 text-rose-300 border border-rose-900/40"
+                    : streaming
+                      ? "bg-amber-950/35 text-amber-300 border border-amber-900/40"
+                      : result
+                        ? "bg-emerald-950/35 text-emerald-300 border border-emerald-900/40"
+                        : "bg-zinc-900 text-zinc-500 border border-zinc-800"
+                }`}
+              >
+                {taskStatus}
+              </span>
+            </div>
+            <div
+              className={`mt-3 h-1 rounded-full ${
+                streaming
+                  ? "bg-amber-400 animate-pulse"
+                  : result
+                    ? "bg-emerald-400"
+                    : error
+                      ? "bg-rose-400"
+                      : "bg-violet-400/70"
+              }`}
+            />
+          </section>
+
+          {taskActive && (
+            <section className="mt-3 rounded-xl bg-zinc-950/65 border border-zinc-900 p-3 flex flex-col gap-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[10px] font-mono uppercase text-zinc-500">Execução</span>
+                <span className="text-[9px] font-mono text-zinc-600">{taskModeLabel}</span>
+              </div>
+              <p
+                className={`text-xs leading-relaxed line-clamp-3 select-text ${
+                  error ? "text-rose-300" : result ? "text-zinc-200" : "text-zinc-500"
+                }`}
+              >
+                {error || result || latestLog?.text || "A resposta aparece aqui quando o agente começar."}
+              </p>
+              <div className="flex items-center gap-2">
+                {streaming && (
+                  <button
+                    type="button"
+                    onClick={handleAbort}
+                    disabled={!activeRequestId}
+                    className="h-8 px-2.5 rounded-md bg-rose-950/25 border border-rose-900/40 text-[10px] font-semibold text-rose-300 hover:text-rose-100 hover:border-rose-500/50 transition-colors cursor-pointer disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1.5"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    Parar
+                  </button>
+                )}
+                {result && (
+                  <button
+                    type="button"
+                    onClick={handleCopyResult}
+                    className={`h-8 px-2.5 rounded-md text-[10px] font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
+                      copied
+                        ? "bg-emerald-950/40 text-emerald-300"
+                        : "bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-100"
+                    }`}
+                  >
+                    {copied ? <Check className="w-3.5 h-3.5" /> : <Clipboard className="w-3.5 h-3.5" />}
+                    {copied ? "Copiado" : "Copiar"}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleOpenMode("normal")}
+                  className="h-8 px-2.5 rounded-md bg-zinc-900 border border-zinc-800 text-[10px] font-semibold text-zinc-400 hover:text-zinc-100 transition-colors cursor-pointer"
+                >
+                  Abrir normal
+                </button>
+              </div>
+            </section>
+          )}
+
+          <section className="mt-3 rounded-xl bg-zinc-950/55 border border-zinc-900 p-3 flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="flex items-center gap-1.5 text-[10px] text-zinc-400 uppercase tracking-wider font-bold select-none">
+                <Clipboard className={`w-3.5 h-3.5 ${hasClipboard ? "text-emerald-400" : "text-zinc-600"}`} />
+                Clipboard
+              </span>
+              <span className="text-[9px] font-mono bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded text-zinc-500">
+                {hasClipboard ? `${clipboardText.length} caracteres` : "sem texto"}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {miniClipboardActions.map((action) => {
+                const Icon = action.icon;
+                const disabled = streaming || !hasClipboard;
+
+                return (
+                  <button
+                    key={action.id}
+                    type="button"
+                    onClick={() => handleQuickAction(action.id)}
+                    disabled={disabled}
+                    className="min-h-[56px] rounded-lg bg-zinc-900/80 border border-zinc-800 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-800/80 hover:border-violet-500/30 transition-all cursor-pointer flex items-center gap-2 px-2.5 py-2 text-left disabled:opacity-40 disabled:pointer-events-none"
+                    title={disabled ? "Copie um texto primeiro" : action.description}
+                  >
+                    <Icon className={`w-4 h-4 shrink-0 ${action.accent}`} />
+                    <span className="min-w-0">
+                      <span className="block text-[10px] font-semibold leading-tight truncate">
+                        {action.label}
+                      </span>
+                      <span className="block text-[9px] text-zinc-600 leading-tight truncate">
+                        {action.description}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="mt-3 grid grid-cols-3 gap-2">
+            {miniFreeActions.map((action) => {
+              const Icon = action.icon;
+              const actionExecutionMode =
+                "executionMode" in action &&
+                (action.executionMode === "simple" || action.executionMode === "workflow")
+                  ? action.executionMode
+                  : undefined;
+
+              return (
+                <button
+                  key={action.id}
+                  type="button"
+                  onClick={() => handleMiniStarterAction(action.prompt, actionExecutionMode)}
+                  disabled={streaming}
+                  className="min-h-[52px] rounded-lg bg-zinc-950/55 border border-zinc-900 text-zinc-400 hover:text-zinc-100 hover:border-violet-500/30 transition-colors cursor-pointer flex flex-col items-center justify-center gap-1 disabled:opacity-40 disabled:pointer-events-none"
+                  title={action.description}
+                >
+                  <Icon className={`w-4 h-4 ${action.accent}`} />
+                  <span className="text-[9px] font-semibold leading-tight">{action.label}</span>
+                </button>
+              );
+            })}
+          </section>
+
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => handleOpenMode("normal")}
+              className="h-9 rounded-lg bg-zinc-900 border border-zinc-800 text-[11px] font-semibold text-zinc-300 hover:text-zinc-100 hover:border-violet-500/30 transition-colors cursor-pointer"
+            >
+              Modo normal
+            </button>
+            <button
+              type="button"
+              onClick={() => handleOpenMode("expanded")}
+              className="h-9 rounded-lg bg-violet-950/35 border border-violet-800/40 text-[11px] font-semibold text-violet-200 hover:text-violet-100 hover:border-violet-500/50 transition-colors cursor-pointer"
+            >
+              Expandido
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (uiMode === "expanded") {
+    return (
+      <div className="grid h-full w-full grid-cols-[220px_minmax(0,1fr)_300px] bg-zinc-950/20 text-zinc-100 font-sans relative">
+        <aside className="min-w-0 border-r border-zinc-900/80 bg-zinc-950/45 p-4 flex flex-col gap-4">
+          <section className="flex flex-col gap-1">
+            <div className="text-[10px] font-mono uppercase text-zinc-500">Helix</div>
+            <div className="text-sm font-semibold text-zinc-100 truncate">Modo expandido</div>
+            <div className="text-[11px] text-zinc-500 truncate">{getActiveBadgeText()}</div>
+          </section>
+
+          <nav className="grid gap-1.5">
+            {[
+              { id: "command", label: "Perguntar", icon: Bot },
+              { id: "history", label: "Histórico", icon: Clock },
+              { id: "connectors", label: "Conectores", icon: Layers },
+            ].map((item) => {
+              const Icon = item.icon;
+              const active = mode === item.id;
+
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setMode(item.id as "command" | "history" | "connectors")}
+                  className={`h-10 rounded-lg px-3 text-left transition-colors cursor-pointer flex items-center gap-2 ${
+                    active
+                      ? "bg-zinc-800/80 text-zinc-100 border border-zinc-700/70"
+                      : "text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900/60"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span className="text-xs font-semibold">{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+
+          <section className="rounded-xl bg-zinc-950/60 border border-zinc-900 p-3 flex flex-col gap-2">
+            <div className="text-[10px] font-mono uppercase text-zinc-500">Execução</div>
+            <div className="grid grid-cols-1 gap-1">
+              <button
+                type="button"
+                onClick={() => setExecutionMode("simple")}
+                className={`h-9 rounded-lg px-3 text-left transition-colors cursor-pointer ${
+                  executionMode === "simple"
+                    ? "bg-zinc-800 text-zinc-100"
+                    : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/70"
+                }`}
+              >
+                <span className="block text-xs font-semibold">Simples</span>
+                <span className="block text-[9px] text-zinc-600">Resposta rápida</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setExecutionMode("workflow")}
+                className={`h-9 rounded-lg px-3 text-left transition-colors cursor-pointer ${
+                  executionMode === "workflow"
+                    ? "bg-violet-950/35 text-violet-100 border border-violet-800/30"
+                    : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/70"
+                }`}
+              >
+                <span className="block text-xs font-semibold">Workflow</span>
+                <span className="block text-[9px] text-zinc-600">Plano e aprovação</span>
+              </button>
+            </div>
+          </section>
+
+          <section className="rounded-xl bg-zinc-950/45 border border-zinc-900 p-3 flex flex-col gap-2">
+            <div className="text-[10px] font-mono uppercase text-zinc-500">Contexto</div>
+            <button
+              type="button"
+              onClick={() => setInputMode("free")}
+              className={`h-9 rounded-lg px-3 text-left transition-colors cursor-pointer ${
+                inputMode === "free"
+                  ? "bg-violet-950/25 text-zinc-100 border border-violet-800/30"
+                  : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/70"
+              }`}
+            >
+              <span className="text-xs font-semibold">Livre</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setInputMode("clipboard")}
+              className={`h-9 rounded-lg px-3 text-left transition-colors cursor-pointer ${
+                inputMode === "clipboard"
+                  ? "bg-emerald-950/20 text-zinc-100 border border-emerald-800/30"
+                  : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/70"
+              }`}
+            >
+              <span className="text-xs font-semibold">Clipboard</span>
+              <span className="ml-2 text-[9px] text-zinc-600">{hasClipboard ? clipboardText.length : 0}</span>
+            </button>
+          </section>
+
+          <div className="mt-auto grid gap-2">
+            <button
+              type="button"
+              onClick={() => handleOpenMode("normal")}
+              className="h-9 rounded-lg bg-zinc-900 border border-zinc-800 text-[11px] font-semibold text-zinc-300 hover:text-zinc-100 hover:border-violet-500/30 transition-colors cursor-pointer"
+            >
+              Modo normal
+            </button>
+            <button
+              type="button"
+              onClick={() => handleOpenMode("mini")}
+              className="h-9 rounded-lg bg-zinc-950/60 border border-zinc-900 text-[11px] font-semibold text-zinc-500 hover:text-zinc-200 transition-colors cursor-pointer"
+            >
+              Modo mini
+            </button>
+          </div>
+        </aside>
+
+        <main className="min-w-0 flex flex-col bg-zinc-950/15">
+          <div className="h-14 border-b border-zinc-900/80 px-5 flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="text-[10px] font-mono uppercase text-zinc-500">
+                {mode === "history" ? "Histórico" : mode === "connectors" ? "Conectores" : "Command center"}
+              </div>
+              <div className="text-sm font-semibold text-zinc-100 truncate">
+                {mode === "history"
+                  ? "Execuções recentes"
+                  : mode === "connectors"
+                    ? "Capacidades conectadas"
+                    : taskActive
+                      ? "Execução em andamento"
+                      : "Nova tarefa"}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span
+                className={`px-2.5 py-1 rounded-md text-[10px] font-mono uppercase border ${
+                  error
+                    ? "bg-rose-950/30 text-rose-300 border-rose-900/40"
+                    : streaming
+                      ? "bg-amber-950/30 text-amber-300 border-amber-900/40"
+                      : result
+                        ? "bg-emerald-950/30 text-emerald-300 border-emerald-900/40"
+                        : "bg-zinc-900/80 text-zinc-500 border-zinc-800"
+                }`}
+              >
+                {taskStatus}
+              </span>
+              {taskActive && (
+                <button
+                  type="button"
+                  onClick={handleNewTask}
+                  disabled={streaming}
+                  className="h-8 px-2.5 rounded-md bg-zinc-900 border border-zinc-800 text-[10px] font-semibold text-zinc-400 hover:text-zinc-100 transition-colors cursor-pointer disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1.5"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  Nova
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-5">
+            {mode === "history" ? (
+              <HistoryList />
+            ) : mode === "connectors" ? (
+              <div className="grid grid-cols-2 gap-3">
+                {visibleConnectors.map((connector) => (
+                  <section
+                    key={connector.id}
+                    className="rounded-xl bg-zinc-950/60 border border-zinc-900 p-4 flex flex-col gap-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-zinc-100 truncate">{connector.name}</div>
+                        <div className="text-[10px] text-zinc-600 mt-1 truncate">
+                          {connector.command || connector.kind}
+                        </div>
+                      </div>
+                      <span
+                        className={`px-2 py-1 rounded-md text-[9px] font-mono uppercase ${
+                          connector.enabled
+                            ? "bg-emerald-950/35 text-emerald-300 border border-emerald-800/30"
+                            : "bg-zinc-900 text-zinc-500 border border-zinc-800"
+                        }`}
+                      >
+                        {connector.enabled ? "Ativo" : "Desligado"}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {connector.permissionPolicy.map((permission) => (
+                        <span
+                          key={permission}
+                          className="px-1.5 py-0.5 rounded bg-zinc-900 text-[9px] font-mono text-zinc-500"
+                        >
+                          {permission}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="mt-auto flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleTestConnector(connector.id)}
+                        disabled={testingConnectorId === connector.id}
+                        className="h-8 px-2.5 rounded-md bg-zinc-900 border border-zinc-800 text-[10px] font-semibold text-zinc-400 hover:text-zinc-100 transition-colors cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+                      >
+                        {testingConnectorId === connector.id ? "Testando" : "Testar"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleConnector(connector.id)}
+                        className="h-8 px-2.5 rounded-md bg-zinc-900 border border-zinc-800 text-[10px] font-semibold text-zinc-400 hover:text-zinc-100 transition-colors cursor-pointer"
+                      >
+                        {connector.enabled ? "Desligar" : "Ligar"}
+                      </button>
+                    </div>
+                  </section>
+                ))}
+              </div>
+            ) : taskActive ? (
+              <div className="min-h-full flex flex-col gap-4">
+                <section className="rounded-xl bg-zinc-950/55 border border-zinc-900 p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="text-[10px] text-zinc-500 font-mono font-bold uppercase mb-1">
+                        Pedido
+                      </div>
+                      <p className="text-sm leading-relaxed text-zinc-100 select-text whitespace-pre-wrap">
+                        {query}
+                      </p>
+                    </div>
+                    {streaming && (
+                      <button
+                        type="button"
+                        onClick={handleAbort}
+                        disabled={!activeRequestId}
+                        className="h-8 px-2.5 rounded-md bg-rose-950/25 border border-rose-900/40 text-[10px] font-semibold text-rose-300 hover:text-rose-100 transition-colors cursor-pointer disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1.5"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        Parar
+                      </button>
+                    )}
+                  </div>
+                </section>
+
+                {error && (
+                  <section className="p-4 bg-rose-950/20 rounded-xl text-rose-300 text-sm flex gap-3 items-start border border-rose-900/30">
+                    <AlertCircle className="w-5 h-5 text-rose-500 flex-shrink-0 mt-0.5" />
+                    <div className="select-text">
+                      <strong className="text-rose-400 font-bold mr-1">Erro:</strong>
+                      {error}
+                    </div>
+                  </section>
+                )}
+
+                <section className="flex-1 min-h-[420px] rounded-2xl bg-zinc-950/70 border border-zinc-900 overflow-hidden flex flex-col">
+                  <div className="px-4 py-3 flex items-center justify-between bg-zinc-900/35 border-b border-zinc-900">
+                    <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold">
+                      {streaming ? "Resposta em andamento" : "Resultado"}
+                    </span>
+                    {result && (
+                      <button
+                        type="button"
+                        onClick={handleCopyResult}
+                        className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all duration-150 active:scale-95 cursor-pointer flex items-center gap-1.5 ${
+                          copied
+                            ? "bg-emerald-950/40 text-emerald-300"
+                            : "bg-zinc-950/80 text-zinc-300 hover:text-zinc-100"
+                        }`}
+                      >
+                        {copied ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        ) : (
+                          <Clipboard className="w-3.5 h-3.5 text-violet-300" />
+                        )}
+                        <span>{copied ? "Copiado" : "Copiar"}</span>
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex-1 p-5 text-sm text-zinc-200 leading-relaxed whitespace-pre-wrap overflow-y-auto custom-scrollbar select-text selection:bg-violet-950">
+                    {result ? (
+                      <>
+                        {result}
+                        {streaming && (
+                          <span className="inline-block w-1.5 h-4 ml-1 align-[-2px] rounded-sm bg-amber-300 animate-pulse" />
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-zinc-600">
+                        A resposta aparece aqui assim que o agente começar a escrever.
+                      </span>
+                    )}
+                  </div>
+                </section>
+              </div>
+            ) : (
+              <div className="min-h-full grid grid-rows-[auto_1fr] gap-4">
+                <section className="rounded-2xl bg-zinc-950/65 border border-zinc-900 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-zinc-900 bg-zinc-900/25 flex items-center justify-between">
+                    <span className="text-[10px] font-mono uppercase text-zinc-500">{inputModeLabel}</span>
+                    <span className="text-[10px] text-zinc-600">{taskModeLabel}</span>
+                  </div>
+                  <div className="p-4">
+                    <textarea
+                      ref={textareaRef}
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder={composerPlaceholder}
+                      className="w-full min-h-[180px] bg-zinc-950/80 border border-zinc-900 rounded-xl px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-950/50 resize-none transition-all duration-200 select-text"
+                      disabled={streaming}
+                      aria-label={inputModeLabel}
+                    />
+                    <div className="mt-3 flex items-center justify-between gap-3">
+                      <span className="text-[10px] text-zinc-600">
+                        {inputMode === "clipboard" && hasClipboard
+                          ? `${clipboardText.length} caracteres no clipboard`
+                          : "Pronto para uma nova solicitação"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleExecute()}
+                        disabled={streaming || !query.trim() || (inputMode === "clipboard" && !hasClipboard)}
+                        className="h-9 px-4 rounded-lg bg-violet-950/50 border border-violet-800/70 text-violet-200 hover:text-violet-100 hover:bg-violet-900/80 hover:border-violet-500/60 transition-all cursor-pointer disabled:opacity-30 disabled:pointer-events-none flex items-center gap-2 text-xs font-semibold"
+                      >
+                        <Play className="w-3.5 h-3.5 fill-current" />
+                        Executar
+                      </button>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="grid grid-cols-3 gap-3">
+                  {(inputMode === "clipboard" ? QUICK_ACTIONS : FREE_ACTIONS).slice(0, 6).map((action) => {
+                    const Icon = action.icon;
+                    const disabled =
+                      inputMode === "clipboard" &&
+                      "requiresClipboard" in action &&
+                      Boolean(action.requiresClipboard) &&
+                      !hasClipboard;
+                    const actionExecutionMode =
+                      "executionMode" in action &&
+                      (action.executionMode === "simple" || action.executionMode === "workflow")
+                        ? action.executionMode
+                        : undefined;
+
+                    return (
+                      <button
+                        key={action.id}
+                        type="button"
+                        onClick={() =>
+                          inputMode === "clipboard"
+                            ? handleQuickAction(action.id)
+                            : handleStarterAction(action.prompt, actionExecutionMode)
+                        }
+                        disabled={disabled || streaming}
+                        className="min-h-[96px] rounded-xl bg-zinc-950/60 border border-zinc-900 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900/70 hover:border-violet-500/30 transition-all cursor-pointer flex flex-col items-start justify-center gap-2 px-3 py-3 text-left disabled:opacity-40 disabled:pointer-events-none"
+                        title={disabled ? "Copie um texto primeiro" : action.description}
+                      >
+                        <Icon className={`w-5 h-5 ${action.accent}`} />
+                        <span className="text-xs font-semibold leading-tight">{action.label}</span>
+                        <span className="text-[10px] text-zinc-600 leading-tight">{action.description}</span>
+                      </button>
+                    );
+                  })}
+                </section>
+              </div>
+            )}
+          </div>
+        </main>
+
+        <aside className="min-w-0 border-l border-zinc-900/80 bg-zinc-950/35 p-4 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
+          <section className="rounded-xl bg-zinc-950/55 border border-zinc-900 p-3">
+            <div className="text-[10px] font-mono uppercase text-zinc-500 mb-2">Estado</div>
+            <div className="flex items-center gap-2">
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  error
+                    ? "bg-rose-400"
+                    : streaming
+                      ? "bg-amber-400 animate-pulse"
+                      : result
+                        ? "bg-emerald-400"
+                        : "bg-violet-400"
+                }`}
+              />
+              <span className="text-xs font-semibold text-zinc-200">{taskStatus}</span>
+            </div>
+            {latestLog && (
+              <p className="mt-2 text-[11px] leading-relaxed text-zinc-500 line-clamp-3">{latestLog.text}</p>
+            )}
+          </section>
+
+          {workflowSteps.length > 0 && (
+            <section className="rounded-xl bg-zinc-950/55 border border-zinc-900 p-3 flex flex-col gap-2.5">
+              <div className="text-[10px] font-mono uppercase text-zinc-500 flex items-center gap-1.5">
+                <Workflow className="w-3.5 h-3.5 text-violet-300" />
+                Timeline
+              </div>
+              {workflowSteps.map((step) => (
+                <div
+                  key={step.id}
+                  className="grid grid-cols-[14px_1fr] gap-2 rounded-lg bg-zinc-900/45 px-2.5 py-2"
+                >
+                  <span
+                    className={`mt-1.5 w-2 h-2 rounded-full ${
+                      step.status === "completed"
+                        ? "bg-emerald-400"
+                        : step.status === "running"
+                          ? "bg-amber-400 animate-pulse"
+                          : step.status === "waiting_approval"
+                            ? "bg-violet-400 animate-pulse"
+                            : step.status === "failed"
+                              ? "bg-rose-400"
+                              : "bg-zinc-700"
+                    }`}
+                  />
+                  <div className="min-w-0">
+                    <div className="text-xs font-semibold text-zinc-200 truncate">{step.title}</div>
+                    <div className="text-[10px] text-zinc-500 leading-relaxed line-clamp-2">
+                      {step.detail || step.kind}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </section>
+          )}
+
+          <section className="rounded-xl bg-zinc-950/55 border border-zinc-900 p-3 flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[10px] font-mono uppercase text-zinc-500">Clipboard</span>
+              <span className="text-[9px] text-zinc-600">
+                {hasClipboard ? `${clipboardText.length}` : "vazio"}
+              </span>
+            </div>
+            <p className="min-h-16 rounded-lg bg-zinc-900/35 border border-zinc-900 p-2.5 text-[11px] text-zinc-500 leading-relaxed line-clamp-4 select-text">
+              {hasClipboard
+                ? `"${clipboardText.slice(0, 260)}${clipboardText.length > 260 ? "..." : ""}"`
+                : "Nenhum texto detectado."}
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {QUICK_ACTIONS.slice(0, 4).map((action) => {
+                const Icon = action.icon;
+                const disabled = streaming || !hasClipboard;
+
+                return (
+                  <button
+                    key={action.id}
+                    type="button"
+                    onClick={() => handleQuickAction(action.id)}
+                    disabled={disabled}
+                    className="h-10 rounded-lg bg-zinc-900/70 border border-zinc-800 text-zinc-400 hover:text-zinc-100 hover:border-violet-500/30 transition-colors cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:pointer-events-none"
+                    title={disabled ? "Copie um texto primeiro" : action.description}
+                  >
+                    <Icon className={`w-3.5 h-3.5 ${action.accent}`} />
+                    <span className="text-[9px] font-semibold truncate">{action.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="rounded-xl bg-zinc-950/45 border border-zinc-900 p-3">
+            <div className="text-[10px] font-mono uppercase text-zinc-500 mb-2">Conectores</div>
+            <div className="grid gap-2">
+              {visibleConnectors.slice(0, 5).map((connector) => (
+                <div key={connector.id} className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-zinc-400 truncate">{connector.name}</span>
+                  <span
+                    className={`w-2 h-2 rounded-full ${connector.enabled ? "bg-emerald-400" : "bg-zinc-700"}`}
+                  />
+                </div>
+              ))}
+            </div>
+          </section>
+        </aside>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full w-full bg-zinc-950/20 text-zinc-100 font-sans relative">
@@ -811,17 +1495,17 @@ export function CommandPalette() {
       </div>
 
       {/* Tab Contents */}
-      <div className={`flex-1 overflow-y-auto custom-scrollbar ${workspaceMode ? "p-5" : "p-4"}`}>
+      <div className={`flex-1 overflow-y-auto custom-scrollbar ${expandedMode ? "p-5" : "p-4"}`}>
         {mode === "command" ? (
           taskActive ? (
             <div
               className={
-                workspaceMode
+                expandedMode
                   ? "min-h-full grid grid-cols-[minmax(0,1fr)_340px] gap-4 items-start"
                   : "min-h-full flex flex-col gap-4"
               }
             >
-              <div className={`${workspaceMode ? "col-span-2" : ""} flex items-center justify-between gap-3`}>
+              <div className={`${expandedMode ? "col-span-2" : ""} flex items-center justify-between gap-3`}>
                 <button
                   type="button"
                   onClick={handleNewTask}
@@ -855,16 +1539,12 @@ export function CommandPalette() {
                   )}
                   <button
                     type="button"
-                    onClick={handleWorkspaceMode}
-                    className={`h-7 px-2 rounded-md border text-[10px] font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
-                      uiMode === "workspace"
-                        ? "bg-violet-950/30 border-violet-700/50 text-violet-200"
-                        : "bg-zinc-950/60 border-zinc-800 text-zinc-400 hover:text-zinc-100"
-                    }`}
-                    title={uiMode === "workspace" ? "Voltar ao painel compacto" : "Abrir workspace"}
+                    onClick={handleExpandedMode}
+                    className="h-7 px-2 rounded-md border text-[10px] font-semibold transition-colors cursor-pointer flex items-center gap-1.5 bg-zinc-950/60 border-zinc-800 text-zinc-400 hover:text-zinc-100"
+                    title="Abrir modo expandido"
                   >
                     <Maximize2 className="w-3.5 h-3.5" />
-                    Workspace
+                    Expandido
                   </button>
                 </div>
               </div>
@@ -924,7 +1604,7 @@ export function CommandPalette() {
 
               {workflowSteps.length > 0 && (
                 <section
-                  className={`${workspaceMode ? "col-start-2 row-span-2" : ""} rounded-xl bg-zinc-950/55 border border-zinc-900/70 p-3 flex flex-col gap-2.5`}
+                  className={`${expandedMode ? "col-start-2 row-span-2" : ""} rounded-xl bg-zinc-950/55 border border-zinc-900/70 p-3 flex flex-col gap-2.5`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="text-[10px] text-zinc-500 font-mono uppercase font-bold flex items-center gap-1.5">
@@ -967,7 +1647,7 @@ export function CommandPalette() {
 
               {approval && (
                 <section
-                  className={`${workspaceMode ? "col-start-2" : ""} rounded-xl bg-violet-950/20 border border-violet-800/40 p-3.5 flex flex-col gap-3`}
+                  className={`${expandedMode ? "col-start-2" : ""} rounded-xl bg-violet-950/20 border border-violet-800/40 p-3.5 flex flex-col gap-3`}
                 >
                   <div className="flex items-start gap-2.5">
                     <ShieldCheck className="w-4.5 h-4.5 text-violet-300 mt-0.5 shrink-0" />
@@ -1002,7 +1682,7 @@ export function CommandPalette() {
 
               {visibleLogs.length > 0 && (
                 <section
-                  className={`${workspaceMode ? "col-start-2" : ""} rounded-xl bg-zinc-950/45 p-3 flex flex-col gap-2`}
+                  className={`${expandedMode ? "col-start-2" : ""} rounded-xl bg-zinc-950/45 p-3 flex flex-col gap-2`}
                 >
                   <div className="text-[10px] text-zinc-500 font-mono uppercase font-bold">
                     Execução ao vivo
@@ -1037,7 +1717,7 @@ export function CommandPalette() {
               )}
 
               <section
-                className={`${workspaceMode ? "min-h-[480px]" : "flex-1 min-h-[260px]"} rounded-2xl bg-zinc-950/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] overflow-hidden flex flex-col`}
+                className={`${expandedMode ? "min-h-[480px]" : "flex-1 min-h-[260px]"} rounded-2xl bg-zinc-950/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] overflow-hidden flex flex-col`}
               >
                 <div className="px-4 py-3 flex items-center justify-between bg-zinc-900/40">
                   <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold">
@@ -1081,13 +1761,13 @@ export function CommandPalette() {
           ) : (
             <div
               className={
-                workspaceMode
+                expandedMode
                   ? "grid grid-cols-[340px_minmax(0,1fr)] gap-4 items-start"
                   : "flex flex-col gap-4"
               }
             >
               <section
-                className={`${workspaceMode ? "col-span-2" : ""} rounded-xl bg-zinc-950/65 border border-zinc-900 p-1 grid grid-cols-2 gap-1`}
+                className={`${expandedMode ? "col-span-2" : ""} rounded-xl bg-zinc-950/65 border border-zinc-900 p-1 grid grid-cols-2 gap-1`}
               >
                 <button
                   type="button"
@@ -1119,12 +1799,12 @@ export function CommandPalette() {
               </section>
 
               <section
-                className={`${workspaceMode ? "col-span-2" : ""} rounded-xl bg-zinc-950/45 border border-zinc-900 px-3 py-2 flex items-center justify-between gap-3`}
+                className={`${expandedMode ? "col-span-2" : ""} rounded-xl bg-zinc-950/45 border border-zinc-900 px-3 py-2 flex items-center justify-between gap-3`}
               >
                 <div className="min-w-0 flex items-center gap-2 overflow-hidden">
                   <span className="text-[10px] font-mono uppercase text-zinc-500 shrink-0">MCPs</span>
                   <div className="flex items-center gap-1.5 overflow-hidden">
-                    {visibleConnectors.slice(0, workspaceMode ? 6 : 3).map((connector) => (
+                    {visibleConnectors.slice(0, expandedMode ? 6 : 3).map((connector) => (
                       <span
                         key={connector.id}
                         className={`px-2 py-1 rounded-md text-[9px] font-semibold whitespace-nowrap ${
@@ -1147,7 +1827,7 @@ export function CommandPalette() {
                 </button>
               </section>
 
-              <section className={`${workspaceMode ? "col-start-1" : ""} grid grid-cols-2 gap-2`}>
+              <section className={`${expandedMode ? "col-start-1" : ""} grid grid-cols-2 gap-2`}>
                 <button
                   type="button"
                   onClick={() => setInputMode("free")}
@@ -1182,9 +1862,7 @@ export function CommandPalette() {
                 </button>
               </section>
 
-              <div
-                className={`${workspaceMode ? "col-start-2 row-span-2" : ""} relative group flex flex-col`}
-              >
+              <div className={`${expandedMode ? "col-start-2 row-span-2" : ""} relative group flex flex-col`}>
                 <span className="text-[10px] text-zinc-500 font-mono font-bold uppercase mb-1 flex items-center gap-1.5 select-none">
                   {inputMode === "clipboard" ? (
                     <Clipboard className="w-3.5 h-3.5 text-emerald-400" />
@@ -1218,7 +1896,7 @@ export function CommandPalette() {
 
               {inputMode === "clipboard" && (
                 <section
-                  className={`${workspaceMode ? "col-start-1" : ""} p-3.5 rounded-xl bg-zinc-950/65 border border-zinc-900 flex flex-col gap-3`}
+                  className={`${expandedMode ? "col-start-1" : ""} p-3.5 rounded-xl bg-zinc-950/65 border border-zinc-900 flex flex-col gap-3`}
                 >
                   <div className="flex items-center justify-between gap-3">
                     <span className="flex items-center gap-1.5 text-[10px] text-zinc-400 uppercase tracking-wider font-bold select-none">
@@ -1239,7 +1917,7 @@ export function CommandPalette() {
                 </section>
               )}
 
-              <section className={`${workspaceMode ? "col-start-2" : ""} flex flex-col gap-2`}>
+              <section className={`${expandedMode ? "col-start-2" : ""} flex flex-col gap-2`}>
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] text-zinc-500 font-mono font-bold uppercase select-none">
                     {inputMode === "clipboard" ? "Ações com clipboard" : "Ações livres"}

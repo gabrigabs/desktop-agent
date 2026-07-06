@@ -183,7 +183,7 @@ export class Orchestrator {
     const tools = registry.list();
     const toolsList = tools.map((t) => `- ${t.name}: ${t.description}`).join("\n");
 
-    const systemPrompt = `Você é o "Desktop Agent", um agente pessoal leve rodando no desktop do usuário.
+    const systemPrompt = `Você é o "Helix", um agente pessoal leve rodando no desktop do usuário.
 Você pode receber um pedido livre do usuário, o conteúdo atual do clipboard e acesso a ferramentas locais.
 
 Seu objetivo é ajudar o usuário com seu comando.
