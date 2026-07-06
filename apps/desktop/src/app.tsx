@@ -12,7 +12,7 @@ import {
   startWindowDrag,
 } from "./lib/window";
 import { useAgentStore } from "./stores/agent";
-import { CommandPalette } from "./surfaces/command-palette";
+import { Helix } from "./surfaces/helix";
 
 export function App() {
   const { connected, uiMode, setUiMode, settings, setSettings } = useAgentStore();
@@ -168,8 +168,8 @@ export function App() {
           <div className="absolute inset-0 rounded-full ring-1 ring-white/[0.08]" />
           <Pet size={62} />
           <div
-            className={`absolute right-[18px] bottom-[18px] w-3 h-3 rounded-full ring-4 ring-zinc-950/95 shadow-[0_0_18px_currentColor] ${
-              connected ? "bg-emerald-400 text-emerald-300" : "bg-amber-400 text-amber-300"
+            className={`absolute right-[18px] bottom-[18px] w-3 h-3 rounded-full ring-4 ring-ink/95 shadow-[0_0_18px_currentColor] ${
+              connected ? "bg-good text-good" : "bg-warn text-warn"
             }`}
           />
         </div>
@@ -183,21 +183,18 @@ export function App() {
     >
       {/* Custom Titlebar / Header */}
       <header
-        className="h-12 flex items-center justify-between px-4 border-b border-zinc-800/60 bg-zinc-950/40 relative z-10"
+        className="h-12 flex items-center justify-between px-4 border-b border-line bg-white/[0.02] relative z-10"
         data-tauri-drag-region
       >
         <div className="flex items-center gap-2" data-tauri-drag-region>
           <Pet size={24} />
           <div className="flex flex-col" data-tauri-drag-region>
-            <span className="text-xs font-mono font-bold tracking-wide text-zinc-200" data-tauri-drag-region>
+            <span className="text-xs font-bold tracking-wide text-fg" data-tauri-drag-region>
               Helix
             </span>
-            <span
-              className="text-[9px] font-mono text-zinc-500 flex items-center gap-1"
-              data-tauri-drag-region
-            >
+            <span className="text-[9px] text-faint flex items-center gap-1" data-tauri-drag-region>
               <span
-                className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`}
+                className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-good animate-pulse" : "bg-warn"}`}
               />
               {connected ? `online · ${modeLabel}` : `connecting · ${modeLabel}`}
             </span>
@@ -209,9 +206,9 @@ export function App() {
           className="flex gap-1 justify-center opacity-30 group-hover:opacity-60 transition-opacity"
           data-tauri-drag-region
         >
-          <div className="w-1 h-1 bg-zinc-400 rounded-full" data-tauri-drag-region />
-          <div className="w-1 h-1 bg-zinc-400 rounded-full" data-tauri-drag-region />
-          <div className="w-1 h-1 bg-zinc-400 rounded-full" data-tauri-drag-region />
+          <div className="w-1 h-1 bg-faint rounded-full" data-tauri-drag-region />
+          <div className="w-1 h-1 bg-faint rounded-full" data-tauri-drag-region />
+          <div className="w-1 h-1 bg-faint rounded-full" data-tauri-drag-region />
         </div>
 
         <div className="flex items-center gap-1.5 relative z-20">
@@ -219,7 +216,7 @@ export function App() {
           <button
             type="button"
             onClick={handleMini}
-            className={`p-1.5 rounded-md hover:bg-zinc-800/80 transition-colors ${uiMode === "mini" ? "text-amber-300" : "text-zinc-500 hover:text-zinc-300"}`}
+            className={`p-1.5 rounded-md hover:bg-white/5 transition-colors ${uiMode === "mini" ? "text-warn" : "text-faint hover:text-fg"}`}
             title={uiMode === "mini" ? "Modo mini ativo" : "Abrir modo mini"}
           >
             <Sparkles className="w-3.5 h-3.5" />
@@ -229,7 +226,7 @@ export function App() {
           <button
             type="button"
             onClick={handleExpanded}
-            className={`p-1.5 rounded-md hover:bg-zinc-800/80 transition-colors ${uiMode === "expanded" ? "text-violet-300" : "text-zinc-500 hover:text-zinc-300"}`}
+            className={`p-1.5 rounded-md hover:bg-white/5 transition-colors ${uiMode === "expanded" ? "text-signal" : "text-faint hover:text-fg"}`}
             title={uiMode === "expanded" ? "Voltar ao modo normal" : "Abrir modo expandido"}
           >
             <Maximize2 className="w-3.5 h-3.5" />
@@ -239,7 +236,7 @@ export function App() {
           <button
             type="button"
             onClick={toggleAlwaysOnTop}
-            className={`p-1.5 rounded-md hover:bg-zinc-800/80 transition-colors ${settings.alwaysOnTop ? "text-indigo-400" : "text-zinc-500 hover:text-zinc-300"}`}
+            className={`p-1.5 rounded-md hover:bg-white/5 transition-colors ${settings.alwaysOnTop ? "text-signal" : "text-faint hover:text-fg"}`}
             title={settings.alwaysOnTop ? "Fixado no topo" : "Fixar no topo"}
           >
             <Pin className="w-3.5 h-3.5" />
@@ -249,7 +246,7 @@ export function App() {
           <button
             type="button"
             onClick={handleCollapse}
-            className="p-1.5 rounded-md text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/80 transition-colors"
+            className="p-1.5 rounded-md text-faint hover:text-fg hover:bg-white/5 transition-colors"
             title={settings.hidePet ? "Ocultar janela" : "Minimizar para o Pet"}
           >
             <Minimize2 className="w-3.5 h-3.5" />
@@ -260,7 +257,7 @@ export function App() {
       {/* Main Content Area */}
       <main className="flex-1 overflow-hidden relative z-10">
         <ErrorBoundary>
-          <CommandPalette />
+          <Helix />
         </ErrorBoundary>
       </main>
     </div>

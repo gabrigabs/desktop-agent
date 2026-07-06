@@ -1,22 +1,29 @@
 @import "tailwindcss";
 
 @theme {
-  --color-accent: #6366f1;
-  --color-accent-hover: #818cf8;
-  --color-surface: #09090b;
-  --color-surface-hover: #18181b;
-  --color-border: rgba(63, 63, 70, 0.4);
-  --color-text-primary: #fafafa;
-  --color-text-secondary: #a1a1aa;
-  --color-text-muted: #52525b;
+  --color-ink: #0b0a0f;
+  --color-glass: rgba(18, 16, 26, 0.72);
+  --color-line: rgba(255, 255, 255, 0.08);
+  --color-line-strong: rgba(255, 255, 255, 0.14);
+  --color-fg: #ece9f2;
+  --color-mute: #8b87a3;
+  --color-faint: #5a5668;
+  --color-signal: #c499f4;
+  --color-signal-dim: rgba(196, 153, 244, 0.14);
+  --color-warn: #f0a040;
+  --color-good: #5fd0a0;
+  --color-bad: #f0607c;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", monospace;
 }
 
 :root {
-  --glow-idle: rgba(99, 102, 241, 0.2);
-  --glow-connecting: rgba(245, 158, 11, 0.2);
-  --glow-thinking: rgba(234, 179, 8, 0.3);
-  --glow-success: rgba(16, 185, 129, 0.35);
-  --glow-error: rgba(239, 68, 68, 0.35);
+  --glow-idle: rgba(196, 153, 244, 0.2);
+  --glow-connecting: rgba(240, 160, 64, 0.2);
+  --glow-thinking: rgba(240, 200, 64, 0.3);
+  --glow-success: rgba(95, 208, 160, 0.35);
+  --glow-error: rgba(240, 96, 124, 0.35);
 }
 
 html, body, #root {
@@ -24,54 +31,48 @@ html, body, #root {
   padding: 0;
   background: transparent !important;
   overflow: hidden;
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  color: var(--color-fg);
   user-select: none;
   height: 100vh;
   width: 100vw;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Custom Scrollbars */
-::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.16); }
 
-/* Focus resets to remove white borders in WebKit/Chromium */
 button, input, textarea, select {
   outline: none !important;
   box-shadow: none !important;
   border-color: transparent;
 }
 
-button:focus, button:focus-visible, 
-textarea:focus, textarea:focus-visible, 
+button:focus, button:focus-visible,
+textarea:focus, textarea:focus-visible,
 input:focus, input:focus-visible {
   outline: none !important;
   box-shadow: none !important;
 }
 
-/* Borderless floating shell */
 .agent-shell {
   background:
-    linear-gradient(180deg, rgba(19, 19, 22, 0.96), rgba(9, 9, 11, 0.96)),
-    rgba(9, 9, 11, 0.92);
-  backdrop-filter: blur(18px) saturate(140%);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
+    linear-gradient(180deg, rgba(20, 18, 28, 0.92), rgba(11, 10, 15, 0.92));
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 8px 40px rgba(0, 0, 0, 0.4);
 }
 
-/* Analog Noise Grain Mask */
+.helix-rule {
+  border: 0;
+  border-top: 1px solid var(--color-line);
+  border-bottom: 1px solid var(--color-line);
+  height: 3px;
+  margin: 0;
+}
+
 .noise-overlay {
   position: absolute;
   inset: 0;
@@ -82,46 +83,16 @@ input:focus, input:focus-visible {
   border-radius: inherit;
 }
 
-/* Kinetic Orb Animations */
-@keyframes spin-clockwise {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
+@keyframes spin-clockwise { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes spin-counter { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
+@keyframes pulse-gentle { 0%, 100% { transform: scale(1); opacity: 0.75; } 50% { transform: scale(1.06); opacity: 1; } }
+@keyframes float-gentle { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-3px); } }
 
-@keyframes spin-counter {
-  from { transform: rotate(360deg); }
-  to { transform: rotate(0deg); }
-}
+.animate-spin-clockwise { animation: spin-clockwise 10s linear infinite; transform-origin: center; }
+.animate-spin-counter { animation: spin-counter 14s linear infinite; transform-origin: center; }
+.animate-pulse-gentle { animation: pulse-gentle 4s ease-in-out infinite; }
+.animate-float { animation: float-gentle 5s ease-in-out infinite; }
 
-@keyframes pulse-gentle {
-  0%, 100% { transform: scale(1); opacity: 0.75; }
-  50% { transform: scale(1.06); opacity: 1; }
-}
-
-@keyframes float-gentle {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-3px); }
-}
-
-.animate-spin-clockwise {
-  animation: spin-clockwise 10s linear infinite;
-  transform-origin: center;
-}
-
-.animate-spin-counter {
-  animation: spin-counter 14s linear infinite;
-  transform-origin: center;
-}
-
-.animate-pulse-gentle {
-  animation: pulse-gentle 4s ease-in-out infinite;
-}
-
-.animate-float {
-  animation: float-gentle 5s ease-in-out infinite;
-}
-
-/* Discrete Transitions for UI popovers */
 .discrete-enter {
   opacity: 0;
   transform: scale(0.96);
@@ -138,5 +109,14 @@ input:focus, input:focus-visible {
   @starting-style {
     opacity: 0;
     transform: scale(0.96);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-spin-clockwise,
+  .animate-spin-counter,
+  .animate-pulse-gentle,
+  .animate-float {
+    animation: none;
   }
 }
