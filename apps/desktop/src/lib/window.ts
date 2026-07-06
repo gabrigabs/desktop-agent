@@ -56,6 +56,7 @@ export async function setWindowMode(mode: WindowMode, options?: { alwaysOnTop?: 
       await appWindow.setSize(new LogicalSize(bounds.width, bounds.height));
       await appWindow.setPosition(new LogicalPosition(bounds.x, bounds.y));
       await appWindow.show();
+      await appWindow.setShadow(false);
 
       await appWindow.setResizable(true);
       if (options?.alwaysOnTop !== undefined) {
@@ -71,6 +72,7 @@ export async function setWindowMode(mode: WindowMode, options?: { alwaysOnTop?: 
     await appWindow.unmaximize();
     await appWindow.setSize(new LogicalSize(size.width, size.height));
     await appWindow.show();
+    await appWindow.setShadow(false);
 
     // Aguarda um curto intervalo para que a animação/redimensionamento do SO termine antes de travar a janela.
     await new Promise((r) => setTimeout(r, 150));

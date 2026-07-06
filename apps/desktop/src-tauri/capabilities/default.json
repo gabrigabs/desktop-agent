@@ -24,7 +24,7 @@
         {
           "name": "binaries/agent-runtime",
           "sidecar": true,
-          "args": true
+          "args": false
         }
       ]
     },
@@ -34,7 +34,7 @@
         {
           "name": "binaries/agent-runtime",
           "sidecar": true,
-          "args": true
+          "args": false
         }
       ]
     },

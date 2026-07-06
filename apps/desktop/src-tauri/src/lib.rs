@@ -1,5 +1,3 @@
-mod sidecar;
-
 use tauri::Manager;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
@@ -78,7 +76,10 @@ pub fn run() {
 
             Ok(())
         })
-        .on_window_event(|_window, event| {
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::Resized { .. } = event {
+                let _ = window.set_shadow(false);
+            }
             if let tauri::WindowEvent::Destroyed = event {
                 std::process::exit(0);
             }

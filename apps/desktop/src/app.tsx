@@ -163,8 +163,9 @@ export function App() {
         title="Abrir Helix"
         aria-label="Abrir Helix"
       >
-        <div className="w-[92px] h-[92px] rounded-full flex items-center justify-center transition-transform duration-300 group-hover:scale-105 relative pointer-events-none bg-zinc-950/90 shadow-[0_0_0_1px_rgba(255,255,255,0.28),0_0_0_7px_rgba(255,255,255,0.07),0_20px_45px_rgba(0,0,0,0.58)] backdrop-blur-md">
-          <div className="absolute inset-2 rounded-full bg-[radial-gradient(circle_at_50%_42%,rgba(244,114,182,0.24),rgba(9,9,11,0)_62%)]" />
+        <div className="w-[92px] h-[92px] rounded-full flex items-center justify-center transition-transform duration-300 group-hover:scale-105 relative pointer-events-none">
+          <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_50%_42%,rgba(244,114,182,0.22),rgba(9,9,11,0)_68%)]" />
+          <div className="absolute inset-0 rounded-full ring-1 ring-white/[0.08]" />
           <Pet size={62} />
           <div
             className={`absolute right-[18px] bottom-[18px] w-3 h-3 rounded-full ring-4 ring-zinc-950/95 shadow-[0_0_18px_currentColor] ${
