@@ -35,7 +35,7 @@
 - A janela normal estava divergente entre plano/código; a meta oficial é `520x820`.
 - `alwaysOnTop` existia como estado local de UI, mas precisava ser persistido e reaplicado após resize.
 - O storage tinha tabelas criadas por `CREATE TABLE IF NOT EXISTS`, mas sem versionamento explícito de migrations.
-- A superfície principal ainda fica concentrada em `CommandPalette`, que deve ser quebrada antes de features grandes.
+- A superfície principal já foi extraída para `surfaces/helix/`; o alias `CommandPalette` foi removido.
 
 ### Planejado
 
@@ -221,7 +221,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável. O cam
   1. Criar class component `ErrorBoundary`.
   2. Logar erro via `componentDidCatch`.
   3. Renderizar fallback PT-BR com botão "Reiniciar interface".
-  4. Envolver `CommandPalette` no boundary.
+  4. Envolver `Helix` no boundary.
 - Aceite:
   - Exceção em componente filho mostra fallback, não tela branca.
   - Botão recarrega a interface.
@@ -299,26 +299,20 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável. O cam
 
 #### R02 - Component split da Command Palette
 
-- Status: planejado, próximo grande refactor.
+- Status: implementado no worktree atual.
 - Objetivo: reduzir risco antes de chat multi-turn e features de contexto.
-- Arquivos alvo: criar `apps/desktop/src/surfaces/helix/*`; manter `command-palette/index.tsx` como shell temporário ou adapter.
-- Ordem de implementação:
-  1. Extrair constantes puras: shortcut label, modelos Pinstripes, quick actions, free actions.
-  2. Extrair hooks sem mudar UI: `useClipboard`, `useCapabilities`, `useSettingsForm`, `useExecute`.
-  3. Extrair `MiniView`, `NormalCommandView`, `ExpandedView`.
-  4. Extrair `SettingsPanel` e `ConnectorsPanel`.
-  5. Só depois renomear a surface para `helix`.
-- Contratos:
-  - Props devem ser explícitas; evitar passar o store inteiro para componentes filhos.
-  - Hooks podem acessar Zustand quando reduzirem prop drilling de estado global.
-  - Cada arquivo novo deve ficar abaixo de 300 linhas; exceções precisam comentário no plano.
+- Arquivos: `apps/desktop/src/surfaces/helix/*` criados; `command-palette/` removido; `HistoryList` movido para `helix/`.
+- O que foi feito:
+  - Constantes, hooks, views (`MiniView`, `NormalCommandView`, `ExpandedView`), `SettingsPanel` e `ConnectorsPanel` já estão em `surfaces/helix/`.
+  - `command-palette/index.tsx` (alias temporário) e `result-preview.tsx` foram removidos.
+  - `app.tsx` já importa `Helix` diretamente.
 - Aceite:
   - UI visualmente igual antes/depois.
-  - Nenhuma feature nova entra no mesmo commit.
-  - `index.tsx` cai para menos de 350 linhas.
+  - `rg "command-palette|CommandPalette" apps/desktop/src` retorna vazio.
+  - `bun run typecheck` passa.
 - Verificação:
   - `bun run typecheck`
-  - screenshot/manual em `mini`, `normal`, `expanded`, settings e connectors.
+  - `rg "command-palette|CommandPalette" apps/desktop/src`
 
 #### R03 - Tokens mínimos e limpeza visual
 
@@ -542,7 +536,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável. O cam
 
 - Status: depois do chat core.
 - Critério para desbloquear: `Turn[]`, composer isolado e persistência de turns completos.
-- Não fazer: adicionar nova camada de UI em `CommandPalette` antes do component split.
+- Não fazer: adicionar nova camada de UI na surface legada antes do component split.
 
 #### V04 - Workflow LLM-only
 
@@ -569,7 +563,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável. O cam
 - A primeira tela funciona sem clipboard.
 - Pinstripes aparece como provider principal e modelo selecionável.
 - Logs técnicos não dominam tarefas simples.
-- `CommandPalette` tem plano de split antes do chat multi-turn completo.
+- Surface `Helix` está extraída antes de features grandes.
 - Storage roda migrations versionadas de forma idempotente.
 - Permissões sensíveis têm disclosure antes de pedir acesso.
 

@@ -202,13 +202,7 @@ function PetFull({
           strokeOpacity="0.4"
           className="pet-shockwave"
         />
-        <circle
-          className={coreAnimation}
-          cx="50"
-          cy="50"
-          r="17"
-          fill={`url(#${coreGradientId})`}
-        />
+        <circle className={coreAnimation} cx="50" cy="50" r="17" fill={`url(#${coreGradientId})`} />
         <circle
           cx="50"
           cy="50"

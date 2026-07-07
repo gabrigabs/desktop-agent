@@ -76,7 +76,7 @@ export function App() {
   useEffect(() => {
     if (settings.hidePet && uiMode === "collapsed") {
       hideWindow();
-      // Auto expand to normal mode so that next time the shortcut is pressed, it shows the command palette directly
+      // Auto expand to normal mode so that next time the shortcut is pressed, it shows Helix directly
       setUiMode("normal");
       setWindowMode("normal", { alwaysOnTop: settings.alwaysOnTop });
       saveAppSettings({ ...settings, lastWindowMode: "normal" });

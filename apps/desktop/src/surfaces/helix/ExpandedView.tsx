@@ -12,11 +12,11 @@ import {
   X,
 } from "lucide-react";
 import type { RefObject } from "react";
-import { HistoryList } from "../command-palette/history-list";
 import { ChatView } from "./ChatView";
 import { Composer } from "./Composer";
 import { ConnectorsPanel } from "./ConnectorsPanel";
 import { FREE_ACTIONS, type InputMode, QUICK_ACTIONS } from "./constants";
+import { HistoryList } from "./history-list";
 
 type Props = {
   error: string | null;
