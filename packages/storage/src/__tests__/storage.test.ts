@@ -45,11 +45,13 @@ describe("Storage Package Tests", () => {
     expect(tableNames).toContain("workflow_steps");
     expect(tableNames).toContain("workflow_templates");
     expect(tableNames).toContain("mcp_servers");
+    expect(tableNames).toContain("prompt_library");
+    expect(tableNames).toContain("agent_profiles");
 
     const migrations = db.query("SELECT version FROM _migrations ORDER BY version").all() as {
       version: number;
     }[];
-    expect(migrations.map((migration) => migration.version)).toEqual([1, 2, 3, 4, 5]);
+    expect(migrations.map((migration) => migration.version)).toEqual([1, 2, 3, 4, 5, 6]);
 
     const settings = db.query("SELECT key, value FROM app_settings ORDER BY key").all() as {
       key: string;

@@ -1,4 +1,5 @@
 import {
+  Check,
   Clock,
   Database,
   Eye,
@@ -11,11 +12,14 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
+import { useEffect, useState } from "react";
+import type { AppSettings } from "@desktop-agent/shared";
 import { GLOBAL_SHORTCUT_LABEL, PINSTRIPES_MODELS } from "./constants";
 
 type Props = {
   variant?: "normal" | "expanded";
   onClose: () => void;
+  settings: AppSettings;
   formProvider: string;
   formApiKey: string;
   formBaseUrl: string;
@@ -40,10 +44,61 @@ type Props = {
   handleSaveSettings: (e: React.FormEvent) => Promise<boolean | undefined>;
 };
 
+function useDirtyCheck(p: Props) {
+  return (
+    p.formProvider !== p.settings.activeProvider ||
+    p.formApiKey !== p.settings.apiKey ||
+    p.formBaseUrl !== p.settings.baseUrl ||
+    p.formModel !== p.settings.model ||
+    p.formHidePet !== p.settings.hidePet ||
+    p.formTimeout !== p.settings.timeout ||
+    Math.abs(p.formWindowOpacity - p.settings.windowOpacity) > 0.005 ||
+    p.formPetSize !== p.settings.petSize
+  );
+}
+
+function useValidation(p: Props) {
+  const needsApiKey = p.formProvider !== "mock" && !p.formApiKey.trim();
+  const timeoutOutOfRange = p.formTimeout < 5 || p.formTimeout > 600;
+  return { needsApiKey, timeoutOutOfRange, hasError: needsApiKey || timeoutOutOfRange };
+}
+
+function useInlineSaveFeedback(savingSettings: boolean) {
+  const [justSaved, setJustSaved] = useState(false);
+  useEffect(() => {
+    if (!savingSettings && justSaved) {
+      const timer = setTimeout(() => setJustSaved(false), 2000);
+      return () => clearTimeout(timer);
+    }
+    if (savingSettings) {
+      setJustSaved(true);
+    }
+  }, [savingSettings]);
+  return justSaved;
+}
+
+function opacityLabel(v: number) {
+  const pct = Math.round(v * 100);
+  if (pct <= 50) return `${pct}% — muito translúcido`;
+  if (pct <= 80) return `${pct}% — translúcido`;
+  if (pct < 100) return `${pct}% — levemente translúcido`;
+  return `${pct}% — sólido`;
+}
+
+function petSizeLabel(v: number) {
+  if (v <= 54) return `${v}px — compacto`;
+  if (v <= 72) return `${v}px — padrão`;
+  return `${v}px — grande`;
+}
+
 export function SettingsPanel(p: Props) {
   if (p.variant === "expanded") {
     return <ExpandedSettingsPanel {...p} />;
   }
+
+  const isDirty = useDirtyCheck(p);
+  const validation = useValidation(p);
+  const justSaved = useInlineSaveFeedback(p.savingSettings);
 
   return (
     <div className="absolute inset-0 bg-ink/95 backdrop-blur-lg z-30 flex flex-col p-4 select-none border border-line rounded-2xl">
@@ -51,6 +106,17 @@ export function SettingsPanel(p: Props) {
         <span className="text-xs font-bold text-fg flex items-center gap-2">
           <Settings className="w-4 h-4 text-signal" />
           Configurações
+          {isDirty && !p.savingSettings && (
+            <span className="w-1.5 h-1.5 rounded-full bg-warn" title="Alterações não salvas" />
+          )}
+          {p.savingSettings && (
+            <span className="text-[9px] text-signal animate-pulse font-mono">salvando...</span>
+          )}
+          {justSaved && !p.savingSettings && (
+            <span className="text-[9px] text-good font-mono flex items-center gap-0.5">
+              <Check className="w-3 h-3" /> salvo
+            </span>
+          )}
         </span>
         <button
           type="button"
@@ -105,7 +171,7 @@ export function SettingsPanel(p: Props) {
                 value={p.formApiKey}
                 onChange={(e) => p.setFormApiKey(e.target.value)}
                 placeholder="Insira ou cole sua chave de API secreta"
-                className="w-full bg-ink border border-line rounded-lg pl-3 pr-9 py-2 text-xs text-fg outline-none select-text"
+                className={`w-full bg-ink border rounded-lg pl-3 pr-9 py-2 text-xs text-fg outline-none select-text ${validation.needsApiKey ? "border-bad/50" : "border-line"}`}
                 required
               />
               <button
@@ -116,6 +182,9 @@ export function SettingsPanel(p: Props) {
                 {p.showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
+            {validation.needsApiKey && (
+              <span className="text-[9px] text-bad">Necessário para este provedor</span>
+            )}
           </div>
         )}
 
@@ -215,9 +284,12 @@ export function SettingsPanel(p: Props) {
             min={5}
             max={600}
             placeholder="120"
-            className="w-full bg-ink border border-line rounded-lg px-3 py-2 text-xs text-fg outline-none select-text"
+            className={`w-full bg-ink border rounded-lg px-3 py-2 text-xs text-fg outline-none select-text ${validation.timeoutOutOfRange ? "border-bad/50" : "border-line"}`}
             required
           />
+          {validation.timeoutOutOfRange && (
+            <span className="text-[9px] text-bad">Valor entre 5 e 600 segundos</span>
+          )}
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -234,7 +306,7 @@ export function SettingsPanel(p: Props) {
             className="w-full accent-[var(--color-signal)] cursor-pointer"
             aria-label="Opacidade da janela"
           />
-          <span className="text-[9px] text-faint">{Math.round(p.formWindowOpacity * 100)}% opaco</span>
+          <span className="text-[9px] text-faint">{opacityLabel(p.formWindowOpacity)}</span>
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -251,7 +323,7 @@ export function SettingsPanel(p: Props) {
             className="w-full accent-[var(--color-signal)] cursor-pointer"
             aria-label="Tamanho do pet"
           />
-          <span className="text-[9px] text-faint">{p.formPetSize}px</span>
+          <span className="text-[9px] text-faint">{petSizeLabel(p.formPetSize)}</span>
         </div>
 
         <div className="flex items-start gap-3 bg-white/[0.03] border border-line rounded-lg p-3">
@@ -287,10 +359,10 @@ export function SettingsPanel(p: Props) {
           </button>
           <button
             type="submit"
-            disabled={p.savingSettings}
-            className="flex-1 px-3 py-2.5 rounded-lg bg-signal hover:brightness-110 text-ink text-xs transition-colors cursor-pointer font-bold disabled:opacity-50"
+            disabled={p.savingSettings || validation.hasError}
+            className="flex-1 px-3 py-2.5 rounded-lg bg-signal hover:brightness-110 text-ink text-xs transition-colors cursor-pointer font-bold disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {p.savingSettings ? "Salvando..." : "Salvar"}
+            {p.savingSettings ? "Salvando..." : justSaved ? "Salvo" : "Salvar"}
           </button>
         </div>
       </form>
@@ -299,6 +371,10 @@ export function SettingsPanel(p: Props) {
 }
 
 function ExpandedSettingsPanel(p: Props) {
+  const isDirty = useDirtyCheck(p);
+  const validation = useValidation(p);
+  const justSaved = useInlineSaveFeedback(p.savingSettings);
+
   const submitSettings = (e: React.FormEvent) => {
     e.preventDefault();
     void p.handleSaveSettings(e).then((ok) => {
@@ -329,7 +405,12 @@ function ExpandedSettingsPanel(p: Props) {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="text-[9px] font-mono uppercase text-faint tracking-wider">Helix</div>
-              <div className="mt-1 text-sm font-bold text-fg">Configurações</div>
+              <div className="mt-1 text-sm font-bold text-fg flex items-center gap-2">
+                Configurações
+                {isDirty && !p.savingSettings && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-warn" title="Alterações não salvas" />
+                )}
+              </div>
             </div>
             <button
               type="button"
@@ -371,6 +452,12 @@ function ExpandedSettingsPanel(p: Props) {
 
           <div className="mt-auto rounded-xl border border-line bg-white/[0.018] p-3 text-[10px] leading-relaxed text-faint">
             As alterações ficam locais neste app e passam a valer na próxima execução do agente.
+            {justSaved && !p.savingSettings && (
+              <div className="mt-2 flex items-center gap-1 text-good">
+                <Check className="w-3 h-3" />
+                <span className="text-[9px] font-mono">salvo com sucesso</span>
+              </div>
+            )}
           </div>
         </aside>
 
@@ -380,7 +467,12 @@ function ExpandedSettingsPanel(p: Props) {
               <div className="text-[9px] font-mono uppercase text-faint tracking-wider">
                 Preferências do agente
               </div>
-              <div className="text-base font-bold text-fg truncate">Modelo, acesso e comportamento</div>
+              <div className="text-base font-bold text-fg truncate flex items-center gap-2">
+                Modelo, acesso e comportamento
+                {p.savingSettings && (
+                  <span className="text-[9px] text-signal animate-pulse font-mono">salvando...</span>
+                )}
+              </div>
             </div>
             <button
               type="button"
@@ -501,7 +593,7 @@ function ExpandedSettingsPanel(p: Props) {
                           value={p.formApiKey}
                           onChange={(e) => p.setFormApiKey(e.target.value)}
                           placeholder="Insira ou cole sua chave de API secreta"
-                          className="w-full bg-ink border border-line rounded-lg pl-3 pr-10 py-2.5 text-xs text-fg outline-none select-text"
+                          className={`w-full bg-ink border rounded-lg pl-3 pr-10 py-2.5 text-xs text-fg outline-none select-text ${validation.needsApiKey ? "border-bad/50" : "border-line"}`}
                           required
                         />
                         <button
@@ -512,6 +604,9 @@ function ExpandedSettingsPanel(p: Props) {
                           {p.showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
                       </div>
+                      {validation.needsApiKey && (
+                        <span className="text-[9px] text-bad">Necessário para este provedor</span>
+                      )}
                     </label>
                   )}
 
@@ -559,10 +654,12 @@ function ExpandedSettingsPanel(p: Props) {
                       min={5}
                       max={600}
                       placeholder="120"
-                      className="w-full bg-ink border border-line rounded-lg px-3 py-2.5 text-xs text-fg outline-none select-text"
+                      className={`w-full bg-ink border rounded-lg px-3 py-2.5 text-xs text-fg outline-none select-text ${validation.timeoutOutOfRange ? "border-bad/50" : "border-line"}`}
                       required
                     />
-                    <span className="text-[9px] text-faint">Entre 5 e 600 segundos.</span>
+                    <span className={`text-[9px] ${validation.timeoutOutOfRange ? "text-bad" : "text-faint"}`}>
+                      {validation.timeoutOutOfRange ? "Valor entre 5 e 600 segundos" : "Entre 5 e 600 segundos."}
+                    </span>
                   </label>
 
                   <label className="mt-4 flex flex-col gap-1.5">
@@ -580,7 +677,7 @@ function ExpandedSettingsPanel(p: Props) {
                       aria-label="Opacidade da janela"
                     />
                     <span className="text-[9px] text-faint">
-                      {Math.round(p.formWindowOpacity * 100)}% opaco
+                      {opacityLabel(p.formWindowOpacity)}
                     </span>
                   </label>
 
@@ -598,7 +695,7 @@ function ExpandedSettingsPanel(p: Props) {
                       className="w-full accent-[var(--color-signal)] cursor-pointer"
                       aria-label="Tamanho do pet"
                     />
-                    <span className="text-[9px] text-faint">{p.formPetSize}px — afeta o modo colapsado</span>
+                    <span className="text-[9px] text-faint">{petSizeLabel(p.formPetSize)} — afeta o modo colapsado</span>
                   </label>
 
                   <label
@@ -653,10 +750,10 @@ function ExpandedSettingsPanel(p: Props) {
             </button>
             <button
               type="submit"
-              disabled={p.savingSettings}
-              className="h-9 px-4 rounded-lg bg-signal hover:brightness-110 text-ink text-[11px] transition-colors cursor-pointer font-bold disabled:opacity-50"
+              disabled={p.savingSettings || validation.hasError}
+              className="h-9 px-4 rounded-lg bg-signal hover:brightness-110 text-ink text-[11px] transition-colors cursor-pointer font-bold disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {p.savingSettings ? "Salvando..." : "Salvar configurações"}
+              {p.savingSettings ? "Salvando..." : justSaved ? "Salvo" : "Salvar configurações"}
             </button>
           </footer>
         </main>

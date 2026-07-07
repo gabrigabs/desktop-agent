@@ -251,6 +251,13 @@ export type ConnectorConfig = {
   updatedAt: string;
 };
 
+export type McpTestResult = {
+  ok: boolean;
+  error?: string;
+  tools?: { name: string; description: string }[];
+  durationMs?: number;
+};
+
 export type ApprovalRequest = {
   id: string;
   runId: string;
@@ -260,4 +267,44 @@ export type ApprovalRequest = {
   reason: string;
   inputPreview: string;
   createdAt: string;
+};
+
+export type PromptTemplate = {
+  id: string;
+  title: string;
+  prompt: string;
+  category: string;
+  icon: string;
+  executionMode: "simple" | "workflow";
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AgentProfile = {
+  id: string;
+  name: string;
+  systemPrompt: string;
+  description: string;
+  icon: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SavePromptInput = {
+  id?: string;
+  title: string;
+  prompt: string;
+  category?: string;
+  icon?: string;
+  executionMode?: "simple" | "workflow";
+};
+
+export type SaveProfileInput = {
+  id?: string;
+  name: string;
+  systemPrompt?: string;
+  description?: string;
+  icon?: string;
 };

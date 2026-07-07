@@ -240,7 +240,7 @@ export class WorkflowRunner {
       detail: "Workflow iniciado.",
     });
 
-    const toolPlan = this.selectTool(input.prompt, input.clipboardText);
+    const toolPlan = await this.selectTool(input, input.prompt, input.clipboardText);
     const planStep = this.createStep(input.requestId, run.id, {
       kind: "plan",
       status: "running",
@@ -487,7 +487,18 @@ export class WorkflowRunner {
     return result || "Workflow concluído sem conteúdo retornado.";
   }
 
-  private selectTool(prompt: string, clipboardText: string): ToolPlan | null {
+  private async selectTool(
+    input: RunInput,
+    prompt: string,
+    clipboardText: string,
+  ): Promise<ToolPlan | null> {
+    const keywordPlan = this.selectToolKeyword(prompt, clipboardText);
+    if (keywordPlan) return keywordPlan;
+
+    return this.selectToolWithLlm(input, prompt, clipboardText);
+  }
+
+  private selectToolKeyword(prompt: string, clipboardText: string): ToolPlan | null {
     const query = normalize(prompt);
     const hasClipboard = clipboardText.trim().length > 0;
     const urlMatch = prompt.match(/https?:\/\/[^\s]+/i);
@@ -541,6 +552,70 @@ export class WorkflowRunner {
     }
 
     return null;
+  }
+
+  private async selectToolWithLlm(
+    input: RunInput,
+    prompt: string,
+    clipboardText: string,
+  ): Promise<ToolPlan | null> {
+    const provider = this.getLlmProvider();
+    if (provider.name === "mock") return null;
+
+    const tools = registry.list();
+    const toolCatalog = tools
+      .map((t) => `- ${t.name}: ${t.description} (categoria: ${t.category})`)
+      .join("\n");
+
+    const systemPrompt = [
+      "Você é um seletor de ferramentas. Analise o pedido do usuário e decida se uma ferramenta deve ser usada.",
+      "Responda APENAS com JSON no formato: {\"toolName\": \"...\", \"reason\": \"...\", \"input\": {...}}",
+      "Se nenhuma ferramenta for necessária, responda: {\"toolName\": null, \"reason\": \"resposta direta\", \"input\": {}}",
+      "",
+      "Ferramentas disponíveis:",
+      toolCatalog,
+    ].join("\n");
+
+    const userMessage = [
+      `Pedido: ${prompt}`,
+      `Clipboard: ${clipboardText || "(vazio)"}`,
+    ].join("\n");
+
+    try {
+      throwIfAborted(input.signal);
+      const result = await provider.complete({
+        model: this.getActiveModel() || "gpt-4o",
+        temperature: 0,
+        signal: input.signal,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userMessage },
+        ],
+      });
+
+      const content = result.content.trim();
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) return null;
+
+      const parsed = JSON.parse(jsonMatch[0]) as {
+        toolName: string | null;
+        reason?: string;
+        input?: unknown;
+      };
+
+      if (!parsed.toolName) return null;
+
+      const tool = registry.get(parsed.toolName);
+      if (!tool) return null;
+
+      return {
+        toolName: parsed.toolName,
+        reason: parsed.reason ?? `Usar ${parsed.toolName} conforme decisão do LLM.`,
+        input: parsed.input ?? {},
+      };
+    } catch {
+      return null;
+    }
   }
 
   private createStep(

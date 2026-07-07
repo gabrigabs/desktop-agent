@@ -13,6 +13,19 @@ export {
   searchInteractions,
 } from "./repositories/interactions";
 export {
+  createAgentProfile,
+  createPromptTemplate,
+  deleteAgentProfile,
+  deletePromptTemplate,
+  getAgentProfile,
+  listAgentProfiles,
+  listPromptTemplates,
+  updateAgentProfile,
+  updatePromptTemplate,
+  type AgentProfile,
+  type PromptTemplate,
+} from "./repositories/prompt-library";
+export {
   createMcpServer,
   deleteMcpServer,
   ensureDefaultMcpPresets,

@@ -68,6 +68,7 @@ export function useExecute() {
         }
 
         store.startUserTurn(activeQuery, sourceMode);
+        store.setQuery("");
 
         requestId = crypto.randomUUID();
         setRpcActiveRequestId(requestId);

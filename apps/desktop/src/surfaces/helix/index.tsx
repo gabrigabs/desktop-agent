@@ -9,6 +9,7 @@ import { useClipboard } from "./hooks/useClipboard";
 import { type ContextChipItem, useContextChips } from "./hooks/useContextChips";
 import { useExecute } from "./hooks/useExecute";
 import { useKeyboard } from "./hooks/useKeyboard";
+import { usePrompts } from "./hooks/usePrompts";
 import { useSettingsForm } from "./hooks/useSettingsForm";
 import { MiniView } from "./MiniView";
 import { NormalCommandView } from "./NormalCommandView";
@@ -38,12 +39,13 @@ export function Helix({ onToastSuccess, onToastError }: HelixProps) {
     setSettings,
   } = useAgentStore();
 
-  const [mode, setMode] = useState<"command" | "history" | "connectors">("command");
+  const [mode, setMode] = useState<"command" | "history" | "connectors" | "prompts">("command");
   const [showSettings, setShowSettings] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const clipboard = useClipboard();
   const capabilities = useCapabilities();
+  const promptsHook = usePrompts();
   const exec = useExecute();
   const contextChips = useContextChips(clipboard.clipboardText);
   const settingsForm = useSettingsForm(showSettings, onToastSuccess, onToastError);
@@ -263,16 +265,33 @@ export function Helix({ onToastSuccess, onToastError }: HelixProps) {
           onQuickAction={exec.handleQuickAction}
           onTestConnector={capabilities.handleTestConnector}
           onToggleConnector={capabilities.handleToggleConnector}
+          onSaveConnector={capabilities.handleSaveConnector}
+          onDeleteConnector={capabilities.handleDeleteConnector}
+          onStartEditing={capabilities.handleStartEditing}
+          onCancelEditing={capabilities.handleCancelEditing}
+          onShowAddConnector={capabilities.setShowAddConnector}
+          connectorTestResults={capabilities.connectorTestResults}
+          editingConnectorId={capabilities.editingConnectorId}
+          showAddConnector={capabilities.showAddConnector}
           onEditPrompt={onEditPrompt}
           onCopyResponse={onCopyResponse}
           onRegenerate={onRegenerate}
           onToastSuccess={onToastSuccess}
           onToastError={onToastError}
+          prompts={promptsHook.prompts}
+          profiles={promptsHook.profiles}
+          activeProfileId={promptsHook.activeProfileId}
+          onSavePrompt={promptsHook.handleSavePrompt}
+          onDeletePrompt={promptsHook.handleDeletePrompt}
+          onSaveProfile={promptsHook.handleSaveProfile}
+          onDeleteProfile={promptsHook.handleDeleteProfile}
+          onSetActiveProfile={promptsHook.handleSetActiveProfile}
         />
         {showSettings && (
           <SettingsPanel
             variant="expanded"
             onClose={() => setShowSettings(false)}
+            settings={settings}
             formProvider={settingsForm.formProvider}
             setFormProvider={settingsForm.setFormProvider}
             formApiKey={settingsForm.formApiKey}
@@ -366,15 +385,32 @@ export function Helix({ onToastSuccess, onToastError }: HelixProps) {
         onTestConnector={capabilities.handleTestConnector}
         onToggleConnector={capabilities.handleToggleConnector}
         onRefreshCapabilities={capabilities.refreshCapabilities}
+        onSaveConnector={capabilities.handleSaveConnector}
+        onDeleteConnector={capabilities.handleDeleteConnector}
+        onStartEditing={capabilities.handleStartEditing}
+        onCancelEditing={capabilities.handleCancelEditing}
+        onShowAddConnector={capabilities.setShowAddConnector}
+        connectorTestResults={capabilities.connectorTestResults}
+        editingConnectorId={capabilities.editingConnectorId}
+        showAddConnector={capabilities.showAddConnector}
         onEditPrompt={onEditPrompt}
         onCopyResponse={onCopyResponse}
         onRegenerate={onRegenerate}
         onToastSuccess={onToastSuccess}
         onToastError={onToastError}
+        prompts={promptsHook.prompts}
+        profiles={promptsHook.profiles}
+        activeProfileId={promptsHook.activeProfileId}
+        onSavePrompt={promptsHook.handleSavePrompt}
+        onDeletePrompt={promptsHook.handleDeletePrompt}
+        onSaveProfile={promptsHook.handleSaveProfile}
+        onDeleteProfile={promptsHook.handleDeleteProfile}
+        onSetActiveProfile={promptsHook.handleSetActiveProfile}
       />
       {showSettings && (
         <SettingsPanel
           onClose={() => setShowSettings(false)}
+          settings={settings}
           formProvider={settingsForm.formProvider}
           setFormProvider={settingsForm.setFormProvider}
           formApiKey={settingsForm.formApiKey}

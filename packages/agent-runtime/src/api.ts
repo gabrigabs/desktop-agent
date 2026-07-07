@@ -1,27 +1,48 @@
 import { execSync, spawn } from "node:child_process";
+import { readFile as fsReadFile, stat as fsStat } from "node:fs/promises";
+import { basename } from "node:path";
 import type { LlmProvider } from "@desktop-agent/provider-gateway";
 import { createProvider } from "@desktop-agent/provider-gateway";
-import type { AgentApi, AgentEvent, AppSettings, CompletionInput, WorkflowRun } from "@desktop-agent/shared";
+import type {
+  AgentApi,
+  AgentEvent,
+  AgentProfile,
+  AppSettings,
+  CompletionInput,
+  PromptTemplate,
+  SavePromptInput,
+  SaveProfileInput,
+  WorkflowRun,
+} from "@desktop-agent/shared";
 import {
+  createAgentProfile,
   createConversation,
   createInteraction,
   createMcpServer as createStoredMcpServer,
+  createPromptTemplate,
   createTurn,
   createWorkflowRun,
+  deleteAgentProfile,
   deleteMcpServer as deleteStoredMcpServer,
+  deletePromptTemplate,
   ensureDefaultMcpPresets,
+  getAgentProfile,
   getDb,
   getRecentInteractions,
   getSetting,
   getMcpServer as getStoredMcpServer,
   getWorkflowRun,
+  listAgentProfiles,
   listConversations,
   listMcpServers as listStoredMcpServers,
+  listPromptTemplates,
   listTurns,
   listWorkflowRuns,
   listWorkflowTemplates,
   setSetting,
+  updateAgentProfile,
   updateMcpServerStatus,
+  updatePromptTemplate,
   updateWorkflowRun,
   upsertMcpServer,
 } from "@desktop-agent/storage";
@@ -119,7 +140,7 @@ function getLlmProvider() {
   // OpenAI or Gemini or Custom (OpenAI Compatible)
   const defaultBaseUrls: Record<string, string> = {
     openai: "https://api.openai.com/v1",
-    gemini: "https://generativetooling.googleapis.com/v1",
+    gemini: "https://generativelanguage.googleapis.com/v1beta/openai",
   };
 
   const finalBaseUrl =
@@ -444,8 +465,129 @@ export const agentApi: AgentApi = {
       return { ok: false, error };
     }
 
-    updateMcpServerStatus(db, id, { lastCheckedAt: new Date().toISOString(), lastError: null });
-    return { ok: true };
+    if (!server.command) {
+      const error = "Comando não definido para este MCP.";
+      updateMcpServerStatus(db, id, { lastCheckedAt: new Date().toISOString(), lastError: error });
+      return { ok: false, error };
+    }
+
+    const startTime = Date.now();
+    const childEnv = { ...process.env, ...server.env };
+    let child: import("node:child_process").ChildProcessWithoutNullStreams | null = null;
+
+    try {
+      child = spawn(server.command, server.args ?? [], {
+        env: childEnv,
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+
+      let stderrBuf = "";
+      child.stderr.on("data", (chunk: Buffer) => {
+        stderrBuf += chunk.toString();
+        if (stderrBuf.length > 2000) stderrBuf = stderrBuf.slice(-2000);
+      });
+
+      const sendRpc = (method: string, params: Record<string, unknown> = {}) => {
+        const msg = JSON.stringify({ jsonrpc: "2.0", id: Math.floor(Math.random() * 1e9), method, params });
+        child!.stdin.write(msg + "\n");
+      };
+
+      const waitForResponse = (timeoutMs: number) =>
+        new Promise<{ result?: unknown; error?: { message: string } } | null>((resolve) => {
+          let buf = "";
+          const timer = setTimeout(() => {
+            child!.stdout.removeAllListeners("data");
+            resolve(null);
+          }, timeoutMs);
+
+          const onData = (chunk: Buffer) => {
+            buf += chunk.toString();
+            const lines = buf.split("\n");
+            buf = lines.pop() ?? "";
+            for (const line of lines) {
+              if (!line.trim()) continue;
+              try {
+                const parsed = JSON.parse(line);
+                if (parsed.id !== undefined) {
+                  clearTimeout(timer);
+                  child!.stdout.removeListener("data", onData);
+                  resolve({ result: parsed.result, error: parsed.error });
+                  return;
+                }
+              } catch {
+                // ignore non-JSON lines
+              }
+            }
+          };
+
+          child!.stdout.on("data", onData);
+        });
+
+      // Step 1: initialize handshake
+      sendRpc("initialize", {
+        protocolVersion: "2024-11-05",
+        capabilities: {},
+        clientInfo: { name: "helix-desktop", version: "1.0.0" },
+      });
+
+      const initResult = await waitForResponse(10000);
+      if (!initResult) {
+        const error = "MCP não respondeu em 10s.";
+        updateMcpServerStatus(db, id, { lastCheckedAt: new Date().toISOString(), lastError: error });
+        return { ok: false, error, durationMs: Date.now() - startTime };
+      }
+      if (initResult.error) {
+        const error = initResult.error.message || "Erro no handshake initialize.";
+        updateMcpServerStatus(db, id, { lastCheckedAt: new Date().toISOString(), lastError: error });
+        return { ok: false, error, durationMs: Date.now() - startTime };
+      }
+
+      // Send initialized notification
+      child.stdin.write(JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) + "\n");
+
+      // Step 2: list tools
+      sendRpc("tools/list", {});
+      const toolsResult = await waitForResponse(10000);
+      if (!toolsResult) {
+        const error = "MCP não respondeu ao tools/list em 10s.";
+        updateMcpServerStatus(db, id, { lastCheckedAt: new Date().toISOString(), lastError: error });
+        return { ok: false, error, durationMs: Date.now() - startTime };
+      }
+      if (toolsResult.error) {
+        const error = toolsResult.error.message || "Erro ao listar tools.";
+        updateMcpServerStatus(db, id, { lastCheckedAt: new Date().toISOString(), lastError: error });
+        return { ok: false, error, durationMs: Date.now() - startTime };
+      }
+
+      const toolsRaw = (toolsResult.result as { tools?: { name: string; description?: string }[] })?.tools ?? [];
+      const tools = toolsRaw.map((t) => ({ name: t.name, description: t.description ?? "" }));
+
+      updateMcpServerStatus(db, id, { lastCheckedAt: new Date().toISOString(), lastError: null });
+      return { ok: true, tools, durationMs: Date.now() - startTime };
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      const error = errorMessage.includes("ENOENT")
+        ? `Comando não encontrado: ${server.command}`
+        : errorMessage;
+      updateMcpServerStatus(db, id, { lastCheckedAt: new Date().toISOString(), lastError: error });
+      return { ok: false, error, durationMs: Date.now() - startTime };
+    } finally {
+      if (child) {
+        try {
+          child.stdin.end();
+          child.kill("SIGTERM");
+          setTimeout(() => {
+            try {
+              child?.kill("SIGKILL");
+            } catch {
+              // already dead
+            }
+          }, 2000);
+        } catch {
+          // already dead
+        }
+      }
+    }
   },
 
   async getSettings(): Promise<AppSettings> {
@@ -488,7 +630,7 @@ export const agentApi: AgentApi = {
 
     const defaultBaseUrls: Record<string, string> = {
       openai: "https://api.openai.com/v1",
-      gemini: "https://generativetooling.googleapis.com/v1",
+      gemini: "https://generativelanguage.googleapis.com/v1beta/openai",
     };
 
     const finalBaseUrl = baseUrl || defaultBaseUrls[provider] || "https://api.openai.com/v1";
@@ -629,5 +771,93 @@ export const agentApi: AgentApi = {
     }
     runningRuns.clear();
     orchestrator.shutdown();
+  },
+
+  async listPromptTemplates(): Promise<PromptTemplate[]> {
+    return listPromptTemplates(getDb());
+  },
+
+  async savePromptTemplate(input: SavePromptInput): Promise<PromptTemplate> {
+    const db = getDb();
+    if (input.id) {
+      updatePromptTemplate(db, input.id, {
+        title: input.title,
+        prompt: input.prompt,
+        category: input.category,
+        icon: input.icon,
+        executionMode: input.executionMode,
+      });
+      const all = listPromptTemplates(db);
+      const updated = all.find((p) => p.id === input.id);
+      if (!updated) throw new Error("Prompt não encontrado após atualização");
+      return updated;
+    }
+    const id = createPromptTemplate(db, {
+      title: input.title,
+      prompt: input.prompt,
+      category: input.category,
+      icon: input.icon,
+      executionMode: input.executionMode,
+    });
+    const all = listPromptTemplates(db);
+    const created = all.find((p) => p.id === id);
+    if (!created) throw new Error("Prompt não encontrado após criação");
+    return created;
+  },
+
+  async deletePromptTemplate(input: { id: string }): Promise<void> {
+    deletePromptTemplate(getDb(), input.id);
+  },
+
+  async listAgentProfiles(): Promise<AgentProfile[]> {
+    return listAgentProfiles(getDb());
+  },
+
+  async saveAgentProfile(input: SaveProfileInput): Promise<AgentProfile> {
+    const db = getDb();
+    if (input.id) {
+      updateAgentProfile(db, input.id, {
+        name: input.name,
+        systemPrompt: input.systemPrompt,
+        description: input.description,
+        icon: input.icon,
+      });
+      const updated = getAgentProfile(db, input.id);
+      if (!updated) throw new Error("Perfil não encontrado após atualização");
+      return updated;
+    }
+    const id = createAgentProfile(db, {
+      name: input.name,
+      systemPrompt: input.systemPrompt,
+      description: input.description,
+      icon: input.icon,
+    });
+    const created = getAgentProfile(db, id);
+    if (!created) throw new Error("Perfil não encontrado após criação");
+    return created;
+  },
+
+  async deleteAgentProfile(input: { id: string }): Promise<void> {
+    deleteAgentProfile(getDb(), input.id);
+  },
+
+  async setActiveProfile(input: { profileId: string | null }): Promise<void> {
+    setSetting(getDb(), "activeProfileId", input.profileId ?? "");
+  },
+
+  async getActiveProfile(): Promise<AgentProfile | null> {
+    const profileId = getSetting(getDb(), "activeProfileId");
+    if (!profileId) return null;
+    return getAgentProfile(getDb(), profileId);
+  },
+
+  async readFile(input: { path: string }): Promise<{ content: string; fileName: string; size: number }> {
+    const stat = await fsStat(input.path);
+    const content = await fsReadFile(input.path, "utf-8");
+    return {
+      content,
+      fileName: basename(input.path),
+      size: stat.size,
+    };
   },
 };

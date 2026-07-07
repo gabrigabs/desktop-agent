@@ -107,17 +107,17 @@ select:focus-visible {
   left: 12%;
   right: 12%;
   bottom: -1px;
-  height: 1px;
+  height: 1.5px;
   background: linear-gradient(90deg, transparent, var(--color-signal), transparent);
   opacity: 0;
   transition: opacity 0.25s ease;
 }
 .composer-field:focus-within {
-  border-color: rgba(196, 153, 244, 0.3);
+  border-color: rgba(196, 153, 244, 0.5);
   background: rgba(255, 255, 255, 0.05);
 }
 .composer-field:focus-within::after {
-  opacity: 0.7;
+  opacity: 1;
 }
 
 .noise-overlay {

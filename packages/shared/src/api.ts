@@ -1,11 +1,16 @@
 import type {
   AgentEvent,
+  AgentProfile,
   AppSettings,
   ConnectorConfig,
   Conversation,
   ExecutionMode,
+  McpTestResult,
   PermissionLevel,
+  PromptTemplate,
   ProviderConfig,
+  SavePromptInput,
+  SaveProfileInput,
   ToolResult,
   Turn,
   WorkflowRun,
@@ -22,6 +27,8 @@ export type SaveMcpServerInput = {
   preset?: boolean;
   permissionPolicy?: PermissionLevel[];
 };
+
+export type { SavePromptInput, SaveProfileInput };
 
 export type AgentApi = {
   ping(): Promise<{ status: string }>;
@@ -66,9 +73,18 @@ export type AgentApi = {
   listMcpServers(): Promise<ConnectorConfig[]>;
   saveMcpServer(input: { server: SaveMcpServerInput }): Promise<ConnectorConfig>;
   deleteMcpServer(input: { id: string }): Promise<void>;
-  testMcpServer(input: { id: string }): Promise<{ ok: boolean; error?: string }>;
+  testMcpServer(input: { id: string }): Promise<McpTestResult>;
   listConversations(input?: { limit?: number }): Promise<Conversation[]>;
   listTurns(input: { conversationId: string }): Promise<Turn[]>;
   saveConversation(input: { conversationId: string; turns: Turn[] }): Promise<void>;
+  listPromptTemplates(): Promise<PromptTemplate[]>;
+  savePromptTemplate(input: SavePromptInput): Promise<PromptTemplate>;
+  deletePromptTemplate(input: { id: string }): Promise<void>;
+  listAgentProfiles(): Promise<AgentProfile[]>;
+  saveAgentProfile(input: SaveProfileInput): Promise<AgentProfile>;
+  deleteAgentProfile(input: { id: string }): Promise<void>;
+  setActiveProfile(input: { profileId: string | null }): Promise<void>;
+  getActiveProfile(): Promise<AgentProfile | null>;
+  readFile(input: { path: string }): Promise<{ content: string; fileName: string; size: number }>;
   shutdown(): Promise<void>;
 };

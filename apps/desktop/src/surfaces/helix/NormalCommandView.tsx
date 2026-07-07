@@ -1,12 +1,14 @@
-import type { ConnectorConfig, Turn, WorkflowStep } from "@desktop-agent/shared";
+import type { AgentProfile, ConnectorConfig, McpTestResult, PromptTemplate, Turn, WorkflowStep } from "@desktop-agent/shared";
 import {
   AlertCircle,
   ArrowLeft,
   Bot,
   Check,
   Clipboard,
+  Info,
   Maximize2,
   Minus,
+  Monitor,
   RefreshCw,
   Settings,
   ShieldCheck,
@@ -18,7 +20,9 @@ import { ChatView } from "./ChatView";
 import { Composer } from "./Composer";
 import { ConnectorsPanel } from "./ConnectorsPanel";
 import { FREE_ACTIONS, type InputMode, QUICK_ACTIONS } from "./constants";
+import type { SaveConnectorInput } from "./hooks/useCapabilities";
 import { HistoryList } from "./history-list";
+import { PromptsPanel } from "./PromptsPanel";
 import type { ContextChipItem } from "./hooks/useContextChips";
 
 type Props = {
@@ -35,7 +39,7 @@ type Props = {
   composerPlaceholder: string;
   inputMode: InputMode;
   executionMode: "simple" | "workflow";
-  mode: "command" | "history" | "connectors";
+  mode: "command" | "history" | "connectors" | "prompts";
   expandedMode: boolean;
   activeRequestId: string | null;
   copied: boolean;
@@ -49,7 +53,7 @@ type Props = {
   textareaRef: RefObject<HTMLTextAreaElement | null>;
   badgeText: string;
   showSettings: boolean;
-  setMode: (m: "command" | "history" | "connectors") => void;
+  setMode: (m: "command" | "history" | "connectors" | "prompts") => void;
   setInputMode: (m: InputMode) => void;
   setExecutionMode: (m: "simple" | "workflow") => void;
   setQuery: (q: string) => void;
@@ -71,9 +75,38 @@ type Props = {
   onTestConnector: (id: string) => void;
   onToggleConnector: (id: string) => void;
   onRefreshCapabilities: () => void;
+  onSaveConnector?: (input: SaveConnectorInput) => void;
+  onDeleteConnector?: (id: string) => void;
+  onStartEditing?: (id: string) => void;
+  onCancelEditing?: () => void;
+  onShowAddConnector?: (v: boolean) => void;
+  connectorTestResults?: Record<string, McpTestResult>;
+  editingConnectorId?: string | null;
+  showAddConnector?: boolean;
   onEditPrompt: (text: string) => void;
   onCopyResponse: (text: string) => void;
   onRegenerate: () => void;
+  prompts: PromptTemplate[];
+  profiles: AgentProfile[];
+  activeProfileId: string | null;
+  onSavePrompt: (input: {
+    id?: string;
+    title: string;
+    prompt: string;
+    category?: string;
+    icon?: string;
+    executionMode?: "simple" | "workflow";
+  }) => void;
+  onDeletePrompt: (id: string) => void;
+  onSaveProfile: (input: {
+    id?: string;
+    name: string;
+    systemPrompt?: string;
+    description?: string;
+    icon?: string;
+  }) => void;
+  onDeleteProfile: (id: string) => void;
+  onSetActiveProfile: (profileId: string | null) => void;
 };
 
 export function NormalCommandView(p: Props) {
@@ -104,6 +137,7 @@ export function NormalCommandView(p: Props) {
             [
               ["command", "Perguntar"],
               ["history", "Histórico"],
+              ["prompts", "Prompts"],
               ["connectors", "Conectores"],
             ] as const
           ).map(([id, label]) => (
@@ -154,13 +188,36 @@ export function NormalCommandView(p: Props) {
           )
         ) : p.mode === "history" ? (
           <HistoryList />
+        ) : p.mode === "prompts" ? (
+          <PromptsPanel
+            prompts={p.prompts}
+            profiles={p.profiles}
+            activeProfileId={p.activeProfileId}
+            onSavePrompt={p.onSavePrompt}
+            onDeletePrompt={p.onDeletePrompt}
+            onSaveProfile={p.onSaveProfile}
+            onDeleteProfile={p.onDeleteProfile}
+            onSetActiveProfile={p.onSetActiveProfile}
+            onUsePrompt={(prompt, mode) => {
+              p.onStarterAction(prompt, mode);
+              p.setMode("command");
+            }}
+          />
         ) : (
           <ConnectorsPanel
             connectors={p.connectors.slice(0, 7)}
             testingConnectorId={p.testingConnectorId}
+            connectorTestResults={p.connectorTestResults}
+            editingConnectorId={p.editingConnectorId}
+            showAddConnector={p.showAddConnector}
             onTest={p.onTestConnector}
             onToggle={p.onToggleConnector}
             onRefresh={p.onRefreshCapabilities}
+            onSaveConnector={p.onSaveConnector}
+            onDeleteConnector={p.onDeleteConnector}
+            onStartEditing={p.onStartEditing}
+            onCancelEditing={p.onCancelEditing}
+            onShowAddConnector={p.onShowAddConnector}
           />
         )}
       </div>
@@ -370,6 +427,21 @@ function TaskActiveView(p: Props) {
               <p className="text-[10px] text-faint mt-1 truncate">{p.approval.inputPreview}</p>
             </div>
           </div>
+          {p.approval.permissionLevel === "screen.read" && (
+            <div className="flex items-start gap-2 rounded-lg bg-white/[0.04] border border-line px-3 py-2.5">
+              <Monitor className="w-3.5 h-3.5 text-mute shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <div className="text-[10px] font-bold text-mute uppercase flex items-center gap-1">
+                  <Info className="w-3 h-3" /> Permissão de gravação de tela
+                </div>
+                <p className="text-[10px] text-faint leading-relaxed mt-1">
+                  O macOS exige permissão explícita em <strong>Preferências → Privacidade → Gravação de tela</strong>.
+                  Após aprovar, o Helix vai capturar a tela e extrair texto com OCR.
+                  Se a permissão foi negada, abra as Preferências do Sistema e adicione o Helix manualmente.
+                </p>
+              </div>
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <button
               type="button"

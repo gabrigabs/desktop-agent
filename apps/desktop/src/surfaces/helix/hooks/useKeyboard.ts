@@ -7,8 +7,8 @@ type Deps = {
   handleExecute: (forceInstruction?: string, forceInputMode?: InputMode) => void;
   showSettings: boolean;
   setShowSettings: (v: boolean) => void;
-  mode?: "command" | "history" | "connectors";
-  setMode?: (m: "command" | "history" | "connectors") => void;
+  mode?: "command" | "history" | "connectors" | "prompts";
+  setMode?: (m: "command" | "history" | "connectors" | "prompts") => void;
 };
 
 export function useKeyboard({ handleExecute, showSettings, setShowSettings, mode, setMode }: Deps) {

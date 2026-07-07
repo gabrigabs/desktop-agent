@@ -55,7 +55,7 @@ export function Composer({
             }
           }}
           placeholder={activePlaceholder}
-          className="flex-1 min-w-0 bg-transparent border-0 text-sm leading-relaxed text-fg placeholder:text-faint resize-none focus-visible:outline-none select-text"
+          className="flex-1 min-w-0 bg-transparent border-0 text-sm leading-relaxed text-fg placeholder:text-mute resize-none focus-visible:outline-none select-text"
           style={{ minHeight: "40px", maxHeight: "96px", overflow: "hidden" }}
           disabled={disabled}
           rows={1}

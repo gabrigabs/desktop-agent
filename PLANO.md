@@ -474,61 +474,77 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável. O cam
 
 #### C02 - Web search com fontes
 
-- Status: base técnica existe, UX pendente.
+- Status: implementado.
 - Objetivo: pesquisar assunto atual com fontes visíveis e histórico.
-- Arquivos: `packages/tools-web/src/index.ts`, `workflow-runner.ts`, UI de resposta.
+- Arquivos: `packages/tools-web/src/index.ts`, `ResponseBubble.tsx`.
 - Implementação:
-  1. Definir resposta padrão com resumo curto e lista de fontes.
-  2. Registrar URLs/fontes em metadata do run.
-  3. UI mostra fontes como links copiáveis.
-  4. Se web falhar, resposta deve explicar limitação e não inventar fonte.
+  1. Resposta padrão com resumo curto e lista de fontes. ✅
+  2. URLs/fontes registradas no output do tool_call. ✅
+  3. UI mostra fontes como links copiáveis com título, URL e snippet. ✅
+  4. Se web falhar, UI mostra erro explícito sem inventar fonte. ✅
 - Aceite:
   - Toda resposta web tem pelo menos uma fonte ou erro explícito.
-  - Histórico preserva fontes.
+  - Histórico preserva fontes (tool_call output persistido em Turn).
+  - Fontes são clicáveis e têm botão de copiar URL.
 - Verificação:
   - testes de tools-web existentes + teste manual.
+  - `bun run typecheck` passa.
 
 #### C03 - OCR/screenshot com disclosure
 
-- Status: base técnica existe, UX pendente.
+- Status: implementado.
 - Objetivo: ler tela sem pedir permissão de forma opaca.
-- Arquivos: `packages/tools-ocr/src/index.ts`, surface Helix, possível bridge Tauri.
+- Arquivos: `packages/tools-ocr/src/index.ts`, `NormalCommandView.tsx`, `ResponseBubble.tsx`.
 - Implementação:
-  1. Antes de qualquer captura, mostrar texto curto sobre Screen Recording.
-  2. Se permissão faltar, explicar como habilitar no macOS.
-  3. Capturar imagem/área somente após confirmação explícita.
-  4. Resultado entra como context block, não como clipboard.
+  1. Antes de qualquer captura, mostrar disclosure sobre Screen Recording. ✅
+  2. Se permissão faltar, explicar como habilitar no macOS. ✅
+  3. Capturar imagem/área somente após confirmação explícita. ✅
+  4. Resultado entra como context block (tool_call output), não como clipboard. ✅
+  5. Texto extraído mostrado em preview no card da ferramenta. ✅
+  6. Resultado vazio e erro de OCR têm feedback visual dedicado. ✅
 - Aceite:
   - Usuário vê disclosure antes do pedido de permissão.
-  - Falha de permissão vira estado recuperável.
+  - Falha de permissão vira estado recuperável (botão Recusar).
+  - Texto extraído aparece inline, não substitui clipboard.
 - Verificação:
   - teste manual em macOS com permissão negada e concedida.
+  - `bun run typecheck` passa.
 
 #### C04 - MCP env vars e status honesto
 
-- Status: schema e masking existem; UX ainda pendente.
+- Status: implementado.
 - Objetivo: configurar conectores sem vazar secrets nem fingir health check.
-- Arquivos: `packages/storage/src/repositories/mcp-servers.ts`, `connectors-panel.tsx`, `app.tsx`.
+- Arquivos: `packages/storage/src/repositories/mcp-servers.ts`, `ConnectorsPanel.tsx`, `hooks/useCapabilities.ts`, `packages/agent-runtime/src/api.ts`, `packages/shared/src/types/rpc.ts`.
 - Implementação:
-  1. Mostrar presets desabilitados por padrão.
-  2. Expandir card para configurar env vars.
-  3. Mascarar secrets em listagem.
-  4. Só revelar valores no runtime quando necessário para testar/conectar.
-  5. Header mostra "configurados/ativos", não "online", até haver processo MCP real.
+  1. Presets desabilitados por padrão. ✅
+  2. Card expansível para configurar env vars, args e permissões. ✅
+  3. Secrets mascarados em listagem (••••••••). ✅
+  4. Valores só revelados no runtime para testar/conectar. ✅
+  5. Header mostra "Ativo/Off" + "Testado há X", não "online". ✅
+  6. Teste real com spawn + initialize handshake + tools/list + timeout 10s. ✅
+  7. CRUD completo: adicionar, editar, deletar conectores custom. ✅
+  8. Tools detectadas exibidas no card após teste. ✅
 - Aceite:
   - Secrets nunca aparecem em texto claro na UI normal.
   - Conector com env obrigatório vazio não habilita silenciosamente.
+  - Teste de MCP faz spawn real, handshake e lista tools.
+  - Erros de teste (ENOENT, timeout, crash) são mostrados na própria tela.
+  - Conectores custom podem ser adicionados, editados e removidos.
 - Verificação:
   - testes de storage existentes.
   - teste manual no painel de conectores.
+  - `bun run typecheck` passa.
 
 ### P4 - Validação Futura
 
 #### V01 - Gemini provider
 
-- Status: bloqueado.
-- Critério para desbloquear: validar `/models`, request body, streaming, errors e compatibilidade com OpenAI-compatible.
-- Não fazer: mostrar Gemini como opção pronta antes dessa validação.
+- Status: validado (OpenAI-compatible endpoint).
+- Endpoint: `https://generativelanguage.googleapis.com/v1beta/openai`
+- Validação: Gemini usa endpoint OpenAI-compatible do Google. `/models`, `/chat/completions` e streaming SSE funcionam com o provider `openai-compatible`.
+- Modelos fallback: `gemini-2.5-flash`, `gemini-2.5-pro`, `gemini-1.5-flash`, `gemini-1.5-pro`.
+- UI mostra Gemini como opção com campo de URL Base editável.
+- Não fazer: assumir que todos os modelos Gemini suportam todas as features OpenAI (function calling, vision).
 
 #### V02 - Helical timeline e motion orbital
 
@@ -538,15 +554,49 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável. O cam
 
 #### V03 - Prompt library, agent profiles e file attachments
 
-- Status: depois do chat core.
-- Critério para desbloquear: `Turn[]`, composer isolado e persistência de turns completos.
-- Não fazer: adicionar nova camada de UI na surface legada antes do component split.
+- Status: implementado.
+- Objetivo: biblioteca de prompts reutilizáveis, perfis de agente com system prompt, e leitura de arquivos.
+- Arquivos: `packages/storage/src/migrations/006_prompt_library.ts`, `packages/storage/src/repositories/prompt-library.ts`, `packages/shared/src/types/rpc.ts`, `packages/shared/src/api.ts`, `packages/agent-runtime/src/api.ts`, `apps/desktop/src/surfaces/helix/PromptsPanel.tsx`, `apps/desktop/src/surfaces/helix/hooks/usePrompts.ts`.
+- Implementação:
+  1. Migration 006 cria tabelas `prompt_library` e `agent_profiles` com defaults. ✅
+  2. Repository com CRUD completo para prompts e profiles. ✅
+  3. Tipos `PromptTemplate`, `AgentProfile`, `SavePromptInput`, `SaveProfileInput` em shared. ✅
+  4. API methods: `listPromptTemplates`, `savePromptTemplate`, `deletePromptTemplate`, `listAgentProfiles`, `saveAgentProfile`, `deleteAgentProfile`, `setActiveProfile`, `getActiveProfile`, `readFile`. ✅
+  5. Hook `usePrompts` com estado e callbacks CRUD. ✅
+  6. `PromptsPanel` component com UI completa: lista por categoria, criar/editar/excluir, perfis com ativação. ✅
+  7. Tab "Prompts" em NormalCommandView e ExpandedView. ✅
+  8. `readFile` API para anexar conteúdo de arquivos ao prompt. ✅
+- Aceite:
+  - Usuário pode criar, editar e excluir prompts customizados.
+  - Prompts são categorizados e podem ser usados com um clique.
+  - Perfis de agente com system prompt podem ser ativados/desativados.
+  - Defaults são criados automaticamente na primeira execução.
+- Verificação:
+  - `bun run typecheck` passa.
+  - `bun test` passa (incluindo teste de migration com novas tabelas).
+  - teste manual no app.
 
 #### V04 - Workflow LLM-only
 
-- Status: depois de permissões e cancellation.
-- Critério para desbloquear: contrato de tool selection, limites de steps, cancelamento e aprovação sensível funcionando.
-- Não fazer: remover fallback atual antes de ter testes de erro e permissão.
+- Status: implementado.
+- Objetivo: workflow com tool selection guiado por LLM quando keywords não match.
+- Arquivos: `packages/agent-runtime/src/workflow-runner.ts`.
+- Implementação:
+  1. `selectTool` agora é async e tenta keyword matching primeiro. ✅
+  2. Se keywords não match, chama `selectToolWithLlm` que usa o provider ativo. ✅
+  3. LLM recebe catálogo de ferramentas e decide qual usar com JSON output. ✅
+  4. Se LLM retorna `toolName: null`, workflow responde diretamente (LLM-only). ✅
+  5. Se LLM retorna tool inválida, fallback para resposta direta. ✅
+  6. Mock provider pula LLM selection e vai direto para resposta. ✅
+  7. Cancelamento e approval continuam funcionando (signal check antes de LLM call). ✅
+- Aceite:
+  - Workflow pode decidir usar ferramenta sem keyword match.
+  - Workflow pode responder diretamente sem ferramenta quando LLM decide.
+  - Erros de LLM na seleção não quebram o workflow.
+- Verificação:
+  - `bun run typecheck` passa.
+  - `bun test` passa.
+  - teste manual com provider real e mock.
 
 ## Ordem Recomendada De Commits
 

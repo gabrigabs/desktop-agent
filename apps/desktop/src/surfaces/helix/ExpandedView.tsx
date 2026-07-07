@@ -1,11 +1,13 @@
-import type { ConnectorConfig, Turn, WorkflowStep } from "@desktop-agent/shared";
-import { ArrowLeft, Bot, Check, Clipboard, Clock, Layers, Settings, Workflow, X } from "lucide-react";
+import type { AgentProfile, ConnectorConfig, McpTestResult, PromptTemplate, Turn, WorkflowStep } from "@desktop-agent/shared";
+import { ArrowLeft, Bot, Check, Clipboard, Clock, Layers, Settings, Sparkles, Workflow, X } from "lucide-react";
 import type { RefObject } from "react";
 import { ChatView } from "./ChatView";
 import { Composer } from "./Composer";
 import { ConnectorsPanel } from "./ConnectorsPanel";
 import { FREE_ACTIONS, type InputMode, QUICK_ACTIONS } from "./constants";
+import type { SaveConnectorInput } from "./hooks/useCapabilities";
 import { HistoryList } from "./history-list";
+import { PromptsPanel } from "./PromptsPanel";
 import type { ContextChipItem } from "./hooks/useContextChips";
 
 type Props = {
@@ -22,7 +24,7 @@ type Props = {
   composerPlaceholder: string;
   inputMode: InputMode;
   executionMode: "simple" | "workflow";
-  mode: "command" | "history" | "connectors";
+  mode: "command" | "history" | "connectors" | "prompts";
   activeRequestId: string | null;
   copied: boolean;
   messages: Turn[];
@@ -34,7 +36,7 @@ type Props = {
   textareaRef: RefObject<HTMLTextAreaElement | null>;
   badgeText: string;
   showSettings: boolean;
-  setMode: (m: "command" | "history" | "connectors") => void;
+  setMode: (m: "command" | "history" | "connectors" | "prompts") => void;
   setInputMode: (m: InputMode) => void;
   setExecutionMode: (m: "simple" | "workflow") => void;
   setQuery: (q: string) => void;
@@ -50,11 +52,40 @@ type Props = {
   onQuickAction: (id: string) => void;
   onTestConnector: (id: string) => void;
   onToggleConnector: (id: string) => void;
+  onSaveConnector?: (input: SaveConnectorInput) => void;
+  onDeleteConnector?: (id: string) => void;
+  onStartEditing?: (id: string) => void;
+  onCancelEditing?: () => void;
+  onShowAddConnector?: (v: boolean) => void;
+  connectorTestResults?: Record<string, McpTestResult>;
+  editingConnectorId?: string | null;
+  showAddConnector?: boolean;
   onEditPrompt: (text: string) => void;
   onCopyResponse: (text: string) => void;
   onRegenerate: () => void;
   onToastSuccess?: (message: string, duration?: number) => void;
   onToastError?: (message: string, duration?: number) => void;
+  prompts: PromptTemplate[];
+  profiles: AgentProfile[];
+  activeProfileId: string | null;
+  onSavePrompt: (input: {
+    id?: string;
+    title: string;
+    prompt: string;
+    category?: string;
+    icon?: string;
+    executionMode?: "simple" | "workflow";
+  }) => void;
+  onDeletePrompt: (id: string) => void;
+  onSaveProfile: (input: {
+    id?: string;
+    name: string;
+    systemPrompt?: string;
+    description?: string;
+    icon?: string;
+  }) => void;
+  onDeleteProfile: (id: string) => void;
+  onSetActiveProfile: (profileId: string | null) => void;
 };
 
 export function ExpandedView(p: Props) {
@@ -82,6 +113,7 @@ export function ExpandedView(p: Props) {
             [
               ["command", "Perguntar", Bot],
               ["history", "Histórico", Clock],
+              ["prompts", "Prompts", Sparkles],
               ["connectors", "Conectores", Layers],
             ] as const
           ).map(([id, label, Icon]) => (
@@ -162,7 +194,7 @@ export function ExpandedView(p: Props) {
         <div className="h-[58px] border-b border-line px-5 flex items-center justify-between gap-4 bg-white/[0.012]">
           <div className="min-w-0">
             <div className="text-[9px] font-mono uppercase text-faint tracking-wider">
-              {p.mode === "history" ? "Histórico" : p.mode === "connectors" ? "Conectores" : "Command center"}
+              {p.mode === "history" ? "Histórico" : p.mode === "connectors" ? "Conectores" : p.mode === "prompts" ? "Prompts" : "Command center"}
             </div>
             <div className="text-sm font-semibold text-fg truncate">
               {p.mode === "history"
@@ -204,12 +236,37 @@ export function ExpandedView(p: Props) {
         <div className="flex-1 min-h-0 p-5">
           {p.mode === "history" ? (
             <HistoryList />
+          ) : p.mode === "prompts" ? (
+            <div className="h-full min-h-0 overflow-y-auto">
+              <PromptsPanel
+                prompts={p.prompts}
+                profiles={p.profiles}
+                activeProfileId={p.activeProfileId}
+                onSavePrompt={p.onSavePrompt}
+                onDeletePrompt={p.onDeletePrompt}
+                onSaveProfile={p.onSaveProfile}
+                onDeleteProfile={p.onDeleteProfile}
+                onSetActiveProfile={p.onSetActiveProfile}
+                onUsePrompt={(prompt, mode) => {
+                  p.onStarterAction(prompt, mode);
+                  p.setMode("command");
+                }}
+              />
+            </div>
           ) : p.mode === "connectors" ? (
             <ConnectorsPanel
               connectors={p.connectors.slice(0, 7)}
               testingConnectorId={p.testingConnectorId}
+              connectorTestResults={p.connectorTestResults}
+              editingConnectorId={p.editingConnectorId}
+              showAddConnector={p.showAddConnector}
               onTest={p.onTestConnector}
               onToggle={p.onToggleConnector}
+              onSaveConnector={p.onSaveConnector}
+              onDeleteConnector={p.onDeleteConnector}
+              onStartEditing={p.onStartEditing}
+              onCancelEditing={p.onCancelEditing}
+              onShowAddConnector={p.onShowAddConnector}
               variant="grid"
             />
           ) : p.taskActive && p.messages.length > 0 ? (
