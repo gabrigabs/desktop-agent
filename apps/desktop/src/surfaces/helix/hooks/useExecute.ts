@@ -1,6 +1,6 @@
 import { readText as readClipboard, writeText as writeClipboard } from "@tauri-apps/plugin-clipboard-manager";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getAgent } from "../../../lib/rpc";
+import { getAgent, setActiveRequestId as setRpcActiveRequestId } from "../../../lib/rpc";
 import { isTauriRuntime } from "../../../lib/window";
 import { useAgentStore } from "../../../stores/agent";
 import {
@@ -24,6 +24,20 @@ export function useExecute() {
     };
   }, []);
 
+  const saveConversationToStorage = useCallback(async () => {
+    const store = useAgentStore.getState();
+    const convId = store.currentConversationId;
+    const turns = store.messages;
+    if (!convId || turns.length === 0) return;
+
+    try {
+      const api = await getAgent();
+      await api.saveConversation({ conversationId: convId, turns });
+    } catch (err) {
+      console.error("Failed to save conversation:", err);
+    }
+  }, []);
+
   const handleExecute = useCallback(
     async (forceInstruction?: string, forceInputMode?: InputMode) => {
       const store = useAgentStore.getState();
@@ -31,13 +45,16 @@ export function useExecute() {
       if (!activeQuery.trim()) return;
 
       const sourceMode = forceInputMode || inputMode;
+      // Finalize any in-flight streaming from a previous request
+      if (store.streaming) {
+        store.finalizeAssistantTurn("cancelled");
+      }
       store.setResult(null);
       store.setError(null);
       store.setStreaming(true);
       setActiveTaskMode(sourceMode);
       store.setWorkflowRun(null);
       store.clearAgentLogs();
-
       let requestId: string | null = null;
       let runId: string | null = null;
       try {
@@ -50,7 +67,10 @@ export function useExecute() {
           throw new Error("Não há texto no clipboard para usar nesta tarefa.");
         }
 
+        store.startUserTurn(activeQuery, sourceMode);
+
         requestId = crypto.randomUUID();
+        setRpcActiveRequestId(requestId);
         setActiveRequestId(requestId);
         setActiveRunId(null);
 
@@ -105,15 +125,17 @@ export function useExecute() {
           store.setError(res.run.errorMessage || "Workflow encerrado sem resultado.");
         }
       } catch (err) {
+        store.finalizeAssistantTurn("error");
         store.setError(err instanceof Error ? err.message : "Erro ao executar comando");
         store.addAgentLog({ type: "tool_fail", text: err instanceof Error ? err.message : String(err) });
       } finally {
         useAgentStore.getState().setStreaming(false);
         setActiveRequestId((current) => (current === requestId ? null : current));
         setActiveRunId((current) => (current === runId ? null : current));
+        void saveConversationToStorage();
       }
     },
-    [inputMode],
+    [inputMode, saveConversationToStorage],
   );
 
   const handleCopyResult = useCallback(async () => {
@@ -153,6 +175,8 @@ export function useExecute() {
     } catch (err) {
       console.error("Failed to cancel request:", err);
     } finally {
+      store.finalizeAssistantTurn("cancelled");
+      setRpcActiveRequestId(null);
       store.setError("Execução abortada pelo usuário.");
       store.setStreaming(false);
       store.addAgentLog({ type: "tool_fail", text: "Execução abortada pelo usuário" });
@@ -222,6 +246,8 @@ export function useExecute() {
     const store = useAgentStore.getState();
     store.reset();
     store.setWorkflowRun(null);
+    store.setCurrentConversationId(null);
+    setRpcActiveRequestId(null);
     setActiveRunId(null);
     setActiveRequestId(null);
   }, []);

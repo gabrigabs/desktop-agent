@@ -2,10 +2,12 @@ import type {
   AgentEvent,
   AppSettings,
   ConnectorConfig,
+  Conversation,
   ExecutionMode,
   PermissionLevel,
   ProviderConfig,
   ToolResult,
+  Turn,
   WorkflowRun,
   WorkflowTemplate,
 } from "./types/rpc";
@@ -65,5 +67,8 @@ export type AgentApi = {
   saveMcpServer(input: { server: SaveMcpServerInput }): Promise<ConnectorConfig>;
   deleteMcpServer(input: { id: string }): Promise<void>;
   testMcpServer(input: { id: string }): Promise<{ ok: boolean; error?: string }>;
+  listConversations(input?: { limit?: number }): Promise<Conversation[]>;
+  listTurns(input: { conversationId: string }): Promise<Turn[]>;
+  saveConversation(input: { conversationId: string; turns: Turn[] }): Promise<void>;
   shutdown(): Promise<void>;
 };

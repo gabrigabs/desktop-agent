@@ -9,6 +9,7 @@ export type {
   CompletionOutput,
   ConnectorConfig,
   ConnectorKind,
+  Conversation,
   ExecutionMode,
   MessageBlock,
   Permission,

@@ -29,11 +29,10 @@ export function MiniView(p: Props) {
       <div className="flex-1 overflow-y-auto px-3 pt-3 pb-3 flex flex-col gap-3">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-[9px] font-mono uppercase text-faint tracking-wider">Mini</div>
-            <div className="text-xs font-semibold text-fg">Ações rápidas</div>
+            <div className="text-[10px] text-mute font-medium tracking-tight">Ações rápidas</div>
           </div>
           <span
-            className={`px-2 py-1 rounded-md text-[9px] font-mono uppercase ${p.error ? "text-bad bg-bad/10 border border-bad/20" : p.streaming ? "text-warn bg-warn/10 border border-warn/20" : p.result ? "text-good bg-good/10 border border-good/20" : "text-faint bg-white/5 border border-line"}`}
+            className={`px-2 py-1 rounded-full text-[9px] font-medium ${p.error ? "text-bad bg-bad/10" : p.streaming ? "text-warn bg-warn/10" : p.result ? "text-good bg-good/10" : "text-faint bg-white/5"}`}
           >
             {p.taskStatus}
           </span>

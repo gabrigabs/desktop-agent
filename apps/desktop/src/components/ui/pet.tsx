@@ -1,136 +1,223 @@
+import { useId } from "react";
 import { useAgentStore } from "../../stores/agent";
+
+type PetState = "connecting" | "error" | "thinking" | "success" | "idle";
 
 interface PetProps {
   className?: string;
   size?: number;
+  variant?: "full" | "dot";
 }
 
-export function Pet({ className = "", size = 64 }: PetProps) {
-  const { connected, streaming, error, result } = useAgentStore();
+const STATE_CONFIG: Record<
+  PetState,
+  {
+    core: string;
+    rim: string;
+    glow: string;
+    label: string;
+  }
+> = {
+  connecting: {
+    core: "#f0a040",
+    rim: "#f7d6a0",
+    glow: "rgba(240, 160, 64, 0.22)",
+    label: "Conectando",
+  },
+  error: {
+    core: "#f0607c",
+    rim: "#f7a7b8",
+    glow: "rgba(240, 96, 124, 0.24)",
+    label: "Erro",
+  },
+  thinking: {
+    core: "#f0c840",
+    rim: "#f8e9a6",
+    glow: "rgba(240, 200, 64, 0.26)",
+    label: "Pensando",
+  },
+  success: {
+    core: "#5fd0a0",
+    rim: "#b8f0d8",
+    glow: "rgba(95, 208, 160, 0.24)",
+    label: "Concluído",
+  },
+  idle: {
+    core: "#c499f4",
+    rim: "#e2d3ff",
+    glow: "rgba(196, 153, 244, 0.24)",
+    label: "Pronto",
+  },
+};
 
-  // Determine state
-  let state: "connecting" | "error" | "thinking" | "success" | "idle" = "idle";
-  if (!connected) {
-    state = "connecting";
-  } else if (error) {
-    state = "error";
-  } else if (streaming) {
-    state = "thinking";
-  } else if (result) {
-    state = "success";
+function usePetState(): PetState {
+  const connected = useAgentStore((s) => s.connected);
+  const streaming = useAgentStore((s) => s.streaming);
+  const error = useAgentStore((s) => s.error);
+  const result = useAgentStore((s) => s.result);
+
+  if (!connected) return "connecting";
+  if (error) return "error";
+  if (streaming) return "thinking";
+  if (result) return "success";
+  return "idle";
+}
+
+export function Pet({ className = "", size = 64, variant = "full" }: PetProps) {
+  const state = usePetState();
+  const config = STATE_CONFIG[state];
+
+  if (variant === "dot") {
+    return <PetDot size={size} state={state} config={config} className={className} />;
   }
 
-  // Dynamic colors and glow based on state
-  const colors = {
-    connecting: {
-      core: "fill-amber-500 shadow-amber-500/50",
-      rings: "stroke-amber-500/70",
-      text: "text-amber-400",
-      glow: "rgba(245, 158, 11, 0.4)",
-    },
-    error: {
-      core: "fill-rose-500 shadow-rose-500/50",
-      rings: "stroke-rose-500/75",
-      text: "text-rose-400",
-      glow: "rgba(244, 63, 94, 0.4)",
-    },
-    thinking: {
-      core: "fill-yellow-400 shadow-yellow-400/50",
-      rings: "stroke-yellow-400/85",
-      text: "text-yellow-400",
-      glow: "rgba(253, 224, 71, 0.5)",
-    },
-    success: {
-      core: "fill-emerald-400 shadow-emerald-400/50",
-      rings: "stroke-emerald-400/75",
-      text: "text-emerald-400",
-      glow: "rgba(52, 211, 153, 0.4)",
-    },
-    idle: {
-      core: "fill-fuchsia-500 shadow-fuchsia-500/50",
-      rings: "stroke-fuchsia-400/70",
-      text: "text-fuchsia-300",
-      glow: "rgba(217, 70, 239, 0.38)",
-    },
-  };
+  return <PetFull size={size} state={state} config={config} className={className} />;
+}
 
-  const currentTheme = colors[state];
+function PetDot({
+  size,
+  state,
+  config,
+  className,
+}: {
+  size: number;
+  state: PetState;
+  config: (typeof STATE_CONFIG)[PetState];
+  className: string;
+}) {
+  const isActive = state === "thinking" || state === "connecting";
+  const animationClass = isActive ? "animate-pulse-fast" : "";
 
   return (
     <div
       className={`relative flex items-center justify-center select-none ${className}`}
       style={{ width: size, height: size }}
+      role="img"
+      title={config.label}
+      aria-label={config.label}
     >
-      {/* Dynamic Glow Aura */}
       <div
-        className="absolute inset-0 rounded-full blur-xl opacity-60 transition-all duration-700"
+        className={`rounded-full ${animationClass}`}
         style={{
-          background: `radial-gradient(circle, ${currentTheme.glow} 0%, transparent 70%)`,
+          width: size,
+          height: size,
+          background: config.core,
+          opacity: 0.85,
         }}
       />
+    </div>
+  );
+}
 
-      {/* SVG Kinetic Core */}
+function PetFull({
+  size,
+  state,
+  config,
+  className,
+}: {
+  size: number;
+  state: PetState;
+  config: (typeof STATE_CONFIG)[PetState];
+  className: string;
+}) {
+  const gradientId = useId().replace(/:/g, "");
+  const coreGradientId = `${gradientId}-core`;
+  const ringGradientId = `${gradientId}-ring`;
+  const isActive = state === "thinking" || state === "connecting";
+  const coreAnimation = isActive ? "animate-pulse-fast" : state === "idle" ? "animate-pulse-gentle" : "";
+
+  const spirals = [
+    { r: 44, opacity: 0.18, speed: "7s" },
+    { r: 36, opacity: 0.25, speed: "9s" },
+    { r: 28, opacity: 0.32, speed: "11s" },
+  ];
+
+  return (
+    <div
+      className={`pet-companion relative flex items-center justify-center select-none ${className}`}
+      style={{ width: size, height: size }}
+    >
+      <div
+        className="absolute inset-0 rounded-full pointer-events-none"
+        style={{
+          background: `radial-gradient(circle, ${config.glow} 0%, transparent 60%)`,
+        }}
+      />
       <svg
         width={size}
         height={size}
         viewBox="0 0 100 100"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className="relative z-10 transition-transform duration-500 hover:scale-105"
+        className="relative z-10"
         role="img"
+        aria-label={config.label}
       >
-        <title>AI Kinetic Core</title>
-        {/* Outer Orbit (Dotted/High-Tech) */}
+        <title>{config.label}</title>
+        <defs>
+          <radialGradient id={coreGradientId} cx="38%" cy="35%" r="52%">
+            <stop offset="0%" stopColor={config.rim} stopOpacity="1" />
+            <stop offset="45%" stopColor={config.core} stopOpacity="1" />
+            <stop offset="100%" stopColor={config.core} stopOpacity="1" />
+          </radialGradient>
+          <linearGradient id={ringGradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor={config.rim} stopOpacity="0.5" />
+            <stop offset="100%" stopColor={config.core} stopOpacity="0.15" />
+          </linearGradient>
+        </defs>
+
+        {spirals.map((s, i) => {
+          const circumference = 2 * Math.PI * s.r;
+          const dash = circumference * 0.6;
+          const gap = circumference * 0.4;
+          return (
+            <circle
+              key={s.r}
+              cx="50"
+              cy="50"
+              r={s.r}
+              fill="none"
+              stroke={config.core}
+              strokeOpacity={s.opacity}
+              strokeWidth="0.8"
+              className="pet-spiral-ring"
+              style={{
+                strokeDasharray: `${dash} ${gap}`,
+                ["--circ" as string]: `${-circumference}`,
+                animationDuration: s.speed,
+                animationDelay: `${i * 0.25}s`,
+              }}
+            />
+          );
+        })}
+
+        <circle cx="50" cy="50" r="19.5" fill="none" stroke={`url(#${ringGradientId})`} strokeWidth="2" />
         <circle
           cx="50"
           cy="50"
-          r="42"
-          className={`stroke-2 animate-spin-clockwise ${currentTheme.rings} transition-colors duration-500`}
-          strokeDasharray="4 16"
-          strokeLinecap="round"
+          r="17"
+          fill="none"
+          stroke={config.core}
+          strokeWidth="1"
+          strokeOpacity="0.4"
+          className="pet-shockwave"
         />
-
-        {/* Inner Orbit (Solid with Gap) */}
         <circle
+          className={coreAnimation}
           cx="50"
           cy="50"
-          r="30"
-          className={`stroke-[1.5] animate-spin-counter ${currentTheme.rings} transition-colors duration-500`}
-          strokeDasharray="120 40"
-          strokeLinecap="round"
+          r="17"
+          fill={`url(#${coreGradientId})`}
         />
-
-        {/* Dynamic Particle Dots rotating in inner orbit */}
-        <g className="animate-spin-clockwise" style={{ transformOrigin: "50% 50%" }}>
-          <circle
-            cx="50"
-            cy="20"
-            r="2"
-            className={state === "thinking" ? "fill-yellow-300" : "fill-fuchsia-200/70"}
-          />
-          <circle
-            cx="50"
-            cy="80"
-            r="1.5"
-            className={state === "thinking" ? "fill-yellow-300/80" : "fill-fuchsia-200/45"}
-          />
-        </g>
-
-        {/* Central Core (Pulsing Heart) */}
         <circle
           cx="50"
           cy="50"
-          r={state === "thinking" ? 14 : 11}
-          className={`transition-all duration-500 ${currentTheme.core} ${
-            state === "thinking"
-              ? "animate-pulse"
-              : state === "connecting"
-                ? "animate-pulse"
-                : "animate-pulse-gentle"
-          }`}
-          style={{
-            filter: `drop-shadow(0 0 8px ${currentTheme.glow})`,
-          }}
+          r="10"
+          fill="none"
+          stroke={config.rim}
+          strokeOpacity="0.3"
+          strokeWidth="0.8"
+          className="pet-inner-ring"
         />
       </svg>
     </div>

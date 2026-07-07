@@ -120,6 +120,20 @@ export async function hideWindow() {
 }
 
 /**
+ * Fecha a janela atual sem encerrar o processo do app (mantém tray/menu bar ativos).
+ */
+export async function closeApp() {
+  if (!isTauriRuntime()) return;
+
+  try {
+    const appWindow = getCurrentWindow();
+    await appWindow.hide();
+  } catch (err) {
+    console.error("Erro ao fechar janela:", err);
+  }
+}
+
+/**
  * Inicia o arrasto da janela programaticamente (útil para desviar de bloqueios de clique).
  */
 export async function startWindowDrag() {

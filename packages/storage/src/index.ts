@@ -1,6 +1,13 @@
 export { closeDb, type Database, getDb } from "./db";
 export { runMigrations } from "./migrations";
 export {
+  createConversation,
+  createTurn,
+  listConversations,
+  listTurns,
+  updateConversationTitle,
+} from "./repositories/conversations";
+export {
   createInteraction,
   getRecentInteractions,
   searchInteractions,

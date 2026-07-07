@@ -12,6 +12,11 @@ let agent: AgentApi | null = null;
 let channel: RPCChannel<FrontendApi, AgentApi> | null = null;
 let child: Child | null = null;
 let beforeUnloadHandler: (() => void) | null = null;
+let activeRequestId: string | null = null;
+
+export function setActiveRequestId(id: string | null) {
+  activeRequestId = id;
+}
 
 export function isMissingRpcMethodError(err: unknown, method?: string) {
   const message = err instanceof Error ? err.message : String(err);
@@ -52,21 +57,26 @@ export async function initializeRpc(): Promise<AgentApi> {
         // Forward event to native events store
         store.addEvent(event as AgentEvent);
 
+        // Filter stale events from cancelled/superseded requests
+        if ("requestId" in event && activeRequestId !== null && event.requestId !== activeRequestId) {
+          return;
+        }
+
         // Map events to user-friendly console timeline logs
         switch (event.type) {
           case "agent.started":
+            activeRequestId = event.requestId;
             store.addAgentLog({ type: "info", text: "Preparando resposta" });
-            store.setResult(""); // Clear previous result to start streaming fresh
             break;
           case "agent.thought":
             store.addAgentLog({ type: "thought", text: event.thought });
             break;
           case "agent.chunk": {
-            const currentResult = useAgentStore.getState().result || "";
-            store.setResult(currentResult + event.chunk);
+            store.appendAssistantChunk(event.chunk);
             break;
           }
           case "workflow.started":
+            activeRequestId = event.requestId;
             store.addAgentLog({
               type: "info",
               text: event.mode === "workflow" ? "Workflow iniciado" : "Modo simples iniciado",
@@ -124,10 +134,14 @@ export async function initializeRpc(): Promise<AgentApi> {
             store.addAgentLog({ type: "tool_fail", text: `Falha em ${event.toolName}: ${event.error}` });
             break;
           case "agent.cancelled":
+            if (event.requestId === activeRequestId) activeRequestId = null;
+            store.finalizeAssistantTurn("cancelled");
             store.addAgentLog({ type: "tool_fail", text: "Execução abortada pelo usuário" });
             store.setError("Execução abortada pelo usuário.");
             break;
           case "agent.completed":
+            if (event.requestId === activeRequestId) activeRequestId = null;
+            store.finalizeAssistantTurn("complete");
             store.addAgentLog({ type: "info", text: "Resposta pronta" });
             break;
         }
@@ -164,6 +178,7 @@ export async function initializeRpc(): Promise<AgentApi> {
   } catch (err) {
     store.setConnected(false);
     console.error("Failed to connect to agent runtime:", err);
+    window.dispatchEvent(new CustomEvent("agent-connection-error", { detail: String(err) }));
   }
 
   return agent;

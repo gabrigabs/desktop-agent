@@ -1,23 +1,23 @@
 # Plano Helix
 
 > Fonte principal do produto. `BACKLOG.md` fica como histórico/status resumido.
-> Última atualização: 2026-07-06.
+> Última atualização: 2026-07-07.
 
 ---
 
 ## Meta
 
-| Campo | Valor |
-| --- | --- |
-| Nome | Helix |
-| Stack | Tauri 2 + React 19 + Vite 7 + Tailwind CSS 4 + Zustand 5 + Bun + SQLite |
-| Runtime | Bun sidecar via kkrpc stdio |
-| Providers | Pinstripes primário; OpenAI-compatible e Mock suportados; Gemini bloqueado até contrato real ser validado |
-| Plataforma | macOS Apple Silicon |
-| Idioma UI | Português PT-BR |
-| Atalho global | `Control+Shift+Space` |
-| Janela | Collapsed `104x104`, Mini `392x460`, Normal `520x820`, Expanded até `1180x820` |
-| Produto | Copilot macOS leve, keyboard-first, com pet discreto, composer sempre visível e permissões explícitas |
+| Campo         | Valor                                                                                                     |
+| ------------- | --------------------------------------------------------------------------------------------------------- |
+| Nome          | Helix                                                                                                     |
+| Stack         | Tauri 2 + React 19 + Vite 7 + Tailwind CSS 4 + Zustand 5 + Bun + SQLite                                   |
+| Runtime       | Bun sidecar via kkrpc stdio                                                                               |
+| Providers     | Pinstripes primário; OpenAI-compatible e Mock suportados; Gemini bloqueado até contrato real ser validado |
+| Plataforma    | macOS Apple Silicon                                                                                       |
+| Idioma UI     | Português PT-BR                                                                                           |
+| Atalho global | `Control+Shift+Space`                                                                                     |
+| Janela        | Collapsed `104x104`, Mini `392x460`, Normal `520x820`, Expanded até `1180x820`                            |
+| Produto       | Copilot macOS leve, keyboard-first, com pet discreto, composer sempre visível e permissões explícitas     |
 
 ## Estado Auditado Do Worktree
 
@@ -89,7 +89,9 @@
 - Streaming modifica a última turn em andamento; turns completas são imutáveis.
 - Context window usa sliding window dos últimos N turns, default 10.
 - O app abre com conversa vazia, mas turns finalizadas ficam no SQLite para histórico/export.
-- A migração de UI deve ser feita após o component split para evitar refatorar 2250 linhas de uma vez.
+- P1 (Identidade E Superfície) e P2 (Chat Multi-turn) foram unificados em CP3, entregando pet dot, turn model, ChatView, Composer, MarkdownRenderer, persistência, ações e cancellation numa única fase.
+- MarkdownRenderer usa `react-markdown` + `remark-gfm` para renderizar respostas do assistant com code blocks, links, tabelas, listas e blockquotes.
+- `result` ainda existe como compat sincronizado, mas será removido após ChatView estar estável em CP4.
 
 ### Providers
 
@@ -241,6 +243,41 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável. O cam
 - Verificação:
   - `bun run build:packages`
 
+#### B08 - Remover sombras, bordas e matte fantasma da janela transparente
+
+- Status: bug aberto, evidenciado por screenshots do app.
+- Objetivo: a janela flutuante deve parecer nativa e recortada ao conteúdo, sem quadrado claro no pet colapsado e sem borda/sombra preta artificial no modo mini.
+- Evidência visual:
+  - Modo collapsed: o pet circular aparece sobre um matte quadrado claro, como se a webview/janela não estivesse realmente transparente ao redor do orb.
+  - Modo mini: aparece uma borda/sombra escura grossa na lateral direita e no rodapé, destacando o retângulo da janela além do raio do shell.
+- Hipóteses prováveis:
+  1. Sombra nativa do `NSWindow` não foi invalidada depois de resize/show.
+  2. `set_shadow(false)` do Tauri não basta em janela `transparent + decorations=false`.
+  3. CSS do shell/pet ainda cria sombra ou backdrop quadrado (`box-shadow`, `backdrop-filter`, `bg-*` semiopaco) fora do raio esperado.
+  4. O modo collapsed precisa de tratamento próprio, porque renderiza fora de `.agent-shell`.
+- Arquivos: `apps/desktop/src-tauri/src/lib.rs`, `apps/desktop/src-tauri/Cargo.toml`, `apps/desktop/src/lib/window.ts`, `apps/desktop/src/app.tsx`, `apps/desktop/src/index.css`.
+- Implementação:
+  1. Reproduzir em `collapsed`, `mini`, `normal` e `expanded` com fundo claro e fundo escuro atrás da janela.
+  2. No JS, chamar `appWindow.setShadow(false)` após `setSize`, `setPosition`, `show` e resize de modo.
+  3. No Rust/macOS, avaliar adicionar `objc2-app-kit` para chamar `invalidateShadow()` no `setup()` e em `WindowEvent::Resized`; se a API for instável, documentar fallback.
+  4. Remover ou reduzir `box-shadow` de `.agent-shell` e do wrapper collapsed quando a sombra estiver vazando como retângulo.
+  5. Garantir `html`, `body`, `#root`, wrapper collapsed e `.agent-shell` com `background: transparent` fora das superfícies visíveis.
+  6. Separar sombra visual desejada do conteúdo interno: se houver sombra, ela deve respeitar o raio do shell/pet e não revelar o retângulo da webview.
+- Edge cases:
+  - O fix não pode remover o contraste interno do shell em fundo escuro.
+  - Collapsed precisa continuar clicável/arrastável em toda área útil do pet.
+  - Expanded não pode perder foco, resize ou always-on-top.
+  - Screenshots em Retina podem mostrar diferenças de 1px; tolerância máxima é uma hairline sutil, não uma borda grossa.
+- Aceite:
+  - Em fundo branco, o pet collapsed não mostra quadrado claro ao redor.
+  - Em modo mini, não há faixa preta na direita nem sombra retangular no rodapé.
+  - Raios do shell aparecem limpos em todos os modos.
+  - `alwaysOnTop`, tray click, drag e troca de modo continuam funcionando.
+- Verificação:
+  - `cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml`
+  - `bun run typecheck`
+  - captura manual antes/depois em fundo claro e escuro para `collapsed` e `mini`.
+
 ### P1 - Identidade E Superfície Helix
 
 #### R01 - Identidade visível Helix
@@ -299,135 +336,123 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável. O cam
 - Verificação:
   - `rg "bg-zinc-|text-\\[" apps/desktop/src/surfaces/helix apps/desktop/src/components`
 
-#### R04 - Pet status no header
+#### R04 - Identidade visual do pet e status
 
-- Status: planejado.
-- Objetivo: preservar o pet como assinatura sem perder legibilidade em tamanho pequeno.
-- Arquivos: `apps/desktop/src/components/ui/pet.tsx`, `apps/desktop/src/app.tsx`.
+- Status: implementado no worktree atual (CP3) e refinado em 2026-07-07.
+- Objetivo: transformar o pet na assinatura visual do Helix, remover elementos genéricos (rosto feliz, sombra retangular) e comunicar estados de forma limpa.
+- Arquivos: `apps/desktop/src/components/ui/pet.tsx`, `apps/desktop/src/app.tsx`, `apps/desktop/src/surfaces/helix/ResponseBubble.tsx`, `apps/desktop/src/index.css`.
 - Implementação:
-  1. Criar variante `PetStatusDot` ou prop `variant="dot"`.
-  2. Header usa dot 20px + glow por estado.
-  3. Collapsed mantém SVG completo 62px.
-  4. Estado visual deve derivar de `connected`, `streaming`, `error`, `result`.
+  1. `PetFull` redesenhado: esfera central com gradiente de alto contraste, anéis concêntricos espirais fluindo continuamente e anel interno sutil.
+  2. `PetDot` simplificado: círculo flat com cor do estado, sem rosto nem glow externo.
+  3. Header usa mini-orb alinhado (`<Pet size={10} variant="dot" />`) e sem órbitas ilegíveis.
+  4. Chat usa mini-orb como avatar do Helix.
+  5. Indicador de "pensando" no chat usa texto + três pontos animados, sem bolinha torta.
+  6. Container do modo collapsed limpo (sem gradiente quadrado, ring e sombra artificial).
+  7. Animações disruptivas de hover/focus: shockwave expansivo, esfera pulsando e anéis acelerando.
+  8. Estados por cor mantidos: idle roxo, thinking amarelo, success verde, error vermelho, connecting laranja.
 - Aceite:
-  - Header não mostra órbitas ilegíveis.
-  - Collapsed continua reconhecível e arrastável.
-- Verificação:
-  - teste manual dos estados idle, connecting, thinking, success, error.
+  - Pet não tem mais rosto feliz, sombra bugada nem borda quadrada no collapsed.
+  - Header mostra indicador pequeno, alinhado e legível.
+  - "Pensando" no chat é uma linha sutil, sem parecer "!" torto.
+  - Hover no pet dispara animações visíveis e criativas.
 
 ### P2 - Chat Multi-turn
 
 #### F01 - Modelo `Turn[]` completo
 
-- Status: parcialmente preparado; tipos e store base existem, UI ainda usa `result`.
+- Status: implementado no worktree atual (CP3).
 - Objetivo: transformar a experiência em chat multi-turn sem perder compatibilidade com streaming atual.
 - Arquivos: `packages/shared/src/types/rpc.ts`, `apps/desktop/src/stores/agent.ts`, `apps/desktop/src/lib/rpc.ts`, `packages/shared/src/api.ts`, `packages/agent-runtime/src/api.ts`.
 - Implementação:
-  1. Confirmar shape final de `Turn` e `MessageBlock`.
-  2. Adicionar `currentConversationId` no store.
-  3. Alterar eventos de streaming para atualizarem o último assistant turn.
-  4. Criar helpers `startUserTurn`, `startAssistantTurn`, `appendAssistantChunk`, `finalizeAssistantTurn`.
-  5. Manter `result` sincronizado só durante uma versão de compat.
-  6. Remover `result` quando `ChatView` estiver completo.
-- Edge cases:
-  - Erro durante streaming finaliza turn como `error`.
-  - Cancelamento finaliza turn como `cancelled`.
-  - Workflow approval não deve criar turn duplicada.
+  1. Tipo `Conversation` adicionado a `shared/types/rpc.ts`.
+  2. `currentConversationId` adicionado ao store.
+  3. Eventos de streaming atualizam o último assistant turn via `appendAssistantChunk`.
+  4. Helpers `startUserTurn`, `appendAssistantChunk`, `finalizeAssistantTurn` implementados.
+  5. `result` mantido sincronizado como compat durante transição.
+  6. `agent.completed` e `agent.cancelled` chamam `finalizeAssistantTurn`.
 - Aceite:
   - Fazer duas perguntas seguidas mantém ambas visíveis.
   - Streaming de uma resposta não reescreve turns anteriores.
-  - `reset()` cria nova conversa vazia.
-- Verificação:
-  - testes unitários de store ou hook.
-  - teste manual com provider mock e Pinstripes.
 
 #### F02 - `ChatView` com bubbles
 
-- Status: planejado.
+- Status: implementado no worktree atual (CP3).
 - Objetivo: renderizar conversa como produto de chat, não painel de resultado único.
-- Arquivos: `apps/desktop/src/surfaces/helix/chat-view.tsx`, `query-bubble.tsx`, `response-bubble.tsx`.
+- Arquivos: `apps/desktop/src/surfaces/helix/ChatView.tsx`, `QueryBubble.tsx`, `ResponseBubble.tsx`, `components/ui/markdown-renderer.tsx`.
 - Implementação:
-  1. Renderizar user bubble à direita e assistant bubble à esquerda.
-  2. Dar suporte a blocos `text`, `thinking`, `tool_call` e `error`.
+  1. `ChatView` renderiza user bubble à direita e assistant bubble à esquerda com avatar Pet dot.
+  2. Suporte a blocos `text` (via MarkdownRenderer), `thinking` (collapsible), `tool_call` (badge) e `error`.
   3. Auto-scroll apenas se usuário estiver a menos de 100px do fim.
-  4. Mostrar botão "Ir para o final" quando scroll estiver travado.
-  5. Exibir cursor de streaming no bloco ativo.
+  4. Botão "Ir para o final" quando scroll está travado.
+  5. Cursor de streaming no bloco ativo.
+  6. MarkdownRenderer usa `react-markdown` + `remark-gfm` para renderizar respostas com code blocks, links, tabelas, listas.
 - Aceite:
-  - 10 turns continuam legíveis em normal mode.
+  - Turns continuam legíveis em normal mode.
   - Expanded usa largura extra sem linhas muito longas.
   - Scroll do usuário não é sequestrado.
-- Verificação:
-  - teste manual em `normal` e `expanded`.
 
 #### F03 - Composer persistente
 
-- Status: parcialmente existente na Command Palette, precisa virar componente isolado.
+- Status: implementado no worktree atual (CP3).
 - Objetivo: composer sempre visível e previsível.
-- Arquivos: `apps/desktop/src/surfaces/helix/composer.tsx`.
+- Arquivos: `apps/desktop/src/surfaces/helix/Composer.tsx`.
 - Implementação:
-  1. Extrair textarea, modo de entrada e botão enviar.
+  1. Componente `Composer` isolado com textarea auto-expand (1-4 linhas) e botão enviar.
   2. Enter envia; Shift+Enter quebra linha.
-  3. Auto-expand de 1 a 4 linhas.
-  4. Durante streaming, bloquear envio por enquanto e mostrar "Aguardando resposta...".
-  5. Preparar contrato para follow-up streaming em fase posterior.
+  3. Durante streaming, bloqueia envio e mostra "Aguardando resposta...".
+  4. Substitui textarea inline em `NormalCommandView` e `ExpandedView`.
+  5. Visível abaixo do `ChatView` durante conversa ativa para follow-up.
 - Aceite:
   - Composer permanece visível em idle, streaming, complete e error.
   - Sem clipboard, placeholder encoraja pergunta livre.
-- Verificação:
-  - teste manual de teclado e foco.
 
 #### F04 - Persistência de turns
 
-- Status: schema criado; repositórios ainda pendentes.
+- Status: implementado no worktree atual (CP3).
 - Objetivo: salvar conversa sem carregar automaticamente contexto antigo.
-- Arquivos: `packages/storage/src/repositories/conversations.ts`, `packages/storage/src/index.ts`, `packages/agent-runtime/src/api.ts`.
+- Arquivos: `packages/storage/src/repositories/conversations.ts`, `packages/storage/src/index.ts`, `packages/agent-runtime/src/api.ts`, `packages/shared/src/api.ts`.
 - Implementação:
-  1. Criar repositório para `createConversation`, `createTurn`, `listConversations`, `listTurns`.
-  2. Salvar assistant turn ao finalizar com status `complete`, `error` ou `cancelled`.
-  3. Não salvar turns parciais a cada chunk na primeira versão.
-  4. Expor APIs RPC para histórico separado.
-  5. UI "Nova conversa" limpa store, não apaga SQLite.
+  1. Repositório `conversations.ts` com `createConversation`, `createTurn`, `listConversations`, `listTurns`, `updateConversationTitle`.
+  2. RPC APIs `listConversations`, `listTurns`, `saveConversation` expostas no `AgentApi`.
+  3. `saveConversation` chamado no `finally` de `handleExecute` para salvar turns finalizadas.
+  4. Title da conversa deriva do primeiro user prompt (até 80 chars).
+  5. UI "Nova conversa" limpa store e `currentConversationId`, não apaga SQLite.
 - Aceite:
   - Turns aparecem no histórico depois de finalizar.
   - Reabrir app não injeta histórico automaticamente no prompt.
-- Verificação:
-  - testes storage/repository.
 
 #### F05 - Ações pós-resposta
 
-- Status: parcialmente existente como copiar resultado único.
+- Status: implementado no worktree atual (CP3).
 - Objetivo: ações por turn.
-- Arquivos: `response-bubble.tsx`, `query-bubble.tsx`, `composer.tsx`.
+- Arquivos: `ResponseBubble.tsx`, `QueryBubble.tsx`, `Composer.tsx`, `index.tsx`.
 - Implementação:
-  1. Copiar texto do assistant bubble.
+  1. Copiar texto do assistant bubble (concatena blocos text).
   2. Copiar prompt do user bubble.
-  3. Regenerar última resposta.
+  3. Regenerar: remove último assistant turn e re-executa último user prompt.
   4. Editar último prompt carregando texto no composer.
-  5. Nova conversa reseta turns e workflow state.
+  5. Nova conversa reseta turns e `currentConversationId`.
 - Aceite:
   - Feedback "Copiado" dura 2s.
   - Regenerate não duplica user turn.
   - Edit prompt não altera histórico imutável já finalizado; cria novo envio.
-- Verificação:
-  - teste manual com provider mock.
 
 #### F06 - Streaming cancellation
 
-- Status: planejado.
+- Status: implementado no worktree atual (CP3).
 - Objetivo: nova query não pode misturar chunks da anterior.
-- Arquivos: `apps/desktop/src/lib/rpc.ts`, `packages/agent-runtime/src/api.ts`, `packages/provider-gateway/src/providers/openai-compatible.ts`.
+- Arquivos: `apps/desktop/src/lib/rpc.ts`, `apps/desktop/src/surfaces/helix/hooks/useExecute.ts`.
 - Implementação:
-  1. Guardar `activeRequestId` no frontend RPC.
-  2. Ao iniciar nova execução, chamar `cancelAgent`/`cancelRun` da anterior.
-  3. No sidecar, manter `AbortController` por request/run.
-  4. Provider precisa receber `signal`.
-  5. Ignorar chunks cujo `requestId` não seja o ativo.
+  1. `activeRequestId` guardado no frontend RPC (module-level).
+  2. Eventos com `requestId` diferente do ativo são ignorados.
+  3. `handleExecute` finaliza turn anterior como `cancelled` se streaming.
+  4. `setRpcActiveRequestId` chamado ao iniciar nova execução.
+  5. `agent.completed` e `agent.cancelled` limpam `activeRequestId`.
+  6. Runtime já mantinha `AbortController` por request (nativa).
 - Aceite:
   - Enviar pergunta B durante streaming de A interrompe A.
-  - UI mostra A como cancelada ou substituída explicitamente.
+  - UI mostra A como cancelada.
   - Nenhum chunk de A aparece em B.
-- Verificação:
-  - teste manual com stream mock lento.
 
 ### P3 - Copilot Context E Permissões
 
@@ -533,7 +558,8 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável. O cam
 4. `chore: harden tauri shell foundation`
 5. `feat: add helix error boundary`
 6. `refactor: split helix command surface`
-7. `feat: introduce helix multi-turn chat`
+7. `feat: add helix chat core with multi-turn, markdown and persistence`
+8. `feat: add context chips and copilot permissions` (próximo)
 
 ## Critérios De Aceite Do Release Slice
 

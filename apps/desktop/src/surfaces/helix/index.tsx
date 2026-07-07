@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getAgent } from "../../lib/rpc";
-import { setWindowMode } from "../../lib/window";
+import { closeApp, hideWindow, isTauriRuntime, setWindowMode } from "../../lib/window";
 import { useAgentStore } from "../../stores/agent";
 import { getActiveBadgeText } from "./constants";
 import { ExpandedView } from "./ExpandedView";
@@ -13,13 +13,18 @@ import { MiniView } from "./MiniView";
 import { NormalCommandView } from "./NormalCommandView";
 import { SettingsPanel } from "./SettingsPanel";
 
-export function Helix() {
+type HelixProps = {
+  onToastSuccess?: (message: string, duration?: number) => void;
+  onToastError?: (message: string, duration?: number) => void;
+};
+
+export function Helix({ onToastSuccess, onToastError }: HelixProps) {
   const {
-    connected,
     query,
     result,
     streaming,
     error,
+    messages,
     setQuery,
     executionMode,
     setExecutionMode,
@@ -30,7 +35,6 @@ export function Helix() {
     setUiMode,
     settings,
     setSettings,
-    reset,
   } = useAgentStore();
 
   const [mode, setMode] = useState<"command" | "history" | "connectors">("command");
@@ -40,7 +44,7 @@ export function Helix() {
   const clipboard = useClipboard();
   const capabilities = useCapabilities();
   const exec = useExecute();
-  const settingsForm = useSettingsForm(showSettings);
+  const settingsForm = useSettingsForm(showSettings, onToastSuccess, onToastError);
 
   const persistWindowMode = useCallback(
     async (nextMode: "mini" | "normal" | "expanded" | "collapsed") => {
@@ -76,7 +80,8 @@ export function Helix() {
     handleExecute: exec.handleExecute,
     showSettings,
     setShowSettings,
-    persistWindowMode,
+    mode,
+    setMode,
   });
 
   useEffect(() => {
@@ -102,6 +107,48 @@ export function Helix() {
     },
     [exec, handleOpenMode],
   );
+
+  const onEditPrompt = useCallback(
+    (text: string) => {
+      setQuery(text);
+      requestAnimationFrame(() => textareaRef.current?.focus());
+    },
+    [setQuery],
+  );
+
+  const onCopyResponse = useCallback(
+    async (text: string) => {
+      try {
+        if (isTauriRuntime()) {
+          const { writeText } = await import("@tauri-apps/plugin-clipboard-manager");
+          await writeText(text);
+        } else {
+          await navigator.clipboard?.writeText(text);
+        }
+        onToastSuccess?.("Resposta copiada");
+      } catch (err) {
+        console.error("Failed to copy response:", err);
+        onToastError?.("Erro ao copiar resposta");
+      }
+    },
+    [onToastSuccess, onToastError],
+  );
+
+  const onRegenerate = useCallback(() => {
+    const store = useAgentStore.getState();
+    const lastUserTurn = [...store.messages].reverse().find((t) => t.role === "user");
+    if (!lastUserTurn || store.streaming) return;
+
+    const promptText = lastUserTurn.blocks.find((b) => b.type === "text");
+    if (promptText?.type !== "text") return;
+
+    const newMessages = store.messages.slice(0, -1);
+    store.setMessages(newMessages);
+    store.setResult(null);
+    store.setError(null);
+    onToastSuccess?.("Regenerando resposta");
+    void exec.handleExecute(promptText.content, lastUserTurn.sourceMode);
+  }, [exec, onToastSuccess]);
 
   const taskActive =
     streaming || result !== null || Boolean(error) || agentLogs.length > 0 || Boolean(workflowRun);
@@ -145,7 +192,10 @@ export function Helix() {
         hasClipboard={clipboard.hasClipboard}
         activeRequestId={exec.activeRequestId}
         copied={exec.copied}
-        onAbort={exec.handleAbort}
+        onAbort={() => {
+          exec.handleAbort();
+          onToastSuccess?.("Resposta cancelada");
+        }}
         onCopy={exec.handleCopyResult}
         onOpenMode={handleOpenMode}
         onQuickAction={exec.handleQuickAction}
@@ -156,44 +206,85 @@ export function Helix() {
 
   if (uiMode === "expanded") {
     return (
-      <ExpandedView
-        error={error}
-        result={result}
-        streaming={streaming}
-        query={query}
-        clipboardText={clipboard.clipboardText}
-        hasClipboard={clipboard.hasClipboard}
-        taskActive={taskActive}
-        taskStatus={taskStatus}
-        taskModeLabel={taskModeLabel}
-        inputModeLabel={inputModeLabel}
-        composerPlaceholder={composerPlaceholder}
-        inputMode={exec.inputMode}
-        executionMode={executionMode}
-        mode={mode}
-        activeRequestId={exec.activeRequestId}
-        copied={exec.copied}
-        workflowSteps={workflowSteps}
-        visibleLogs={visibleLogs}
-        latestLogText={latestLog?.text}
-        connectors={visibleConnectors}
-        testingConnectorId={capabilities.testingConnectorId}
-        textareaRef={textareaRef}
-        badgeText={badgeText}
-        setMode={setMode}
-        setInputMode={exec.setInputMode}
-        setExecutionMode={setExecutionMode}
-        setQuery={setQuery}
-        onExecute={() => exec.handleExecute()}
-        onAbort={exec.handleAbort}
-        onCopy={exec.handleCopyResult}
-        onNewTask={exec.handleNewTask}
-        onOpenMode={handleOpenMode}
-        onStarterAction={onStarterAction}
-        onQuickAction={exec.handleQuickAction}
-        onTestConnector={capabilities.handleTestConnector}
-        onToggleConnector={capabilities.handleToggleConnector}
-      />
+      <>
+        <ExpandedView
+          error={error}
+          result={result}
+          streaming={streaming}
+          query={query}
+          clipboardText={clipboard.clipboardText}
+          hasClipboard={clipboard.hasClipboard}
+          taskActive={taskActive}
+          taskStatus={taskStatus}
+          taskModeLabel={taskModeLabel}
+          inputModeLabel={inputModeLabel}
+          composerPlaceholder={composerPlaceholder}
+          inputMode={exec.inputMode}
+          executionMode={executionMode}
+          mode={mode}
+          activeRequestId={exec.activeRequestId}
+          copied={exec.copied}
+          messages={messages}
+          workflowSteps={workflowSteps}
+          visibleLogs={visibleLogs}
+          latestLogText={latestLog?.text}
+          connectors={visibleConnectors}
+          testingConnectorId={capabilities.testingConnectorId}
+          textareaRef={textareaRef}
+          badgeText={badgeText}
+          showSettings={showSettings}
+          setMode={setMode}
+          setInputMode={exec.setInputMode}
+          setExecutionMode={setExecutionMode}
+          setQuery={setQuery}
+          setShowSettings={setShowSettings}
+          onExecute={() => exec.handleExecute()}
+          onAbort={() => {
+            exec.handleAbort();
+            onToastSuccess?.("Resposta cancelada");
+          }}
+          onCopy={exec.handleCopyResult}
+          onNewTask={exec.handleNewTask}
+          onOpenMode={handleOpenMode}
+          onStarterAction={onStarterAction}
+          onQuickAction={exec.handleQuickAction}
+          onTestConnector={capabilities.handleTestConnector}
+          onToggleConnector={capabilities.handleToggleConnector}
+          onEditPrompt={onEditPrompt}
+          onCopyResponse={onCopyResponse}
+          onRegenerate={onRegenerate}
+          onToastSuccess={onToastSuccess}
+          onToastError={onToastError}
+        />
+        {showSettings && (
+          <SettingsPanel
+            variant="expanded"
+            onClose={() => setShowSettings(false)}
+            formProvider={settingsForm.formProvider}
+            setFormProvider={settingsForm.setFormProvider}
+            formApiKey={settingsForm.formApiKey}
+            setFormApiKey={settingsForm.setFormApiKey}
+            formBaseUrl={settingsForm.formBaseUrl}
+            setFormBaseUrl={settingsForm.setFormBaseUrl}
+            formModel={settingsForm.formModel}
+            setFormModel={settingsForm.setFormModel}
+            formHidePet={settingsForm.formHidePet}
+            setFormHidePet={settingsForm.setFormHidePet}
+            formTimeout={settingsForm.formTimeout}
+            setFormTimeout={settingsForm.setFormTimeout}
+            formWindowOpacity={settingsForm.formWindowOpacity}
+            setFormWindowOpacity={settingsForm.setFormWindowOpacity}
+            formPetSize={settingsForm.formPetSize}
+            setFormPetSize={settingsForm.setFormPetSize}
+            showKey={settingsForm.showKey}
+            setShowKey={settingsForm.setShowKey}
+            fetchedModels={settingsForm.fetchedModels}
+            loadingModels={settingsForm.loadingModels}
+            savingSettings={settingsForm.savingSettings}
+            handleSaveSettings={settingsForm.handleSaveSettings}
+          />
+        )}
+      </>
     );
   }
 
@@ -217,6 +308,7 @@ export function Helix() {
         expandedMode={expandedMode}
         activeRequestId={exec.activeRequestId}
         copied={exec.copied}
+        messages={messages}
         workflowSteps={workflowSteps}
         approval={
           approval
@@ -240,16 +332,30 @@ export function Helix() {
         setQuery={setQuery}
         setShowSettings={setShowSettings}
         onExecute={() => exec.handleExecute()}
-        onAbort={exec.handleAbort}
+        onAbort={() => {
+          exec.handleAbort();
+          onToastSuccess?.("Resposta cancelada");
+        }}
         onApproval={exec.handleApproval}
         onCopy={exec.handleCopyResult}
         onNewTask={exec.handleNewTask}
         onExpandedMode={handleExpandedMode}
+        onClose={async () => {
+          await closeApp();
+        }}
+        onMinimize={async () => {
+          await hideWindow();
+        }}
         onStarterAction={onStarterAction}
         onQuickAction={exec.handleQuickAction}
         onTestConnector={capabilities.handleTestConnector}
         onToggleConnector={capabilities.handleToggleConnector}
         onRefreshCapabilities={capabilities.refreshCapabilities}
+        onEditPrompt={onEditPrompt}
+        onCopyResponse={onCopyResponse}
+        onRegenerate={onRegenerate}
+        onToastSuccess={onToastSuccess}
+        onToastError={onToastError}
       />
       {showSettings && (
         <SettingsPanel
@@ -266,6 +372,10 @@ export function Helix() {
           setFormHidePet={settingsForm.setFormHidePet}
           formTimeout={settingsForm.formTimeout}
           setFormTimeout={settingsForm.setFormTimeout}
+          formWindowOpacity={settingsForm.formWindowOpacity}
+          setFormWindowOpacity={settingsForm.setFormWindowOpacity}
+          formPetSize={settingsForm.formPetSize}
+          setFormPetSize={settingsForm.setFormPetSize}
           showKey={settingsForm.showKey}
           setShowKey={settingsForm.setShowKey}
           fetchedModels={settingsForm.fetchedModels}

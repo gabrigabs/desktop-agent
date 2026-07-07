@@ -42,9 +42,51 @@ pub fn run() {
             // Setup System Tray Icon
             let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/32x32.png"))
                 .expect("failed to load tray icon");
+
+            let tray_menu = tauri::menu::Menu::with_items(
+                app,
+                &[
+                    &tauri::menu::MenuItem::with_id(app, "show", "Mostrar Helix", true, None::<&str>)?,
+                    &tauri::menu::MenuItem::with_id(app, "hide", "Ocultar Helix", true, None::<&str>)?,
+                    &tauri::menu::PredefinedMenuItem::separator(app)?,
+                    &tauri::menu::MenuItem::with_id(app, "quit", "Sair do Helix", true, None::<&str>)?,
+                ],
+            )?;
+
             let _tray = tauri::tray::TrayIconBuilder::new()
                 .icon(icon)
                 .icon_as_template(true)
+                .menu(&tray_menu)
+                .on_menu_event(|app, event| match event.id.as_ref() {
+                    "show" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            use tauri::Emitter;
+                            use tauri_plugin_positioner::{Position, WindowExt};
+                            let _ = window.set_shadow(false);
+                            let _ = window.set_resizable(true);
+                            let _ = window.set_min_size::<tauri::Size>(None);
+                            let _ = window.set_fullscreen(false);
+                            let _ = window.set_simple_fullscreen(false);
+                            let _ = window.unmaximize();
+                            let _ = window.set_size(tauri::Size::Logical(
+                                tauri::LogicalSize::new(NORMAL_WIDTH, NORMAL_HEIGHT),
+                            ));
+                            let _ = window.move_window(Position::TrayCenter);
+                            let _ = window.emit("tray-click", "normal");
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                    "hide" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.hide();
+                        }
+                    }
+                    "quit" => {
+                        app.exit(0);
+                    }
+                    _ => {}
+                })
                 .on_tray_icon_event(|tray, event| {
                     tauri_plugin_positioner::on_tray_event(tray.app_handle(), &event);
                     if let tauri::tray::TrayIconEvent::Click { .. } = event {

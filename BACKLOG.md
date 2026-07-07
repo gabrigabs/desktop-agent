@@ -46,6 +46,29 @@ O backlog original nasceu para transformar o protótipo `Desktop Agent` em um co
 - Error boundary, loading states e sidecar cleanup.
 - Context chips, disclosure de permissões e MCP env vars.
 
+### CP3 — Chat Core (2026-07-06)
+
+- R04: Pet status dot no header (variant `"dot"` com glow por estado).
+- F01: Modelo `Turn[]` completo com `currentConversationId`, `startUserTurn`, `appendAssistantChunk`, `finalizeAssistantTurn`.
+- F02: `ChatView` com bubbles (user à direita, assistant à esquerda com avatar Pet dot), auto-scroll inteligente e botão "Ir para o final".
+- F03: `Composer` isolado com auto-expand (1-4 linhas), Enter envia, Shift+Enter quebra linha.
+- F04: Repositório `conversations.ts` com `createConversation`, `createTurn`, `listConversations`, `listTurns`. RPC APIs `saveConversation`, `listConversations`, `listTurns`.
+- F05: Ações pós-resposta por bubble: copiar prompt, copiar resposta, regenerar, editar prompt.
+- F06: Streaming cancellation com `activeRequestId` no frontend RPC; chunks de request antigo são filtrados.
+- MarkdownRenderer via `react-markdown` + `remark-gfm`: code blocks, links, tabelas, listas, blockquotes. Links abrem no browser via Tauri shell.
+- P1 e P2 unificados em uma única fase de entrega.
+
+### Revamp Visual Do Pet (2026-07-07)
+
+- Redesign do `PetFull`: esfera central com gradiente de alto contraste, anéis concêntricos espirais fluindo continuamente e anel interno sutil.
+- Simplificação do `PetDot`: círculo flat com cor do estado, sem rosto nem glow externo.
+- Header com mini-orb alinhado e sem órbitas ilegíveis.
+- Chat com mini-orb como avatar do Helix e indicador "pensando" usando texto + três pontos animados.
+- Container do modo collapsed limpo: removido gradiente quadrado, ring e sombra artificial.
+- Animações disruptivas de hover/focus: shockwave expansivo, pulso da esfera e aceleração dos anéis.
+- Estados por cor mantidos (idle roxo, thinking amarelo, success verde, error vermelho, connecting laranja).
+- Arquivos principais: `apps/desktop/src/components/ui/pet.tsx`, `apps/desktop/src/app.tsx`, `apps/desktop/src/surfaces/helix/ResponseBubble.tsx`, `apps/desktop/src/index.css`.
+
 ## Próximo Uso Deste Arquivo
 
 - Registrar contexto histórico que explique por que uma decisão foi tomada.

@@ -134,6 +134,8 @@ export type AppSettings = {
   alwaysOnTop: boolean;
   lastWindowMode: WindowMode;
   timeout: number;
+  windowOpacity: number;
+  petSize: number;
 };
 
 export type ExecutionMode = "simple" | "workflow";
@@ -158,6 +160,13 @@ export type Turn = {
   timestamp: number;
   sourceMode: "free" | "clipboard";
   executionMode: ExecutionMode;
+};
+
+export type Conversation = {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type RunStatus = "queued" | "running" | "waiting_approval" | "completed" | "failed" | "cancelled";

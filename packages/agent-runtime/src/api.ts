@@ -3,8 +3,10 @@ import type { LlmProvider } from "@desktop-agent/provider-gateway";
 import { createProvider } from "@desktop-agent/provider-gateway";
 import type { AgentApi, AgentEvent, AppSettings, CompletionInput, WorkflowRun } from "@desktop-agent/shared";
 import {
+  createConversation,
   createInteraction,
   createMcpServer as createStoredMcpServer,
+  createTurn,
   createWorkflowRun,
   deleteMcpServer as deleteStoredMcpServer,
   ensureDefaultMcpPresets,
@@ -13,7 +15,9 @@ import {
   getSetting,
   getMcpServer as getStoredMcpServer,
   getWorkflowRun,
+  listConversations,
   listMcpServers as listStoredMcpServers,
+  listTurns,
   listWorkflowRuns,
   listWorkflowTemplates,
   setSetting,
@@ -76,8 +80,23 @@ function getActiveProviderConfig() {
   const lastWindowMode = getSetting(db, "lastWindowMode") || "normal";
   const timeoutVal = getSetting(db, "timeout");
   const timeout = timeoutVal ? Number.parseInt(timeoutVal, 10) : 120;
+  const windowOpacityVal = getSetting(db, "windowOpacity");
+  const windowOpacity = windowOpacityVal ? Number.parseFloat(windowOpacityVal) : 0.72;
+  const petSizeVal = getSetting(db, "petSize");
+  const petSize = petSizeVal ? Number.parseInt(petSizeVal, 10) : 58;
 
-  return { activeProvider, apiKey, baseUrl, model, hidePet, alwaysOnTop, lastWindowMode, timeout };
+  return {
+    activeProvider,
+    apiKey,
+    baseUrl,
+    model,
+    hidePet,
+    alwaysOnTop,
+    lastWindowMode,
+    timeout,
+    windowOpacity,
+    petSize,
+  };
 }
 
 // Dynamically create the LLM provider based on current database settings
@@ -440,6 +459,8 @@ export const agentApi: AgentApi = {
       alwaysOnTop: config.alwaysOnTop,
       lastWindowMode: config.lastWindowMode as AppSettings["lastWindowMode"],
       timeout: config.timeout,
+      windowOpacity: config.windowOpacity,
+      petSize: config.petSize,
     };
   },
 
@@ -453,6 +474,8 @@ export const agentApi: AgentApi = {
     setSetting(db, "alwaysOnTop", settings.alwaysOnTop ? "true" : "false");
     setSetting(db, "lastWindowMode", settings.lastWindowMode);
     setSetting(db, "timeout", String(settings.timeout));
+    setSetting(db, "windowOpacity", String(settings.windowOpacity));
+    setSetting(db, "petSize", String(settings.petSize));
   },
 
   async fetchModels(provider: string, apiKey: string, baseUrl?: string): Promise<string[]> {
@@ -561,6 +584,39 @@ export const agentApi: AgentApi = {
 
     controller.abort();
     return { cancelled: true };
+  },
+
+  async listConversations({ limit } = { limit: 20 }) {
+    return listConversations(getDb(), limit);
+  },
+
+  async listTurns({ conversationId }) {
+    return listTurns(getDb(), conversationId);
+  },
+
+  async saveConversation({ conversationId, turns }): Promise<void> {
+    const db = getDb();
+    const existing = listConversations(db, 1).find((c) => c.id === conversationId);
+    if (!existing) {
+      const firstUserTurn = turns.find((t) => t.role === "user");
+      const titleBlock = firstUserTurn?.blocks.find((b) => b.type === "text");
+      const title = titleBlock?.type === "text" ? titleBlock.content.slice(0, 80) : "Nova conversa";
+      createConversation(db, { id: conversationId, title });
+    }
+
+    for (const turn of turns) {
+      if (turn.status === "streaming") continue;
+      createTurn(db, {
+        id: turn.id,
+        conversationId,
+        role: turn.role,
+        blocks: turn.blocks,
+        status: turn.status,
+        timestamp: new Date(turn.timestamp).toISOString(),
+        sourceMode: turn.sourceMode,
+        executionMode: turn.executionMode,
+      });
+    }
   },
 
   async shutdown() {

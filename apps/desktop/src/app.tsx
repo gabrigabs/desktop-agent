@@ -1,8 +1,10 @@
 import { listen } from "@tauri-apps/api/event";
 import { Maximize2, Minimize2, Pin, Sparkles } from "lucide-react";
-import { useCallback, useEffect, useRef } from "react";
+import { type CSSProperties, useCallback, useEffect, useRef } from "react";
 import { ErrorBoundary } from "./components/ui/error-boundary";
 import { Pet } from "./components/ui/pet";
+import { ToastContainer } from "./components/ui/toast";
+import { useToast } from "./hooks/use-toast";
 import { getAgent } from "./lib/rpc";
 import {
   setAlwaysOnTop as apiSetAlwaysOnTop,
@@ -16,8 +18,18 @@ import { Helix } from "./surfaces/helix";
 
 export function App() {
   const { connected, uiMode, setUiMode, settings, setSettings } = useAgentStore();
+  const { toasts, dismiss, success, error } = useToast();
   const dragStart = useRef({ x: 0, y: 0 });
   const restoredWindowMode = useRef(false);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const message = (e as CustomEvent).detail || "Falha na conexão com o agente";
+      error(`Problema no sidecar: ${message}`);
+    };
+    window.addEventListener("agent-connection-error", handler);
+    return () => window.removeEventListener("agent-connection-error", handler);
+  }, [error]);
 
   const saveAppSettings = useCallback(
     async (nextSettings: typeof settings) => {
@@ -151,7 +163,7 @@ export function App() {
       <div
         role="button"
         tabIndex={0}
-        className="w-[104px] h-[104px] flex items-center justify-center cursor-pointer group active:scale-95 transition-transform duration-150 focus:outline-none bg-transparent border-0 p-0"
+        className="w-[92px] h-[92px] flex items-center justify-center cursor-pointer group active:scale-95 transition-transform duration-150 focus:outline-none bg-transparent border-0"
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onKeyDown={(e) => {
@@ -163,103 +175,92 @@ export function App() {
         title="Abrir Helix"
         aria-label="Abrir Helix"
       >
-        <div className="w-[92px] h-[92px] rounded-full flex items-center justify-center transition-transform duration-300 group-hover:scale-105 relative pointer-events-none">
-          <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_50%_42%,rgba(244,114,182,0.22),rgba(9,9,11,0)_68%)]" />
-          <div className="absolute inset-0 rounded-full ring-1 ring-white/[0.08]" />
-          <Pet size={62} />
-          <div
-            className={`absolute right-[18px] bottom-[18px] w-3 h-3 rounded-full ring-4 ring-ink/95 shadow-[0_0_18px_currentColor] ${
-              connected ? "bg-good text-good" : "bg-warn text-warn"
-            }`}
-          />
+        <div className="w-full h-full flex items-center justify-center transition-all duration-300 group-hover:scale-[1.04] relative pointer-events-none">
+          <Pet size={settings.petSize ?? 48} />
         </div>
       </div>
     );
   }
 
   return (
-    <div
-      className={`w-screen h-screen flex flex-col agent-shell ${shellRadius} overflow-hidden relative select-none`}
-    >
-      {/* Custom Titlebar / Header */}
-      <header
-        className="h-12 flex items-center justify-between px-4 border-b border-line bg-white/[0.02] relative z-10"
-        data-tauri-drag-region
+    <div className="agent-window-frame">
+      <div
+        className={`w-full h-full flex flex-col agent-shell ${shellRadius} overflow-hidden relative select-none`}
+        style={{ "--window-opacity": settings.windowOpacity ?? 0.72 } as CSSProperties}
       >
-        <div className="flex items-center gap-2" data-tauri-drag-region>
-          <Pet size={24} />
-          <div className="flex flex-col" data-tauri-drag-region>
-            <span className="text-xs font-bold tracking-wide text-fg" data-tauri-drag-region>
-              Helix
-            </span>
-            <span className="text-[9px] text-faint flex items-center gap-1" data-tauri-drag-region>
-              <span
-                className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-good animate-pulse" : "bg-warn"}`}
-              />
-              {connected ? `online · ${modeLabel}` : `connecting · ${modeLabel}`}
-            </span>
-          </div>
-        </div>
-
-        {/* Drag handle center marker */}
-        <div
-          className="flex gap-1 justify-center opacity-30 group-hover:opacity-60 transition-opacity"
+        {/* Custom Titlebar / Header */}
+        <header
+          className="h-11 flex items-center justify-between px-3 border-b border-line bg-white/[0.02] relative z-10"
           data-tauri-drag-region
         >
-          <div className="w-1 h-1 bg-faint rounded-full" data-tauri-drag-region />
-          <div className="w-1 h-1 bg-faint rounded-full" data-tauri-drag-region />
-          <div className="w-1 h-1 bg-faint rounded-full" data-tauri-drag-region />
-        </div>
+          <div className="flex items-center gap-2" data-tauri-drag-region>
+            <div className="flex items-center justify-center w-4 h-4">
+              <Pet size={10} variant="dot" />
+            </div>
+            <div className="flex flex-col" data-tauri-drag-region>
+              <span
+                className="text-[13px] font-semibold tracking-tight text-fg leading-none"
+                data-tauri-drag-region
+              >
+                Helix
+              </span>
+              <span className="text-[10px] text-faint leading-none mt-0.5" data-tauri-drag-region>
+                {connected ? modeLabel : "conectando…"}
+              </span>
+            </div>
+          </div>
 
-        <div className="flex items-center gap-1.5 relative z-20">
-          {/* Mini mode toggle */}
-          <button
-            type="button"
-            onClick={handleMini}
-            className={`p-1.5 rounded-md hover:bg-white/5 transition-colors ${uiMode === "mini" ? "text-warn" : "text-faint hover:text-fg"}`}
-            title={uiMode === "mini" ? "Modo mini ativo" : "Abrir modo mini"}
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-          </button>
+          <div className="flex items-center gap-0.5 relative z-20">
+            {/* Mini mode toggle */}
+            <button
+              type="button"
+              onClick={handleMini}
+              className={`p-1.5 rounded-md hover:bg-white/5 transition-colors ${uiMode === "mini" ? "text-warn" : "text-faint hover:text-fg"}`}
+              title={uiMode === "mini" ? "Modo mini ativo" : "Abrir modo mini"}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+            </button>
 
-          {/* Expanded mode toggle */}
-          <button
-            type="button"
-            onClick={handleExpanded}
-            className={`p-1.5 rounded-md hover:bg-white/5 transition-colors ${uiMode === "expanded" ? "text-signal" : "text-faint hover:text-fg"}`}
-            title={uiMode === "expanded" ? "Voltar ao modo normal" : "Abrir modo expandido"}
-          >
-            <Maximize2 className="w-3.5 h-3.5" />
-          </button>
+            {/* Expanded mode toggle */}
+            <button
+              type="button"
+              onClick={handleExpanded}
+              className={`p-1.5 rounded-md hover:bg-white/5 transition-colors ${uiMode === "expanded" ? "text-signal" : "text-faint hover:text-fg"}`}
+              title={uiMode === "expanded" ? "Voltar ao modo normal" : "Abrir modo expandido"}
+            >
+              <Maximize2 className="w-3.5 h-3.5" />
+            </button>
 
-          {/* Always on top toggle */}
-          <button
-            type="button"
-            onClick={toggleAlwaysOnTop}
-            className={`p-1.5 rounded-md hover:bg-white/5 transition-colors ${settings.alwaysOnTop ? "text-signal" : "text-faint hover:text-fg"}`}
-            title={settings.alwaysOnTop ? "Fixado no topo" : "Fixar no topo"}
-          >
-            <Pin className="w-3.5 h-3.5" />
-          </button>
+            {/* Always on top toggle */}
+            <button
+              type="button"
+              onClick={toggleAlwaysOnTop}
+              className={`p-1.5 rounded-md hover:bg-white/5 transition-colors ${settings.alwaysOnTop ? "text-signal" : "text-faint hover:text-fg"}`}
+              title={settings.alwaysOnTop ? "Fixado no topo" : "Fixar no topo"}
+            >
+              <Pin className="w-3.5 h-3.5" />
+            </button>
 
-          {/* Collapse Button */}
-          <button
-            type="button"
-            onClick={handleCollapse}
-            className="p-1.5 rounded-md text-faint hover:text-fg hover:bg-white/5 transition-colors"
-            title={settings.hidePet ? "Ocultar janela" : "Minimizar para o Pet"}
-          >
-            <Minimize2 className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </header>
+            {/* Collapse Button */}
+            <button
+              type="button"
+              onClick={handleCollapse}
+              className="p-1.5 rounded-md text-faint hover:text-fg hover:bg-white/5 transition-colors"
+              title={settings.hidePet ? "Ocultar janela" : "Minimizar para o Pet"}
+            >
+              <Minimize2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </header>
 
-      {/* Main Content Area */}
-      <main className="flex-1 overflow-hidden relative z-10">
-        <ErrorBoundary>
-          <Helix />
-        </ErrorBoundary>
-      </main>
+        {/* Main Content Area */}
+        <main className="flex-1 overflow-hidden relative z-10">
+          <ErrorBoundary>
+            <Helix onToastSuccess={success} onToastError={error} />
+          </ErrorBoundary>
+        </main>
+      </div>
+      <ToastContainer toasts={toasts} onDismiss={dismiss} />
     </div>
   );
 }

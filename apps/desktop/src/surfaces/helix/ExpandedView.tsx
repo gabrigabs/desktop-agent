@@ -1,4 +1,4 @@
-import type { ConnectorConfig, WorkflowStep } from "@desktop-agent/shared";
+import type { ConnectorConfig, Turn, WorkflowStep } from "@desktop-agent/shared";
 import {
   AlertCircle,
   ArrowLeft,
@@ -7,12 +7,14 @@ import {
   Clipboard,
   Clock,
   Layers,
-  Play,
+  Settings,
   Workflow,
   X,
 } from "lucide-react";
 import type { RefObject } from "react";
 import { HistoryList } from "../command-palette/history-list";
+import { ChatView } from "./ChatView";
+import { Composer } from "./Composer";
 import { ConnectorsPanel } from "./ConnectorsPanel";
 import { FREE_ACTIONS, type InputMode, QUICK_ACTIONS } from "./constants";
 
@@ -33,6 +35,7 @@ type Props = {
   mode: "command" | "history" | "connectors";
   activeRequestId: string | null;
   copied: boolean;
+  messages: Turn[];
   workflowSteps: WorkflowStep[];
   visibleLogs: { id: string; type: string; text: string }[];
   latestLogText: string | undefined;
@@ -40,10 +43,12 @@ type Props = {
   testingConnectorId: string | null;
   textareaRef: RefObject<HTMLTextAreaElement | null>;
   badgeText: string;
+  showSettings: boolean;
   setMode: (m: "command" | "history" | "connectors") => void;
   setInputMode: (m: InputMode) => void;
   setExecutionMode: (m: "simple" | "workflow") => void;
   setQuery: (q: string) => void;
+  setShowSettings: (v: boolean) => void;
   onExecute: () => void;
   onAbort: () => void;
   onCopy: () => void;
@@ -53,15 +58,30 @@ type Props = {
   onQuickAction: (id: string) => void;
   onTestConnector: (id: string) => void;
   onToggleConnector: (id: string) => void;
+  onEditPrompt: (text: string) => void;
+  onCopyResponse: (text: string) => void;
+  onRegenerate: () => void;
+  onToastSuccess?: (message: string, duration?: number) => void;
+  onToastError?: (message: string, duration?: number) => void;
 };
 
 export function ExpandedView(p: Props) {
   return (
     <div className="grid h-full w-full grid-cols-[220px_minmax(0,1fr)_300px] text-fg relative">
-      <aside className="min-w-0 border-r border-line p-4 flex flex-col gap-4">
-        <section className="flex flex-col gap-1">
+      <aside className="min-w-0 border-r border-line p-4 flex flex-col gap-3.5 bg-white/[0.01]">
+        <section className="flex flex-col gap-2">
           <div className="text-[9px] font-mono uppercase text-faint tracking-wider">Helix</div>
-          <div className="text-sm font-semibold text-fg truncate">Modo expandido</div>
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-sm font-semibold text-fg truncate">Modo expandido</div>
+            <button
+              type="button"
+              onClick={() => p.setShowSettings(true)}
+              className={`p-1.5 rounded-md border transition-colors cursor-pointer ${p.showSettings ? "border-signal/30 bg-signal/10 text-signal" : "border-line text-mute hover:text-fg hover:border-line-strong"}`}
+              title="Configurações"
+            >
+              <Settings className="w-3.5 h-3.5" />
+            </button>
+          </div>
           <div className="text-[11px] text-mute truncate font-mono">{p.badgeText}</div>
         </section>
 
@@ -147,7 +167,7 @@ export function ExpandedView(p: Props) {
       </aside>
 
       <main className="min-w-0 flex flex-col">
-        <div className="h-14 border-b border-line px-5 flex items-center justify-between gap-4">
+        <div className="h-[58px] border-b border-line px-5 flex items-center justify-between gap-4 bg-white/[0.012]">
           <div className="min-w-0">
             <div className="text-[9px] font-mono uppercase text-faint tracking-wider">
               {p.mode === "history" ? "Histórico" : p.mode === "connectors" ? "Conectores" : "Command center"}
@@ -163,6 +183,14 @@ export function ExpandedView(p: Props) {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => p.setShowSettings(true)}
+              className={`h-8 px-2.5 rounded-md border text-[10px] font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${p.showSettings ? "border-signal/30 bg-signal/10 text-signal" : "border-line text-mute hover:text-fg hover:border-line-strong"}`}
+              title="Configurações"
+            >
+              <Settings className="w-3.5 h-3.5" /> Configurar
+            </button>
             <span
               className={`px-2.5 py-1 rounded-md text-[10px] font-mono uppercase border ${p.error ? "bg-bad/10 text-bad border-bad/20" : p.streaming ? "bg-warn/10 text-warn border-warn/20" : p.result ? "bg-good/10 text-good border-good/20" : "bg-white/5 text-faint border-line"}`}
             >
@@ -192,6 +220,63 @@ export function ExpandedView(p: Props) {
               onToggle={p.onToggleConnector}
               variant="grid"
             />
+          ) : p.taskActive && p.messages.length > 0 ? (
+            <div className="min-h-full flex flex-col gap-4">
+              <div className="flex items-center justify-between gap-3 shrink-0">
+                <button
+                  type="button"
+                  onClick={p.onNewTask}
+                  disabled={p.streaming}
+                  className="h-8 px-2.5 rounded-md border border-line text-[10px] font-semibold text-mute hover:text-fg transition-colors cursor-pointer disabled:opacity-40 flex items-center gap-1.5"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" /> Nova
+                </button>
+                {p.streaming && (
+                  <button
+                    type="button"
+                    onClick={p.onAbort}
+                    disabled={!p.activeRequestId}
+                    className="h-8 px-2.5 rounded-md bg-bad/10 border border-bad/20 text-[10px] font-semibold text-bad hover:text-bad/80 transition-colors cursor-pointer disabled:opacity-40 flex items-center gap-1.5"
+                  >
+                    <X className="w-3.5 h-3.5" /> Parar
+                  </button>
+                )}
+              </div>
+
+              {p.error && (
+                <section className="p-4 bg-bad/10 rounded-xl text-bad text-sm flex gap-3 items-start border border-bad/20 shrink-0">
+                  <AlertCircle className="w-5 h-5 text-bad flex-shrink-0 mt-0.5" />
+                  <div className="select-text">
+                    <strong className="font-bold mr-1">Erro:</strong>
+                    {p.error}
+                  </div>
+                </section>
+              )}
+
+              <ChatView
+                turns={p.messages}
+                streaming={p.streaming}
+                onEditPrompt={p.onEditPrompt}
+                onCopyResponse={p.onCopyResponse}
+                onRegenerate={p.onRegenerate}
+                onToastSuccess={p.onToastSuccess}
+                onToastError={p.onToastError}
+              />
+
+              <div className="shrink-0">
+                <Composer
+                  query={p.query}
+                  setQuery={p.setQuery}
+                  placeholder={p.composerPlaceholder}
+                  disabled={p.streaming}
+                  streaming={p.streaming}
+                  inputMode={p.inputMode}
+                  hasClipboard={p.hasClipboard}
+                  textareaRef={p.textareaRef}
+                  onExecute={p.onExecute}
+                />
+              </div>
+            </div>
           ) : p.taskActive ? (
             <div className="min-h-full flex flex-col gap-4">
               <section className="rounded-2xl border border-line p-4 bg-white/[0.02]">
@@ -262,21 +347,23 @@ export function ExpandedView(p: Props) {
               </section>
             </div>
           ) : (
-            <div className="min-h-full grid grid-rows-[auto_1fr] gap-4">
+            <div className="min-h-full flex flex-col gap-4">
               <section className="rounded-2xl border border-line overflow-hidden bg-white/[0.02]">
                 <div className="px-4 py-3 border-b border-line bg-white/[0.03] flex items-center justify-between">
                   <span className="text-[10px] font-mono uppercase text-faint">{p.inputModeLabel}</span>
                   <span className="text-[10px] text-faint font-mono">{p.taskModeLabel}</span>
                 </div>
                 <div className="p-4">
-                  <textarea
-                    ref={p.textareaRef}
-                    value={p.query}
-                    onChange={(e) => p.setQuery(e.target.value)}
+                  <Composer
+                    query={p.query}
+                    setQuery={p.setQuery}
                     placeholder={p.composerPlaceholder}
-                    className="w-full min-h-[180px] bg-white/[0.03] border border-line rounded-xl px-4 py-3 text-sm text-fg placeholder:text-faint focus:border-signal/50 resize-none transition-all select-text"
                     disabled={p.streaming}
-                    aria-label={p.inputModeLabel}
+                    streaming={p.streaming}
+                    inputMode={p.inputMode}
+                    hasClipboard={p.hasClipboard}
+                    textareaRef={p.textareaRef}
+                    onExecute={p.onExecute}
                   />
                   <div className="mt-3 flex items-center justify-between gap-3">
                     <span className="text-[10px] text-faint">
@@ -284,22 +371,12 @@ export function ExpandedView(p: Props) {
                         ? `${p.clipboardText.length} caracteres no clipboard`
                         : "Pronto para uma nova solicitação"}
                     </span>
-                    <button
-                      type="button"
-                      onClick={p.onExecute}
-                      disabled={
-                        p.streaming || !p.query.trim() || (p.inputMode === "clipboard" && !p.hasClipboard)
-                      }
-                      className="h-9 px-4 rounded-lg bg-signal/20 border border-signal/40 text-signal hover:brightness-125 transition-all cursor-pointer disabled:opacity-30 disabled:pointer-events-none flex items-center gap-2 text-xs font-semibold"
-                    >
-                      <Play className="w-3.5 h-3.5 fill-current" /> Executar
-                    </button>
                   </div>
                 </div>
               </section>
 
-              <section className="grid grid-cols-3 gap-3">
-                {(p.inputMode === "clipboard" ? QUICK_ACTIONS : FREE_ACTIONS).slice(0, 6).map((action) => {
+              <section className="grid grid-cols-3 gap-3 auto-rows-[96px] content-start">
+                {(p.inputMode === "clipboard" ? QUICK_ACTIONS : FREE_ACTIONS).map((action) => {
                   const Icon = action.icon;
                   const disabled =
                     p.inputMode === "clipboard" &&
@@ -321,7 +398,7 @@ export function ExpandedView(p: Props) {
                           : p.onStarterAction(action.prompt, actionExecutionMode)
                       }
                       disabled={disabled || p.streaming}
-                      className="min-h-[96px] rounded-xl border border-line text-mute hover:text-fg hover:border-signal/30 transition-all cursor-pointer flex flex-col items-start justify-center gap-2 px-3 py-3 text-left disabled:opacity-40 disabled:pointer-events-none"
+                      className="h-full rounded-xl border border-line bg-white/[0.012] text-mute hover:text-fg hover:border-signal/30 hover:bg-white/[0.035] transition-all cursor-pointer flex flex-col items-start justify-center gap-2 px-3 py-3 text-left disabled:opacity-40 disabled:pointer-events-none"
                       title={disabled ? "Copie um texto primeiro" : action.description}
                     >
                       <Icon className={`w-5 h-5 ${action.accent}`} />

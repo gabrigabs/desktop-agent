@@ -32,6 +32,7 @@ type State = {
   query: string;
   clipboardText: string;
   messages: Turn[];
+  currentConversationId: string | null;
   result: string | null;
   streaming: boolean;
   events: AgentEvent[];
@@ -60,6 +61,10 @@ type State = {
   addTurn: (turn: Turn) => void;
   updateLastTurn: (update: Partial<Turn>) => void;
   clearMessages: () => void;
+  setCurrentConversationId: (id: string | null) => void;
+  startUserTurn: (prompt: string, sourceMode: "free" | "clipboard") => void;
+  appendAssistantChunk: (chunk: string) => void;
+  finalizeAssistantTurn: (status: "complete" | "error" | "cancelled") => void;
   setResult: (r: string | null) => void;
   setStreaming: (v: boolean) => void;
   addEvent: (e: AgentEvent) => void;
@@ -87,6 +92,8 @@ const defaultSettings: AppSettings = {
   alwaysOnTop: false,
   lastWindowMode: "normal",
   timeout: 120,
+  windowOpacity: 0.72,
+  petSize: 58,
 };
 
 const defaultConnectors: ConnectorConfig[] = [
@@ -158,6 +165,7 @@ export const useAgentStore = create<State>((set) => ({
   query: "",
   clipboardText: "",
   messages: [],
+  currentConversationId: null,
   result: null,
   streaming: false,
   events: [],
@@ -186,6 +194,69 @@ export const useAgentStore = create<State>((set) => ({
       return { messages };
     }),
   clearMessages: () => set({ messages: [] }),
+  setCurrentConversationId: (currentConversationId) => set({ currentConversationId }),
+  startUserTurn: (prompt, sourceMode) =>
+    set((s) => {
+      const now = Date.now();
+      const executionMode = s.executionMode;
+      const userTurn: Turn = {
+        id: crypto.randomUUID(),
+        role: "user",
+        blocks: [{ type: "text", content: prompt }],
+        status: "complete",
+        timestamp: now,
+        sourceMode,
+        executionMode,
+      };
+      const assistantTurn: Turn = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        blocks: [{ type: "text", content: "" }],
+        status: "streaming",
+        timestamp: now + 1,
+        sourceMode,
+        executionMode,
+      };
+      const currentConversationId = s.currentConversationId ?? crypto.randomUUID();
+      return {
+        messages: [...s.messages, userTurn, assistantTurn],
+        currentConversationId,
+        result: "",
+      };
+    }),
+  appendAssistantChunk: (chunk) =>
+    set((s) => {
+      if (s.messages.length === 0) return s;
+      const messages = [...s.messages];
+      const last = messages[messages.length - 1];
+      if (last?.role !== "assistant") return s;
+
+      const blocks = [...last.blocks];
+      const lastBlock = blocks[blocks.length - 1];
+      if (lastBlock && lastBlock.type === "text") {
+        blocks[blocks.length - 1] = { type: "text", content: lastBlock.content + chunk };
+      } else {
+        blocks.push({ type: "text" as const, content: chunk });
+      }
+
+      messages[messages.length - 1] = { ...last, blocks };
+
+      const textContent = blocks
+        .filter((b): b is { type: "text"; content: string } => b.type === "text")
+        .map((b) => b.content)
+        .join("");
+
+      return { messages, result: textContent };
+    }),
+  finalizeAssistantTurn: (status) =>
+    set((s) => {
+      if (s.messages.length === 0) return s;
+      const messages = [...s.messages];
+      const last = messages[messages.length - 1];
+      if (last?.role !== "assistant" || last.status !== "streaming") return s;
+      messages[messages.length - 1] = { ...last, status };
+      return { messages, streaming: false };
+    }),
   setResult: (result) => set({ result }),
   setStreaming: (streaming) => set({ streaming }),
   addEvent: (event) => set((s) => ({ events: [...s.events, event] })),
@@ -249,6 +320,7 @@ export const useAgentStore = create<State>((set) => ({
     set({
       query: "",
       messages: [],
+      currentConversationId: null,
       result: null,
       streaming: false,
       events: [],
