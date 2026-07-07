@@ -10,21 +10,21 @@ import type {
   AppSettings,
   CompletionInput,
   PromptTemplate,
-  SavePromptInput,
   SaveProfileInput,
+  SavePromptInput,
   WorkflowRun,
 } from "@desktop-agent/shared";
 import {
   createAgentProfile,
   createConversation,
   createInteraction,
-  createMcpServer as createStoredMcpServer,
   createPromptTemplate,
+  createMcpServer as createStoredMcpServer,
   createTurn,
   createWorkflowRun,
   deleteAgentProfile,
-  deleteMcpServer as deleteStoredMcpServer,
   deletePromptTemplate,
+  deleteMcpServer as deleteStoredMcpServer,
   ensureDefaultMcpPresets,
   getAgentProfile,
   getDb,
@@ -34,8 +34,8 @@ import {
   getWorkflowRun,
   listAgentProfiles,
   listConversations,
-  listMcpServers as listStoredMcpServers,
   listPromptTemplates,
+  listMcpServers as listStoredMcpServers,
   listTurns,
   listWorkflowRuns,
   listWorkflowTemplates,
@@ -559,7 +559,8 @@ export const agentApi: AgentApi = {
         return { ok: false, error, durationMs: Date.now() - startTime };
       }
 
-      const toolsRaw = (toolsResult.result as { tools?: { name: string; description?: string }[] })?.tools ?? [];
+      const toolsRaw =
+        (toolsResult.result as { tools?: { name: string; description?: string }[] })?.tools ?? [];
       const tools = toolsRaw.map((t) => ({ name: t.name, description: t.description ?? "" }));
 
       updateMcpServerStatus(db, id, { lastCheckedAt: new Date().toISOString(), lastError: null });
@@ -815,23 +816,22 @@ export const agentApi: AgentApi = {
 
   async saveAgentProfile(input: SaveProfileInput): Promise<AgentProfile> {
     const db = getDb();
-    if (input.id) {
-      updateAgentProfile(db, input.id, {
-        name: input.name,
-        systemPrompt: input.systemPrompt,
-        description: input.description,
-        icon: input.icon,
-      });
-      const updated = getAgentProfile(db, input.id);
-      if (!updated) throw new Error("Perfil não encontrado após atualização");
-      return updated;
-    }
-    const id = createAgentProfile(db, {
+    const profileFields = {
       name: input.name,
       systemPrompt: input.systemPrompt,
       description: input.description,
       icon: input.icon,
-    });
+      tone: input.tone,
+      responseStyle: input.responseStyle,
+      constraints: input.constraints,
+    };
+    if (input.id) {
+      updateAgentProfile(db, input.id, profileFields);
+      const updated = getAgentProfile(db, input.id);
+      if (!updated) throw new Error("Perfil não encontrado após atualização");
+      return updated;
+    }
+    const id = createAgentProfile(db, profileFields);
     const created = getAgentProfile(db, id);
     if (!created) throw new Error("Perfil não encontrado após criação");
     return created;

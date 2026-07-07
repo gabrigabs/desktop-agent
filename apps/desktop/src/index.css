@@ -20,6 +20,10 @@
 
 :root {
   --window-opacity: 0.72;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
   --glow-idle: rgba(196, 153, 244, 0.2);
   --glow-connecting: rgba(240, 160, 64, 0.2);
   --glow-thinking: rgba(240, 200, 64, 0.3);

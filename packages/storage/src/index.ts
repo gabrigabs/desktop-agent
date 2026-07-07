@@ -13,19 +13,6 @@ export {
   searchInteractions,
 } from "./repositories/interactions";
 export {
-  createAgentProfile,
-  createPromptTemplate,
-  deleteAgentProfile,
-  deletePromptTemplate,
-  getAgentProfile,
-  listAgentProfiles,
-  listPromptTemplates,
-  updateAgentProfile,
-  updatePromptTemplate,
-  type AgentProfile,
-  type PromptTemplate,
-} from "./repositories/prompt-library";
-export {
   createMcpServer,
   deleteMcpServer,
   ensureDefaultMcpPresets,
@@ -34,6 +21,19 @@ export {
   updateMcpServerStatus,
   upsertMcpServer,
 } from "./repositories/mcp-servers";
+export {
+  type AgentProfile,
+  createAgentProfile,
+  createPromptTemplate,
+  deleteAgentProfile,
+  deletePromptTemplate,
+  getAgentProfile,
+  listAgentProfiles,
+  listPromptTemplates,
+  type PromptTemplate,
+  updateAgentProfile,
+  updatePromptTemplate,
+} from "./repositories/prompt-library";
 export {
   getAllSettings,
   getSetting,

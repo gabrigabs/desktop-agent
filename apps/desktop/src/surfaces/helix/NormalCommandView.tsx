@@ -1,29 +1,35 @@
-import type { AgentProfile, ConnectorConfig, McpTestResult, PromptTemplate, Turn, WorkflowStep } from "@desktop-agent/shared";
+import type {
+  AgentProfile,
+  ConnectorConfig,
+  McpTestResult,
+  PromptTemplate,
+  Turn,
+  WorkflowStep,
+} from "@desktop-agent/shared";
 import {
   AlertCircle,
   ArrowLeft,
-  Bot,
   Check,
   Clipboard,
-  Info,
   Maximize2,
-  Minus,
-  Monitor,
   RefreshCw,
-  Settings,
-  ShieldCheck,
+  Sparkles,
   Workflow,
   X,
 } from "lucide-react";
 import type { RefObject } from "react";
+import { Badge } from "../../components/ui/badge";
+import { Button } from "../../components/ui/button";
+import { IconButton } from "../../components/ui/icon-button";
+import { Pet } from "../../components/ui/pet";
+import { Separator } from "../../components/ui/separator";
 import { ChatView } from "./ChatView";
 import { Composer } from "./Composer";
 import { ConnectorsPanel } from "./ConnectorsPanel";
-import { FREE_ACTIONS, type InputMode, QUICK_ACTIONS } from "./constants";
-import type { SaveConnectorInput } from "./hooks/useCapabilities";
 import { HistoryList } from "./history-list";
-import { PromptsPanel } from "./PromptsPanel";
+import type { SaveConnectorInput } from "./hooks/useCapabilities";
 import type { ContextChipItem } from "./hooks/useContextChips";
+import { PromptsPanel } from "./PromptsPanel";
 
 type Props = {
   error: string | null;
@@ -34,30 +40,19 @@ type Props = {
   hasClipboard: boolean;
   taskActive: boolean;
   taskStatus: string;
-  taskModeLabel: string;
-  inputModeLabel: string;
-  composerPlaceholder: string;
-  inputMode: InputMode;
-  executionMode: "simple" | "workflow";
-  mode: "command" | "history" | "connectors" | "prompts";
-  expandedMode: boolean;
-  activeRequestId: string | null;
-  copied: boolean;
   messages: Turn[];
   workflowSteps: WorkflowStep[];
-  approval: { reason: string; permissionLevel: string; inputPreview: string } | undefined;
+  approval?: { reason: string; permissionLevel: string; inputPreview: string };
   visibleLogs: { id: string; type: string; text: string }[];
   latestLogText: string | undefined;
   connectors: ConnectorConfig[];
   testingConnectorId: string | null;
   textareaRef: RefObject<HTMLTextAreaElement | null>;
-  badgeText: string;
-  showSettings: boolean;
-  setMode: (m: "command" | "history" | "connectors" | "prompts") => void;
-  setInputMode: (m: InputMode) => void;
-  setExecutionMode: (m: "simple" | "workflow") => void;
-  setQuery: (q: string) => void;
-  setShowSettings: (v: boolean) => void;
+  mode: "command" | "history" | "connectors" | "prompts";
+  activeRequestId: string | null;
+  copied: boolean;
+  executionMode: "simple" | "workflow";
+  composerPlaceholder: string;
   chips?: ContextChipItem[];
   onChipClick?: (chip: ContextChipItem) => void;
   onExecute: () => void;
@@ -66,12 +61,9 @@ type Props = {
   onCopy: () => void;
   onNewTask: () => void;
   onExpandedMode: () => void;
-  onClose: () => void;
-  onMinimize: () => void;
   onToastSuccess?: (message: string, duration?: number) => void;
   onToastError?: (message: string, duration?: number) => void;
   onStarterAction: (prompt: string, modeOverride?: "simple" | "workflow") => void;
-  onQuickAction: (id: string) => void;
   onTestConnector: (id: string) => void;
   onToggleConnector: (id: string) => void;
   onRefreshCapabilities: () => void;
@@ -86,6 +78,9 @@ type Props = {
   onEditPrompt: (text: string) => void;
   onCopyResponse: (text: string) => void;
   onRegenerate: () => void;
+  setMode: (m: "command" | "history" | "connectors" | "prompts" | "settings") => void;
+  setExecutionMode: (m: "simple" | "workflow") => void;
+  setQuery: (q: string) => void;
   prompts: PromptTemplate[];
   profiles: AgentProfile[];
   activeProfileId: string | null;
@@ -104,6 +99,9 @@ type Props = {
     systemPrompt?: string;
     description?: string;
     icon?: string;
+    tone?: string;
+    responseStyle?: string;
+    constraints?: string;
   }) => void;
   onDeleteProfile: (id: string) => void;
   onSetActiveProfile: (profileId: string | null) => void;
@@ -111,84 +109,21 @@ type Props = {
 
 export function NormalCommandView(p: Props) {
   return (
-    <div className="flex flex-col h-full w-full text-fg relative">
-      <div className="px-4 pt-3 pb-2">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-[10px] text-mute font-medium tracking-tight">Modelo ativo</div>
-            <div className="truncate text-xs font-medium text-fg select-all">{p.badgeText}</div>
-          </div>
-          <button
-            type="button"
-            onClick={() => p.setShowSettings(true)}
-            className="px-2.5 py-1.5 rounded-md border border-line text-[10px] font-semibold text-mute hover:text-fg hover:border-signal/40 transition-colors cursor-pointer"
-          >
-            Configurar
-          </button>
-        </div>
-        <div
-          className={`mt-2 h-0.5 rounded-full ${p.streaming ? "bg-warn animate-pulse" : p.result ? "bg-good" : p.error ? "bg-bad" : "bg-signal/60"}`}
-        />
-      </div>
-
-      <div className="flex items-center justify-between px-4 py-2 border-y border-line">
-        <div className="flex items-center gap-1">
-          {(
-            [
-              ["command", "Perguntar"],
-              ["history", "Histórico"],
-              ["prompts", "Prompts"],
-              ["connectors", "Conectores"],
-            ] as const
-          ).map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => p.setMode(id)}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${p.mode === id ? "bg-white/8 text-fg border border-line-strong" : "text-mute hover:text-fg"}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <button
-          type="button"
-          onClick={() => p.setShowSettings(!p.showSettings)}
-          className={`p-1.5 rounded-md transition-colors cursor-pointer border border-transparent hover:border-line ${p.showSettings ? "text-signal bg-signal/10" : "text-mute hover:text-fg"}`}
-          title="Configurações"
-        >
-          <Settings className="w-4 h-4" />
-        </button>
-        <button
-          type="button"
-          onClick={p.onMinimize}
-          className="p-1.5 rounded-md transition-colors cursor-pointer border border-transparent hover:border-line text-mute hover:text-fg"
-          title="Minimizar janela"
-        >
-          <Minus className="w-4 h-4" />
-        </button>
-        <button
-          type="button"
-          onClick={p.onClose}
-          className="p-1.5 rounded-md transition-colors cursor-pointer border border-transparent hover:border-line text-mute hover:text-bad"
-          title="Fechar janela"
-        >
-          <X className="w-4 h-4" />
-        </button>
-      </div>
-
-      <div className={`flex-1 overflow-y-auto ${p.expandedMode ? "p-5" : "p-4"}`}>
-        {p.mode === "command" ? (
-          p.taskActive && p.messages.length > 0 ? (
-            <ChatActiveView {...p} />
-          ) : p.taskActive ? (
-            <TaskActiveView {...p} />
-          ) : (
-            <CommandIdleView {...p} />
-          )
-        ) : p.mode === "history" ? (
+    <div className="h-full w-full overflow-y-auto p-4 text-fg">
+      {p.mode === "command" ? (
+        p.messages.length > 0 ? (
+          <ChatActive {...p} />
+        ) : p.taskActive ? (
+          <TaskActive {...p} />
+        ) : (
+          <CommandHome {...p} />
+        )
+      ) : p.mode === "history" ? (
+        <PanelWrapper title="Histórico" onBack={() => p.setMode("command")}>
           <HistoryList />
-        ) : p.mode === "prompts" ? (
+        </PanelWrapper>
+      ) : p.mode === "prompts" ? (
+        <PanelWrapper title="Perfis" onBack={() => p.setMode("command")}>
           <PromptsPanel
             prompts={p.prompts}
             profiles={p.profiles}
@@ -203,7 +138,9 @@ export function NormalCommandView(p: Props) {
               p.setMode("command");
             }}
           />
-        ) : (
+        </PanelWrapper>
+      ) : (
+        <PanelWrapper title="Conectores" onBack={() => p.setMode("command")}>
           <ConnectorsPanel
             connectors={p.connectors.slice(0, 7)}
             testingConnectorId={p.testingConnectorId}
@@ -219,51 +156,104 @@ export function NormalCommandView(p: Props) {
             onCancelEditing={p.onCancelEditing}
             onShowAddConnector={p.onShowAddConnector}
           />
-        )}
+        </PanelWrapper>
+      )}
+    </div>
+  );
+}
+
+function PanelWrapper({
+  title,
+  onBack,
+  children,
+}: {
+  title: string;
+  onBack: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-3 h-full">
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="sm" onClick={onBack}>
+          <ArrowLeft className="w-3.5 h-3.5" />
+          Voltar
+        </Button>
+        <span className="text-xs font-semibold text-fg">{title}</span>
+      </div>
+      <Separator />
+      <div className="flex-1 min-h-0 overflow-y-auto pr-1">{children}</div>
+    </div>
+  );
+}
+
+function CommandHome(p: Props) {
+  return (
+    <div className="flex flex-col h-full items-center justify-end pb-6 gap-5">
+      <div className="flex flex-col items-center gap-2 mb-2">
+        <Pet size={56} />
+        <span className="text-xl font-semibold tracking-tight text-fg">Helix</span>
+      </div>
+
+      <div className="w-full max-w-sm flex flex-col gap-3">
+        <div className="flex items-center justify-center gap-2">
+          <button
+            type="button"
+            onClick={() => p.setExecutionMode("simple")}
+            className={`h-7 px-3 rounded-full text-[11px] font-semibold transition-colors ${
+              p.executionMode === "simple"
+                ? "bg-white/8 text-fg border border-line-strong"
+                : "text-mute hover:text-fg border border-transparent"
+            }`}
+          >
+            Simples
+          </button>
+          <button
+            type="button"
+            onClick={() => p.setExecutionMode("workflow")}
+            className={`h-7 px-3 rounded-full text-[11px] font-semibold transition-colors flex items-center gap-1.5 ${
+              p.executionMode === "workflow"
+                ? "bg-signal/10 text-signal border border-signal/30"
+                : "text-mute hover:text-fg border border-transparent"
+            }`}
+          >
+            <Workflow className="w-3.5 h-3.5" /> Workflow
+          </button>
+        </div>
+
+        <Composer
+          query={p.query}
+          setQuery={p.setQuery}
+          placeholder={p.composerPlaceholder}
+          disabled={p.streaming}
+          streaming={p.streaming}
+          clipboardText={p.clipboardText}
+          textareaRef={p.textareaRef}
+          chips={p.chips}
+          onChipClick={p.onChipClick}
+          onExecute={p.onExecute}
+        />
       </div>
     </div>
   );
 }
 
-function ChatActiveView(p: Props) {
+function ChatActive(p: Props) {
   return (
-    <div className={`flex flex-col h-full min-h-0 ${p.expandedMode ? "gap-4" : "gap-3"}`}>
-      <div className="flex items-center justify-between gap-3 shrink-0">
-        <button
-          type="button"
-          onClick={p.onNewTask}
-          disabled={p.streaming}
-          className="h-8 px-2.5 rounded-md border border-line text-[10px] font-semibold text-mute hover:text-fg hover:border-signal/30 transition-colors cursor-pointer disabled:opacity-40 flex items-center gap-1.5"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" /> Nova tarefa
-        </button>
+    <div className="flex flex-col h-full gap-3">
+      <div className="flex items-center justify-between gap-2 shrink-0">
+        <Button variant="ghost" size="sm" onClick={p.onNewTask} disabled={p.streaming}>
+          <ArrowLeft className="w-3.5 h-3.5" /> Nova conversa
+        </Button>
         <div className="flex items-center gap-2">
-          <span className="px-2 py-1 rounded-md bg-white/5 border border-line text-[10px] font-mono text-mute">
-            {p.taskModeLabel}
-          </span>
-          <span
-            className={`text-[10px] font-mono uppercase ${p.error ? "text-bad" : p.streaming ? "text-warn" : "text-good"}`}
-          >
-            {p.taskStatus}
-          </span>
+          <Badge variant={p.error ? "error" : p.streaming ? "warning" : "success"}>{p.taskStatus}</Badge>
           {p.streaming && (
-            <button
-              type="button"
-              onClick={p.onAbort}
-              disabled={!p.activeRequestId}
-              className="h-7 px-2 rounded-md bg-bad/10 border border-bad/20 text-[10px] font-semibold text-bad hover:text-bad/80 transition-colors cursor-pointer disabled:opacity-40 flex items-center gap-1.5"
-            >
+            <Button variant="danger" size="sm" onClick={p.onAbort} disabled={!p.activeRequestId}>
               <X className="w-3.5 h-3.5" /> Parar
-            </button>
+            </Button>
           )}
-          <button
-            type="button"
-            onClick={p.onExpandedMode}
-            className="h-7 px-2 rounded-md border border-line text-[10px] font-semibold text-mute hover:text-fg transition-colors cursor-pointer flex items-center gap-1.5"
-            title="Abrir modo expandido"
-          >
-            <Maximize2 className="w-3.5 h-3.5" /> Expandido
-          </button>
+          <IconButton title="Modo expandido" onClick={p.onExpandedMode}>
+            <Maximize2 className="w-3.5 h-3.5" />
+          </IconButton>
         </div>
       </div>
 
@@ -284,11 +274,8 @@ function ChatActiveView(p: Props) {
           placeholder={p.composerPlaceholder}
           disabled={p.streaming}
           streaming={p.streaming}
-          inputMode={p.inputMode}
-          hasClipboard={p.hasClipboard}
+          clipboardText={p.clipboardText}
           textareaRef={p.textareaRef}
-          chips={p.chips}
-          onChipClick={p.onChipClick}
           onExecute={p.onExecute}
         />
       </div>
@@ -296,64 +283,31 @@ function ChatActiveView(p: Props) {
   );
 }
 
-function TaskActiveView(p: Props) {
+function TaskActive(p: Props) {
   return (
-    <div
-      className={
-        p.expandedMode
-          ? "min-h-full grid grid-cols-[minmax(0,1fr)_340px] gap-4 items-start"
-          : "min-h-full flex flex-col gap-4"
-      }
-    >
-      <div className={`${p.expandedMode ? "col-span-2" : ""} flex items-center justify-between gap-3`}>
-        <button
-          type="button"
-          onClick={p.onNewTask}
-          disabled={p.streaming}
-          className="h-8 px-2.5 rounded-md border border-line text-[10px] font-semibold text-mute hover:text-fg hover:border-signal/30 transition-colors cursor-pointer disabled:opacity-40 flex items-center gap-1.5"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" /> Nova tarefa
-        </button>
-        <div className="flex items-center gap-2">
-          <span className="px-2 py-1 rounded-md bg-white/5 border border-line text-[10px] font-mono text-mute">
-            {p.taskModeLabel}
-          </span>
-          <span
-            className={`text-[10px] font-mono uppercase ${p.error ? "text-bad" : p.streaming ? "text-warn" : "text-good"}`}
-          >
-            {p.taskStatus}
-          </span>
-          {p.streaming && (
-            <button
-              type="button"
-              onClick={p.onAbort}
-              disabled={!p.activeRequestId}
-              className="h-7 px-2 rounded-md bg-bad/10 border border-bad/20 text-[10px] font-semibold text-bad hover:text-bad/80 transition-colors cursor-pointer disabled:opacity-40 flex items-center gap-1.5"
-            >
-              <X className="w-3.5 h-3.5" /> Parar
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={p.onExpandedMode}
-            className="h-7 px-2 rounded-md border border-line text-[10px] font-semibold text-mute hover:text-fg transition-colors cursor-pointer flex items-center gap-1.5"
-            title="Abrir modo expandido"
-          >
-            <Maximize2 className="w-3.5 h-3.5" /> Expandido
-          </button>
-        </div>
+    <div className="flex flex-col h-full gap-4">
+      <div className="flex items-center justify-between gap-2">
+        <Button variant="ghost" size="sm" onClick={p.onNewTask} disabled={p.streaming}>
+          <ArrowLeft className="w-3.5 h-3.5" /> Nova conversa
+        </Button>
+        <Badge variant={p.error ? "error" : p.streaming ? "warning" : "success"}>{p.taskStatus}</Badge>
+        {p.streaming && (
+          <Button variant="danger" size="sm" onClick={p.onAbort} disabled={!p.activeRequestId}>
+            <X className="w-3.5 h-3.5" /> Parar
+          </Button>
+        )}
       </div>
 
-      <section
-        className={`rounded-2xl bg-white/[0.03] p-4 flex flex-col gap-3 ${p.expandedMode ? "" : "border border-line"}`}
-      >
+      <section className="rounded-xl bg-white/[0.03] border border-line p-4 flex flex-col gap-3">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="text-[10px] text-mute font-medium tracking-tight mb-1">Pedido</div>
             <p className="text-sm leading-relaxed text-fg select-text whitespace-pre-wrap">{p.query}</p>
           </div>
           <div
-            className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${p.error ? "bg-bad/10 text-bad" : p.streaming ? "bg-warn/10 text-warn" : "bg-good/10 text-good"}`}
+            className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+              p.error ? "bg-bad/10 text-bad" : p.streaming ? "bg-warn/10 text-warn" : "bg-good/10 text-good"
+            }`}
           >
             {p.streaming ? (
               <RefreshCw className="w-4 h-4 animate-spin" />
@@ -364,32 +318,12 @@ function TaskActiveView(p: Props) {
             )}
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-2">
-          {["Preparando", "Pensando", "Resultado"].map((step, i) => {
-            const active =
-              (i === 0 && !p.result && !p.error) ||
-              (i === 1 && p.streaming) ||
-              (i === 2 && (Boolean(p.result) || Boolean(p.error)));
-            return (
-              <div
-                key={step}
-                className={`h-1.5 rounded-full transition-colors ${active ? (p.error && i === 2 ? "bg-bad" : p.streaming && i === 1 ? "bg-warn" : "bg-signal") : "bg-white/5"}`}
-                title={step}
-              />
-            );
-          })}
-        </div>
       </section>
 
       {p.workflowSteps.length > 0 && (
-        <section
-          className={`${p.expandedMode ? "col-start-2 row-span-2" : ""} rounded-xl border border-line p-3 flex flex-col gap-2.5 bg-white/[0.02]`}
-        >
-          <div className="flex items-center justify-between">
-            <div className="text-[10px] text-mute font-medium tracking-tight flex items-center gap-1.5">
-              <Workflow className="w-3.5 h-3.5 text-signal" /> Passos
-            </div>
-            <span className="text-[9px] text-faint font-mono">{p.workflowSteps.length} passos</span>
+        <section className="rounded-xl border border-line p-3 flex flex-col gap-2.5 bg-white/[0.02]">
+          <div className="text-[10px] text-mute font-medium tracking-tight flex items-center gap-1.5">
+            <Workflow className="w-3.5 h-3.5 text-signal" /> Passos
           </div>
           <div className="grid gap-2">
             {p.workflowSteps.map((step) => (
@@ -398,7 +332,17 @@ function TaskActiveView(p: Props) {
                 className="grid grid-cols-[18px_1fr_auto] items-start gap-2 rounded-lg bg-white/[0.03] px-2.5 py-2"
               >
                 <span
-                  className={`mt-1.5 w-2 h-2 rounded-full ${step.status === "completed" ? "bg-good" : step.status === "running" ? "bg-warn animate-pulse" : step.status === "waiting_approval" ? "bg-signal animate-pulse" : step.status === "failed" ? "bg-bad" : "bg-faint"}`}
+                  className={`mt-1.5 w-2 h-2 rounded-full ${
+                    step.status === "completed"
+                      ? "bg-good"
+                      : step.status === "running"
+                        ? "bg-warn animate-pulse"
+                        : step.status === "waiting_approval"
+                          ? "bg-signal animate-pulse"
+                          : step.status === "failed"
+                            ? "bg-bad"
+                            : "bg-faint"
+                  }`}
                 />
                 <div className="min-w-0">
                   <div className="text-xs font-semibold text-fg truncate">{step.title}</div>
@@ -414,64 +358,41 @@ function TaskActiveView(p: Props) {
       )}
 
       {p.approval && (
-        <section
-          className={`${p.expandedMode ? "col-start-2" : ""} rounded-xl bg-signal/10 border border-signal/30 p-3.5 flex flex-col gap-3`}
-        >
+        <section className="rounded-xl bg-signal/10 border border-signal/30 p-3.5 flex flex-col gap-3">
           <div className="flex items-start gap-2.5">
-            <ShieldCheck className="w-4 h-4 text-signal mt-0.5 shrink-0" />
+            <Sparkles className="w-4 h-4 text-signal mt-0.5 shrink-0" />
             <div className="min-w-0">
               <div className="text-xs font-semibold text-signal">Aprovação necessária</div>
-              <p className="text-[11px] text-signal/80 leading-relaxed mt-1">
-                {p.approval.reason} Permissão: {p.approval.permissionLevel}.
-              </p>
+              <p className="text-[11px] text-signal/80 leading-relaxed mt-1">{p.approval.reason}</p>
               <p className="text-[10px] text-faint mt-1 truncate">{p.approval.inputPreview}</p>
             </div>
           </div>
-          {p.approval.permissionLevel === "screen.read" && (
-            <div className="flex items-start gap-2 rounded-lg bg-white/[0.04] border border-line px-3 py-2.5">
-              <Monitor className="w-3.5 h-3.5 text-mute shrink-0 mt-0.5" />
-              <div className="min-w-0">
-                <div className="text-[10px] font-bold text-mute uppercase flex items-center gap-1">
-                  <Info className="w-3 h-3" /> Permissão de gravação de tela
-                </div>
-                <p className="text-[10px] text-faint leading-relaxed mt-1">
-                  O macOS exige permissão explícita em <strong>Preferências → Privacidade → Gravação de tela</strong>.
-                  Após aprovar, o Helix vai capturar a tela e extrair texto com OCR.
-                  Se a permissão foi negada, abra as Preferências do Sistema e adicione o Helix manualmente.
-                </p>
-              </div>
-            </div>
-          )}
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => p.onApproval(true)}
-              disabled={p.streaming}
-              className="h-8 px-3 rounded-md bg-signal text-ink text-[11px] font-bold hover:brightness-110 transition-colors cursor-pointer disabled:opacity-50"
-            >
-              Aprovar e continuar
-            </button>
-            <button
-              type="button"
-              onClick={() => p.onApproval(false)}
-              disabled={p.streaming}
-              className="h-8 px-3 rounded-md border border-line text-[11px] font-semibold text-mute hover:text-fg transition-colors cursor-pointer disabled:opacity-50"
-            >
+            <Button variant="primary" size="sm" onClick={() => p.onApproval(true)} disabled={p.streaming}>
+              Aprovar
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => p.onApproval(false)} disabled={p.streaming}>
               Recusar
-            </button>
+            </Button>
           </div>
         </section>
       )}
 
       {p.visibleLogs.length > 0 && (
-        <section
-          className={`${p.expandedMode ? "col-start-2" : ""} rounded-xl bg-white/[0.02] p-3 flex flex-col gap-2 border border-line`}
-        >
+        <section className="rounded-xl bg-white/[0.02] p-3 flex flex-col gap-2 border border-line">
           <div className="text-[10px] text-mute font-medium tracking-tight">Atividade</div>
           {p.visibleLogs.map((log) => (
             <div key={log.id} className="flex items-start gap-2.5 min-w-0">
               <span
-                className={`mt-1 w-1.5 h-1.5 rounded-full shrink-0 ${log.type === "tool_fail" ? "bg-bad" : log.type === "tool_start" ? "bg-warn animate-pulse" : log.type === "tool_complete" ? "bg-good" : "bg-signal"}`}
+                className={`mt-1 w-1.5 h-1.5 rounded-full shrink-0 ${
+                  log.type === "tool_fail"
+                    ? "bg-bad"
+                    : log.type === "tool_start"
+                      ? "bg-warn animate-pulse"
+                      : log.type === "tool_complete"
+                        ? "bg-good"
+                        : "bg-signal"
+                }`}
               />
               <p className="text-xs text-mute leading-relaxed truncate min-w-0">{log.text}</p>
             </div>
@@ -482,33 +403,18 @@ function TaskActiveView(p: Props) {
       {p.error && (
         <section className="p-3.5 bg-bad/10 rounded-xl text-bad text-xs flex gap-2.5 items-start border border-bad/20">
           <AlertCircle className="w-4 h-4 text-bad flex-shrink-0 mt-0.5" />
-          <div className="select-text">
-            <strong className="font-bold mr-1">Erro:</strong>
-            {p.error}
-          </div>
+          <div className="select-text">{p.error}</div>
         </section>
       )}
 
-      <section
-        className={`${p.expandedMode ? "min-h-[480px]" : "flex-1 min-h-[260px]"} rounded-2xl bg-white/[0.03] overflow-hidden flex flex-col border border-line`}
-      >
+      <section className="flex-1 min-h-[200px] rounded-2xl bg-white/[0.03] overflow-hidden flex flex-col border border-line">
         <div className="px-4 py-3 flex items-center justify-between bg-white/[0.03]">
-          <span className="text-[10px] text-mute font-medium tracking-tight">
-            {p.streaming ? "Resposta" : "Resultado"}
-          </span>
+          <span className="text-[10px] text-mute font-medium tracking-tight">Resultado</span>
           {p.result && (
-            <button
-              type="button"
-              onClick={p.onCopy}
-              className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${p.copied ? "bg-good/15 text-good" : "text-mute hover:text-fg"}`}
-            >
-              {p.copied ? (
-                <Check className="w-3.5 h-3.5" />
-              ) : (
-                <Clipboard className="w-3.5 h-3.5 text-signal" />
-              )}
-              <span>{p.copied ? "Copiado" : "Copiar"}</span>
-            </button>
+            <Button variant="ghost" size="sm" onClick={p.onCopy}>
+              {p.copied ? <Check className="w-3.5 h-3.5" /> : <Clipboard className="w-3.5 h-3.5" />}
+              {p.copied ? "Copiado" : "Copiar"}
+            </Button>
           )}
         </div>
         <div className="flex-1 p-4 text-sm text-fg leading-relaxed whitespace-pre-wrap overflow-y-auto select-text">
@@ -524,176 +430,19 @@ function TaskActiveView(p: Props) {
           )}
         </div>
       </section>
-    </div>
-  );
-}
 
-function CommandIdleView(p: Props) {
-  return (
-    <div
-      className={
-        p.expandedMode ? "grid grid-cols-[340px_minmax(0,1fr)] gap-4 items-start" : "flex flex-col gap-4"
-      }
-    >
-      <section
-        className={`${p.expandedMode ? "col-span-2" : ""} rounded-xl border border-line p-1 grid grid-cols-2 gap-1`}
-      >
-        <button
-          type="button"
-          onClick={() => p.setExecutionMode("simple")}
-          className={`min-h-12 rounded-lg px-3 text-left transition-colors cursor-pointer ${p.executionMode === "simple" ? "bg-white/8 text-fg" : "text-mute hover:text-fg"}`}
-        >
-          <div className="text-xs font-semibold">Simples</div>
-          <div className="text-[10px] text-faint">Resposta rápida</div>
-        </button>
-        <button
-          type="button"
-          onClick={() => p.setExecutionMode("workflow")}
-          className={`min-h-12 rounded-lg px-3 text-left transition-colors cursor-pointer ${p.executionMode === "workflow" ? "bg-signal/15 text-signal border border-signal/30" : "text-mute hover:text-fg"}`}
-        >
-          <div className="text-xs font-semibold flex items-center gap-1.5">
-            <Workflow className="w-3.5 h-3.5" /> Workflow
-          </div>
-          <div className="text-[10px] text-faint">Loop com plano e aprovação</div>
-        </button>
-      </section>
-
-      <section
-        className={`${p.expandedMode ? "col-span-2" : ""} rounded-xl border border-line px-3 py-2 flex items-center justify-between gap-3`}
-      >
-        <div className="min-w-0 flex items-center gap-2 overflow-hidden">
-          <span className="text-[10px] font-mono uppercase text-faint shrink-0">MCPs</span>
-          <div className="flex items-center gap-1.5 overflow-hidden">
-            {p.connectors.slice(0, p.expandedMode ? 6 : 3).map((c) => (
-              <span
-                key={c.id}
-                className={`px-2 py-1 rounded-md text-[9px] font-semibold whitespace-nowrap ${c.enabled ? "bg-good/10 text-good border border-good/20" : "bg-white/5 text-faint border border-line"}`}
-              >
-                {c.name}
-              </span>
-            ))}
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={() => p.setMode("connectors")}
-          className="h-7 px-2 rounded-md border border-line text-[10px] font-semibold text-mute hover:text-fg transition-colors cursor-pointer"
-        >
-          Gerenciar
-        </button>
-      </section>
-
-      <section className={`${p.expandedMode ? "col-start-1" : ""} grid grid-cols-2 gap-2`}>
-        <button
-          type="button"
-          onClick={() => p.setInputMode("free")}
-          className={`min-h-16 rounded-xl border p-3 text-left transition-all cursor-pointer ${p.inputMode === "free" ? "border-signal/45 bg-signal/10 text-fg" : "border-line bg-white/[0.02] text-mute hover:text-fg"}`}
-        >
-          <Bot className="w-4 h-4 text-signal mb-2" />
-          <div className="text-xs font-semibold">Conteúdo avulso</div>
-          <div className="text-[10px] text-faint mt-0.5">Pergunta, plano ou rascunho</div>
-        </button>
-        <button
-          type="button"
-          onClick={() => p.setInputMode("clipboard")}
-          className={`min-h-16 rounded-xl border p-3 text-left transition-all cursor-pointer ${p.inputMode === "clipboard" ? "border-good/45 bg-good/10 text-fg" : "border-line bg-white/[0.02] text-mute hover:text-fg"}`}
-        >
-          <Clipboard className={`w-4 h-4 mb-2 ${p.hasClipboard ? "text-good" : "text-faint"}`} />
-          <div className="text-xs font-semibold">Clipboard</div>
-          <div className="text-[10px] text-faint mt-0.5">
-            {p.hasClipboard ? `${p.clipboardText.length} caracteres detectados` : "Copie texto para ativar"}
-          </div>
-        </button>
-      </section>
-
-      <div className={`${p.expandedMode ? "col-start-2 row-span-2" : ""} relative flex flex-col`}>
-        <span className="text-[10px] text-faint font-mono uppercase mb-1 flex items-center gap-1.5 select-none">
-          {p.inputMode === "clipboard" ? (
-            <Clipboard className="w-3.5 h-3.5 text-good" />
-          ) : (
-            <Bot className="w-3.5 h-3.5 text-signal" />
-          )}
-          {p.inputModeLabel}
-        </span>
+      <div className="shrink-0">
         <Composer
           query={p.query}
           setQuery={p.setQuery}
           placeholder={p.composerPlaceholder}
           disabled={p.streaming}
           streaming={p.streaming}
-          inputMode={p.inputMode}
-          hasClipboard={p.hasClipboard}
+          clipboardText={p.clipboardText}
           textareaRef={p.textareaRef}
-          chips={p.chips}
-          onChipClick={p.onChipClick}
           onExecute={p.onExecute}
         />
       </div>
-
-      {p.inputMode === "clipboard" && (
-        <section
-          className={`${p.expandedMode ? "col-start-1" : ""} p-3.5 rounded-xl border border-line bg-white/[0.02] flex flex-col gap-3`}
-        >
-          <div className="flex items-center justify-between gap-3">
-            <span className="flex items-center gap-1.5 text-[10px] text-mute uppercase tracking-wider font-bold select-none">
-              <Clipboard className={`w-3.5 h-3.5 ${p.hasClipboard ? "text-good" : "text-faint"}`} />
-              {p.hasClipboard ? "Clipboard detectado" : "Sem clipboard"}
-            </span>
-            <span className="text-[9px] font-mono text-faint">
-              {p.hasClipboard ? `${p.clipboardText.length} caracteres` : "aguardando"}
-            </span>
-          </div>
-          <div className="bg-white/[0.03] border border-line rounded-lg p-2.5 text-[11px] text-mute leading-normal min-h-10 select-text">
-            {p.hasClipboard
-              ? `"${p.clipboardText.slice(0, 220)}${p.clipboardText.length > 220 ? "..." : ""}"`
-              : "Copie um texto em qualquer app e volte para usar as ações de contexto."}
-          </div>
-        </section>
-      )}
-
-      <section className={`${p.expandedMode ? "col-start-2" : ""} flex flex-col gap-2`}>
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] text-faint font-mono uppercase font-bold select-none">
-            {p.inputMode === "clipboard" ? "Ações com clipboard" : "Ações livres"}
-          </span>
-          {p.inputMode === "clipboard" && !p.hasClipboard && (
-            <span className="text-[10px] text-faint select-none">copie texto para liberar</span>
-          )}
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          {(p.inputMode === "clipboard" ? QUICK_ACTIONS : FREE_ACTIONS).map((action) => {
-            const Icon = action.icon;
-            const disabled =
-              p.inputMode === "clipboard" &&
-              "requiresClipboard" in action &&
-              action.requiresClipboard &&
-              !p.hasClipboard;
-            const actionExecutionMode =
-              "executionMode" in action &&
-              (action.executionMode === "simple" || action.executionMode === "workflow")
-                ? action.executionMode
-                : undefined;
-            return (
-              <button
-                key={action.id}
-                type="button"
-                onClick={() =>
-                  p.inputMode === "clipboard"
-                    ? p.onQuickAction(action.id)
-                    : p.onStarterAction(action.prompt, actionExecutionMode)
-                }
-                disabled={disabled || p.streaming}
-                className="min-h-[72px] rounded-lg border border-line text-mute hover:text-fg hover:border-signal/30 transition-all cursor-pointer flex flex-col items-start justify-center gap-1 px-2.5 py-2 text-left disabled:opacity-40 disabled:pointer-events-none"
-                title={disabled ? "Copie um texto primeiro" : action.description}
-              >
-                <Icon className={`w-4 h-4 ${action.accent}`} />
-                <span className="text-[10px] font-semibold leading-tight">{action.label}</span>
-                <span className="text-[9px] text-faint leading-tight">{action.description}</span>
-              </button>
-            );
-          })}
-        </div>
-      </section>
     </div>
   );
 }

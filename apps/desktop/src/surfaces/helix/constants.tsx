@@ -23,7 +23,6 @@ export const GLOBAL_SHORTCUT_LABEL = "Control+Shift+Space";
 export const STALE_RUNTIME_MESSAGE =
   "Runtime antigo detectado. Reinicie o app para carregar workflows e MCPs atualizados.";
 
-export type InputMode = "free" | "clipboard";
 export type RuntimeApi = Awaited<ReturnType<typeof getAgent>>;
 
 export type QuickAction = {

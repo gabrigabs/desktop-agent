@@ -487,11 +487,7 @@ export class WorkflowRunner {
     return result || "Workflow concluído sem conteúdo retornado.";
   }
 
-  private async selectTool(
-    input: RunInput,
-    prompt: string,
-    clipboardText: string,
-  ): Promise<ToolPlan | null> {
+  private async selectTool(input: RunInput, prompt: string, clipboardText: string): Promise<ToolPlan | null> {
     const keywordPlan = this.selectToolKeyword(prompt, clipboardText);
     if (keywordPlan) return keywordPlan;
 
@@ -569,17 +565,14 @@ export class WorkflowRunner {
 
     const systemPrompt = [
       "Você é um seletor de ferramentas. Analise o pedido do usuário e decida se uma ferramenta deve ser usada.",
-      "Responda APENAS com JSON no formato: {\"toolName\": \"...\", \"reason\": \"...\", \"input\": {...}}",
-      "Se nenhuma ferramenta for necessária, responda: {\"toolName\": null, \"reason\": \"resposta direta\", \"input\": {}}",
+      'Responda APENAS com JSON no formato: {"toolName": "...", "reason": "...", "input": {...}}',
+      'Se nenhuma ferramenta for necessária, responda: {"toolName": null, "reason": "resposta direta", "input": {}}',
       "",
       "Ferramentas disponíveis:",
       toolCatalog,
     ].join("\n");
 
-    const userMessage = [
-      `Pedido: ${prompt}`,
-      `Clipboard: ${clipboardText || "(vazio)"}`,
-    ].join("\n");
+    const userMessage = [`Pedido: ${prompt}`, `Clipboard: ${clipboardText || "(vazio)"}`].join("\n");
 
     try {
       throwIfAborted(input.signal);

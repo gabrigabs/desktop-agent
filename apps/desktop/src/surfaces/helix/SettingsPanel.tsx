@@ -1,3 +1,4 @@
+import type { AppSettings } from "@desktop-agent/shared";
 import {
   Check,
   Clock,
@@ -12,8 +13,10 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
-import type { AppSettings } from "@desktop-agent/shared";
+import { useEffect, useId, useState } from "react";
+import { Button } from "../../components/ui/button";
+import { IconButton } from "../../components/ui/icon-button";
+import { Input } from "../../components/ui/input";
 import { GLOBAL_SHORTCUT_LABEL, PINSTRIPES_MODELS } from "./constants";
 
 type Props = {
@@ -73,7 +76,7 @@ function useInlineSaveFeedback(savingSettings: boolean) {
     if (savingSettings) {
       setJustSaved(true);
     }
-  }, [savingSettings]);
+  }, [savingSettings, justSaved]);
   return justSaved;
 }
 
@@ -92,13 +95,13 @@ function petSizeLabel(v: number) {
 }
 
 export function SettingsPanel(p: Props) {
-  if (p.variant === "expanded") {
-    return <ExpandedSettingsPanel {...p} />;
-  }
-
   const isDirty = useDirtyCheck(p);
   const validation = useValidation(p);
   const justSaved = useInlineSaveFeedback(p.savingSettings);
+
+  if (p.variant === "expanded") {
+    return <ExpandedSettingsPanel {...p} />;
+  }
 
   return (
     <div className="absolute inset-0 bg-ink/95 backdrop-blur-lg z-30 flex flex-col p-4 select-none border border-line rounded-2xl">
@@ -118,13 +121,9 @@ export function SettingsPanel(p: Props) {
             </span>
           )}
         </span>
-        <button
-          type="button"
-          onClick={p.onClose}
-          className="p-1.5 rounded-md text-mute hover:text-fg hover:bg-white/5 transition-colors cursor-pointer"
-        >
+        <IconButton title="Fechar configurações" onClick={p.onClose}>
           <X className="w-4 h-4" />
-        </button>
+        </IconButton>
       </div>
 
       <form
@@ -166,21 +165,21 @@ export function SettingsPanel(p: Props) {
               <KeyRound className="w-3.5 h-3.5" /> Chave API
             </span>
             <div className="relative">
-              <input
+              <Input
                 type={p.showKey ? "text" : "password"}
                 value={p.formApiKey}
                 onChange={(e) => p.setFormApiKey(e.target.value)}
                 placeholder="Insira ou cole sua chave de API secreta"
-                className={`w-full bg-ink border rounded-lg pl-3 pr-9 py-2 text-xs text-fg outline-none select-text ${validation.needsApiKey ? "border-bad/50" : "border-line"}`}
+                invalid={validation.needsApiKey}
                 required
               />
-              <button
-                type="button"
+              <IconButton
+                title={p.showKey ? "Ocultar chave" : "Mostrar chave"}
                 onClick={() => p.setShowKey(!p.showKey)}
-                className="absolute right-3 top-2.5 text-mute hover:text-fg cursor-pointer"
+                className="absolute right-2 top-1.5"
               >
                 {p.showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
+              </IconButton>
             </div>
             {validation.needsApiKey && (
               <span className="text-[9px] text-bad">Necessário para este provedor</span>
@@ -193,8 +192,7 @@ export function SettingsPanel(p: Props) {
             <span className="text-[10px] text-mute uppercase font-bold flex items-center gap-1">
               <Link className="w-3.5 h-3.5" /> URL Base
             </span>
-            <input
-              type="text"
+            <Input
               value={p.formBaseUrl}
               onChange={(e) => p.setFormBaseUrl(e.target.value)}
               placeholder={
@@ -202,7 +200,6 @@ export function SettingsPanel(p: Props) {
                   ? "https://api.openai.com/v1"
                   : "https://generativetooling.googleapis.com/v1"
               }
-              className="w-full bg-ink border border-line rounded-lg px-3 py-2 text-xs text-fg outline-none select-text"
             />
           </div>
         )}
@@ -228,12 +225,10 @@ export function SettingsPanel(p: Props) {
                 ))}
               </select>
             ) : (
-              <input
-                type="text"
+              <Input
                 value={p.formModel}
                 onChange={(e) => p.setFormModel(e.target.value)}
                 placeholder="gpt-4o-mini ou modelo customizado..."
-                className="w-full bg-ink border border-line rounded-lg px-3 py-2 text-xs text-fg outline-none select-text"
                 required
               />
             )}
@@ -277,14 +272,14 @@ export function SettingsPanel(p: Props) {
           <span className="text-[10px] text-mute uppercase font-bold flex items-center gap-1">
             <Clock className="w-3.5 h-3.5" /> Timeout (segundos)
           </span>
-          <input
+          <Input
             type="number"
             value={p.formTimeout}
             onChange={(e) => p.setFormTimeout(Number(e.target.value))}
             min={5}
             max={600}
             placeholder="120"
-            className={`w-full bg-ink border rounded-lg px-3 py-2 text-xs text-fg outline-none select-text ${validation.timeoutOutOfRange ? "border-bad/50" : "border-line"}`}
+            invalid={validation.timeoutOutOfRange}
             required
           />
           {validation.timeoutOutOfRange && (
@@ -350,20 +345,17 @@ export function SettingsPanel(p: Props) {
         </div>
 
         <div className="mt-auto pt-4 flex gap-2">
-          <button
-            type="button"
-            onClick={p.onClose}
-            className="flex-1 px-3 py-2.5 rounded-lg border border-line text-xs text-mute hover:text-fg hover:bg-white/5 transition-colors cursor-pointer font-bold"
-          >
+          <Button type="button" variant="secondary" onClick={p.onClose} className="flex-1 justify-center">
             Cancelar
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
+            variant="primary"
             disabled={p.savingSettings || validation.hasError}
-            className="flex-1 px-3 py-2.5 rounded-lg bg-signal hover:brightness-110 text-ink text-xs transition-colors cursor-pointer font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 justify-center"
           >
             {p.savingSettings ? "Salvando..." : justSaved ? "Salvo" : "Salvar"}
-          </button>
+          </Button>
         </div>
       </form>
     </div>
@@ -374,6 +366,9 @@ function ExpandedSettingsPanel(p: Props) {
   const isDirty = useDirtyCheck(p);
   const validation = useValidation(p);
   const justSaved = useInlineSaveFeedback(p.savingSettings);
+  const apiKeyId = useId();
+  const baseUrlId = useId();
+  const timeoutId = useId();
 
   const submitSettings = (e: React.FormEvent) => {
     e.preventDefault();
@@ -412,14 +407,9 @@ function ExpandedSettingsPanel(p: Props) {
                 )}
               </div>
             </div>
-            <button
-              type="button"
-              onClick={p.onClose}
-              className="p-1.5 rounded-md text-mute hover:text-fg hover:bg-white/5 transition-colors cursor-pointer"
-              title="Fechar"
-            >
+            <IconButton title="Fechar configurações" onClick={p.onClose}>
               <X className="w-4 h-4" />
-            </button>
+            </IconButton>
           </div>
 
           <section className="rounded-xl border border-line bg-white/[0.025] p-3.5">
@@ -474,13 +464,9 @@ function ExpandedSettingsPanel(p: Props) {
                 )}
               </div>
             </div>
-            <button
-              type="button"
-              onClick={p.onClose}
-              className="h-8 px-3 rounded-md border border-line text-[10px] font-semibold text-mute hover:text-fg hover:border-line-strong transition-colors cursor-pointer flex items-center gap-1.5"
-            >
+            <Button type="button" variant="secondary" size="sm" onClick={p.onClose}>
               <X className="w-3.5 h-3.5" /> Fechar
-            </button>
+            </Button>
           </header>
 
           <div className="flex-1 overflow-y-auto p-6">
@@ -569,13 +555,11 @@ function ExpandedSettingsPanel(p: Props) {
                           ))}
                         </select>
                       ) : (
-                        <input
+                        <Input
                           aria-label="Modelo"
-                          type="text"
                           value={p.formModel}
                           onChange={(e) => p.setFormModel(e.target.value)}
                           placeholder="gpt-4o-mini ou modelo customizado..."
-                          className="w-full bg-ink border border-line rounded-lg px-3 py-2.5 text-xs text-fg outline-none select-text"
                           required
                         />
                       )}
@@ -583,26 +567,27 @@ function ExpandedSettingsPanel(p: Props) {
                   )}
 
                   {p.formProvider !== "mock" && (
-                    <label className="col-span-2 flex flex-col gap-1.5">
+                    <label htmlFor={apiKeyId} className="col-span-2 flex flex-col gap-1.5">
                       <span className="text-[10px] text-mute uppercase font-bold flex items-center gap-1">
                         <KeyRound className="w-3.5 h-3.5" /> Chave API
                       </span>
                       <div className="relative">
-                        <input
+                        <Input
+                          id={apiKeyId}
                           type={p.showKey ? "text" : "password"}
                           value={p.formApiKey}
                           onChange={(e) => p.setFormApiKey(e.target.value)}
                           placeholder="Insira ou cole sua chave de API secreta"
-                          className={`w-full bg-ink border rounded-lg pl-3 pr-10 py-2.5 text-xs text-fg outline-none select-text ${validation.needsApiKey ? "border-bad/50" : "border-line"}`}
+                          invalid={validation.needsApiKey}
                           required
                         />
-                        <button
-                          type="button"
+                        <IconButton
+                          title={p.showKey ? "Ocultar chave" : "Mostrar chave"}
                           onClick={() => p.setShowKey(!p.showKey)}
-                          className="absolute right-3 top-2.5 text-mute hover:text-fg cursor-pointer"
+                          className="absolute right-2 top-2"
                         >
                           {p.showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
+                        </IconButton>
                       </div>
                       {validation.needsApiKey && (
                         <span className="text-[9px] text-bad">Necessário para este provedor</span>
@@ -611,12 +596,12 @@ function ExpandedSettingsPanel(p: Props) {
                   )}
 
                   {(p.formProvider === "openai" || p.formProvider === "gemini") && (
-                    <label className="col-span-2 flex flex-col gap-1.5">
+                    <label htmlFor={baseUrlId} className="col-span-2 flex flex-col gap-1.5">
                       <span className="text-[10px] text-mute uppercase font-bold flex items-center gap-1">
                         <Link className="w-3.5 h-3.5" /> URL Base
                       </span>
-                      <input
-                        type="text"
+                      <Input
+                        id={baseUrlId}
                         value={p.formBaseUrl}
                         onChange={(e) => p.setFormBaseUrl(e.target.value)}
                         placeholder={
@@ -624,7 +609,6 @@ function ExpandedSettingsPanel(p: Props) {
                             ? "https://api.openai.com/v1"
                             : "https://generativetooling.googleapis.com/v1"
                         }
-                        className="w-full bg-ink border border-line rounded-lg px-3 py-2.5 text-xs text-fg outline-none select-text"
                       />
                     </label>
                   )}
@@ -643,22 +627,27 @@ function ExpandedSettingsPanel(p: Props) {
                     </div>
                   </div>
 
-                  <label className="flex flex-col gap-1.5">
+                  <label htmlFor={timeoutId} className="flex flex-col gap-1.5">
                     <span className="text-[10px] text-mute uppercase font-bold flex items-center gap-1">
                       <Clock className="w-3.5 h-3.5" /> Timeout
                     </span>
-                    <input
+                    <Input
+                      id={timeoutId}
                       type="number"
                       value={p.formTimeout}
                       onChange={(e) => p.setFormTimeout(Number(e.target.value))}
                       min={5}
                       max={600}
                       placeholder="120"
-                      className={`w-full bg-ink border rounded-lg px-3 py-2.5 text-xs text-fg outline-none select-text ${validation.timeoutOutOfRange ? "border-bad/50" : "border-line"}`}
+                      invalid={validation.timeoutOutOfRange}
                       required
                     />
-                    <span className={`text-[9px] ${validation.timeoutOutOfRange ? "text-bad" : "text-faint"}`}>
-                      {validation.timeoutOutOfRange ? "Valor entre 5 e 600 segundos" : "Entre 5 e 600 segundos."}
+                    <span
+                      className={`text-[9px] ${validation.timeoutOutOfRange ? "text-bad" : "text-faint"}`}
+                    >
+                      {validation.timeoutOutOfRange
+                        ? "Valor entre 5 e 600 segundos"
+                        : "Entre 5 e 600 segundos."}
                     </span>
                   </label>
 
@@ -676,9 +665,7 @@ function ExpandedSettingsPanel(p: Props) {
                       className="w-full accent-[var(--color-signal)] cursor-pointer"
                       aria-label="Opacidade da janela"
                     />
-                    <span className="text-[9px] text-faint">
-                      {opacityLabel(p.formWindowOpacity)}
-                    </span>
+                    <span className="text-[9px] text-faint">{opacityLabel(p.formWindowOpacity)}</span>
                   </label>
 
                   <label className="mt-4 flex flex-col gap-1.5">
@@ -695,7 +682,9 @@ function ExpandedSettingsPanel(p: Props) {
                       className="w-full accent-[var(--color-signal)] cursor-pointer"
                       aria-label="Tamanho do pet"
                     />
-                    <span className="text-[9px] text-faint">{petSizeLabel(p.formPetSize)} — afeta o modo colapsado</span>
+                    <span className="text-[9px] text-faint">
+                      {petSizeLabel(p.formPetSize)} — afeta o modo colapsado
+                    </span>
                   </label>
 
                   <label
@@ -741,20 +730,17 @@ function ExpandedSettingsPanel(p: Props) {
           </div>
 
           <footer className="h-16 border-t border-line bg-white/[0.012] px-6 flex items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={p.onClose}
-              className="h-9 px-4 rounded-lg border border-line text-[11px] font-semibold text-mute hover:text-fg hover:bg-white/5 transition-colors cursor-pointer"
-            >
+            <Button type="button" variant="secondary" size="md" onClick={p.onClose}>
               Cancelar
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
+              variant="primary"
+              size="md"
               disabled={p.savingSettings || validation.hasError}
-              className="h-9 px-4 rounded-lg bg-signal hover:brightness-110 text-ink text-[11px] transition-colors cursor-pointer font-bold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {p.savingSettings ? "Salvando..." : justSaved ? "Salvo" : "Salvar configurações"}
-            </button>
+            </Button>
           </footer>
         </main>
       </form>

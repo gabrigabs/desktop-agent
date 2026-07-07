@@ -2,6 +2,7 @@
 
 > Este arquivo não é mais a fonte principal de planejamento.
 > Use [PLANO.md](/Users/gabrielbezerrarodrigues/dev/desktop-agent/PLANO.md) como fonte de verdade do produto.
+> O backlog ativo de UI/UX, redesign e profiles está documentado em `PLANO.md`.
 
 ## Origem
 
@@ -68,6 +69,26 @@ O backlog original nasceu para transformar o protótipo `Desktop Agent` em um co
 - Animações disruptivas de hover/focus: shockwave expansivo, pulso da esfera e aceleração dos anéis.
 - Estados por cor mantidos (idle roxo, thinking amarelo, success verde, error vermelho, connecting laranja).
 - Arquivos principais: `apps/desktop/src/components/ui/pet.tsx`, `apps/desktop/src/app.tsx`, `apps/desktop/src/surfaces/helix/ResponseBubble.tsx`, `apps/desktop/src/index.css`.
+
+## UI/UX Redesign e Novo Backlog (2026-07-07)
+
+Após conclusão do backlog anterior, a próxima onda de trabalho foca em melhorias de interface, padronização visual e refinamento de fluxo.
+
+### Decisões do Redesign
+
+- Home page minimalista estilo ChatGPT/Claude/Grok: título/pet, composer, chips de sugestão contextual e clipboard preview colapsável.
+- Top bar unificada: pet mini + título + pin + expandir/minimizar/fechar. Status transmitido apenas pela cor/animação do pet.
+- Navegação lateral fixa no modo expandido, drawer overlay no modo normal: Nova conversa, Histórico, Perfis, Conectores, Config.
+- Pet collapsed substitui o modo mini: 1 clique abre menu rápido, 2 cliques abrem modo normal.
+- Profiles evoluem a partir de Prompts: system prompt evoluído + metadados (nome, descrição, ícone). Memória e skills ficam fora desta fase.
+- Clipboard unificado ao chat normal: chips inserem o conteúdo no composer e enviam como turn normal.
+- Design system mínimo: componentes reutilizáveis (`Button`, `IconButton`, `Input`, `Card`, `Badge`, `Separator`, `HelixShell`) aplicados às páginas de Config, Prompts/Profiles e Connectors.
+
+### Pontos de Partida
+
+- As evidências visuais mostravam muitos botões, funções repetidas, bolinha do Helix desalinhada e tela inicial sobrecarregada.
+- O novo backlog prioriza limpeza visual, fluxo de entrada e consistência de system design.
+- Detalhes, fases e critérios de aceite estão em [PLANO.md](/Users/gabrielbezerrarodrigues/dev/desktop-agent/PLANO.md).
 
 ## Próximo Uso Deste Arquivo
 

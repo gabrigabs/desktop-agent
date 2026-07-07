@@ -1,10 +1,9 @@
 import { currentMonitor, getCurrentWindow, LogicalPosition, LogicalSize } from "@tauri-apps/api/window";
 
-export type WindowMode = "collapsed" | "mini" | "normal" | "expanded";
+export type WindowMode = "collapsed" | "normal" | "expanded";
 
 export const WINDOW_SIZES = {
   collapsed: { width: 104, height: 104 },
-  mini: { width: 392, height: 460 },
   normal: { width: 520, height: 820 },
   expanded: { width: 1180, height: 820 },
 };

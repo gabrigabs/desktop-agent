@@ -24,7 +24,7 @@ export type AgentLogEntry = {
   timestamp: number;
 };
 
-export type UiMode = "collapsed" | "mini" | "normal" | "expanded";
+export type UiMode = "collapsed" | "normal" | "expanded";
 
 type State = {
   connected: boolean;

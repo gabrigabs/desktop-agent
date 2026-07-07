@@ -1,10 +1,9 @@
 import { useEffect } from "react";
 import { hideWindow } from "../../../lib/window";
 import { useAgentStore } from "../../../stores/agent";
-import type { InputMode } from "../constants";
 
 type Deps = {
-  handleExecute: (forceInstruction?: string, forceInputMode?: InputMode) => void;
+  handleExecute: (forceInstruction?: string) => void;
   showSettings: boolean;
   setShowSettings: (v: boolean) => void;
   mode?: "command" | "history" | "connectors" | "prompts";

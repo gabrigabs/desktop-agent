@@ -3,16 +3,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getAgent, setActiveRequestId as setRpcActiveRequestId } from "../../../lib/rpc";
 import { isTauriRuntime } from "../../../lib/window";
 import { useAgentStore } from "../../../stores/agent";
-import {
-  callAgentWithRuntimeRefresh,
-  type InputMode,
-  isStaleRuntimeError,
-  QUICK_ACTIONS,
-} from "../constants";
+import { callAgentWithRuntimeRefresh, isStaleRuntimeError, QUICK_ACTIONS } from "../constants";
 
 export function useExecute() {
-  const [inputMode, setInputMode] = useState<InputMode>("free");
-  const [activeTaskMode, setActiveTaskMode] = useState<InputMode>("free");
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -39,34 +32,24 @@ export function useExecute() {
   }, []);
 
   const handleExecute = useCallback(
-    async (forceInstruction?: string, forceInputMode?: InputMode) => {
+    async (forceInstruction?: string) => {
       const store = useAgentStore.getState();
-      const activeQuery = forceInstruction || store.query;
-      if (!activeQuery.trim()) return;
+      const activeQuery = typeof forceInstruction === "string" ? forceInstruction : store.query;
+      if (typeof activeQuery !== "string" || !activeQuery.trim()) return;
 
-      const sourceMode = forceInputMode || inputMode;
-      // Finalize any in-flight streaming from a previous request
       if (store.streaming) {
         store.finalizeAssistantTurn("cancelled");
       }
       store.setResult(null);
       store.setError(null);
       store.setStreaming(true);
-      setActiveTaskMode(sourceMode);
       store.setWorkflowRun(null);
       store.clearAgentLogs();
       let requestId: string | null = null;
       let runId: string | null = null;
       try {
-        const clipboardContent =
-          sourceMode === "clipboard" ? (isTauriRuntime() ? await readClipboard() : store.clipboardText) : "";
-        if (sourceMode === "clipboard") {
-          store.setClipboardText(clipboardContent);
-        }
-        if (sourceMode === "clipboard" && !clipboardContent.trim()) {
-          throw new Error("Não há texto no clipboard para usar nesta tarefa.");
-        }
-
+        const clipboardContent = store.clipboardText;
+        const sourceMode: "free" | "clipboard" = clipboardContent.trim() ? "clipboard" : "free";
         store.startUserTurn(activeQuery, sourceMode);
         store.setQuery("");
 
@@ -139,7 +122,7 @@ export function useExecute() {
         void saveConversationToStorage();
       }
     },
-    [inputMode, saveConversationToStorage],
+    [saveConversationToStorage],
   );
 
   const handleCopyResult = useCallback(async () => {
@@ -224,9 +207,16 @@ export function useExecute() {
       const action = QUICK_ACTIONS.find((item) => item.id === actionId);
       if (!action) return;
       const store = useAgentStore.getState();
-      setInputMode("clipboard");
+      if (isTauriRuntime()) {
+        try {
+          const text = await readClipboard();
+          store.setClipboardText(text ?? "");
+        } catch {
+          // keep existing store value
+        }
+      }
       store.setQuery(action.prompt);
-      await handleExecute(action.prompt, "clipboard");
+      await handleExecute(action.prompt);
     },
     [handleExecute],
   );
@@ -238,7 +228,6 @@ export function useExecute() {
       textareaRef?: React.RefObject<HTMLTextAreaElement | null>,
     ) => {
       const store = useAgentStore.getState();
-      setInputMode("free");
       if (modeOverride) store.setExecutionMode(modeOverride);
       store.setQuery(prompt);
       requestAnimationFrame(() => textareaRef?.current?.focus());
@@ -257,9 +246,6 @@ export function useExecute() {
   }, []);
 
   return {
-    inputMode,
-    setInputMode,
-    activeTaskMode,
     activeRequestId,
     activeRunId,
     handleExecute,

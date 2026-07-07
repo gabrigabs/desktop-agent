@@ -1,4 +1,4 @@
-import type { AgentProfile, PromptTemplate } from "@desktop-agent/shared";
+import type { AgentProfile, PromptTemplate, SaveProfileInput } from "@desktop-agent/shared";
 import {
   Bot,
   Bug,
@@ -15,6 +15,12 @@ import {
   X,
 } from "lucide-react";
 import { useState } from "react";
+import { Badge } from "../../components/ui/badge";
+import { Button } from "../../components/ui/button";
+import { IconButton } from "../../components/ui/icon-button";
+import { Input } from "../../components/ui/input";
+import { Separator } from "../../components/ui/separator";
+import { Textarea } from "../../components/ui/textarea";
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Bug,
@@ -41,13 +47,7 @@ type Props = {
     executionMode?: "simple" | "workflow";
   }) => void;
   onDeletePrompt: (id: string) => void;
-  onSaveProfile: (input: {
-    id?: string;
-    name: string;
-    systemPrompt?: string;
-    description?: string;
-    icon?: string;
-  }) => void;
+  onSaveProfile: (input: SaveProfileInput) => void;
   onDeleteProfile: (id: string) => void;
   onSetActiveProfile: (profileId: string | null) => void;
   onUsePrompt: (prompt: string, executionMode?: "simple" | "workflow") => void;
@@ -66,6 +66,10 @@ export function PromptsPanel(p: Props) {
   const [profileName, setProfileName] = useState("");
   const [profilePrompt, setProfilePrompt] = useState("");
   const [profileDesc, setProfileDesc] = useState("");
+  const [profileIcon, setProfileIcon] = useState("Bot");
+  const [profileTone, setProfileTone] = useState("");
+  const [profileResponseStyle, setProfileResponseStyle] = useState("");
+  const [profileConstraints, setProfileConstraints] = useState("");
 
   const categories = Array.from(new Set(p.prompts.map((pr) => pr.category))).sort();
 
@@ -104,6 +108,10 @@ export function PromptsPanel(p: Props) {
     setProfileName("");
     setProfilePrompt("");
     setProfileDesc("");
+    setProfileIcon("Bot");
+    setProfileTone("");
+    setProfileResponseStyle("");
+    setProfileConstraints("");
     setShowAddProfile(false);
   }
 
@@ -114,6 +122,10 @@ export function PromptsPanel(p: Props) {
       name: profileName.trim(),
       systemPrompt: profilePrompt,
       description: profileDesc,
+      icon: profileIcon,
+      tone: profileTone,
+      responseStyle: profileResponseStyle,
+      constraints: profileConstraints,
     });
     resetProfileForm();
   }
@@ -123,6 +135,10 @@ export function PromptsPanel(p: Props) {
     setProfileName(profile.name);
     setProfilePrompt(profile.systemPrompt);
     setProfileDesc(profile.description);
+    setProfileIcon(profile.icon || "Bot");
+    setProfileTone(profile.tone);
+    setProfileResponseStyle(profile.responseStyle);
+    setProfileConstraints(profile.constraints);
     setShowAddProfile(true);
   }
 
@@ -133,51 +149,75 @@ export function PromptsPanel(p: Props) {
           <span className="text-[10px] text-faint font-mono uppercase font-bold select-none">
             Perfis de agente
           </span>
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => {
               resetProfileForm();
               setShowAddProfile(!showAddProfile);
             }}
-            className="h-6 px-2 rounded-md border border-line text-[10px] font-semibold text-mute hover:text-fg transition-colors cursor-pointer flex items-center gap-1"
           >
             {showAddProfile ? <X className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
             {showAddProfile ? "Cancelar" : "Novo"}
-          </button>
+          </Button>
         </div>
 
         {showAddProfile && (
           <div className="rounded-lg border border-signal/30 bg-signal/5 p-3 flex flex-col gap-2">
-            <input
-              type="text"
+            <Input
               placeholder="Nome do perfil"
               value={profileName}
               onChange={(e) => setProfileName(e.target.value)}
-              className="h-8 rounded-md bg-white/[0.04] border border-line px-2.5 text-xs text-fg placeholder:text-faint focus:outline-none focus:border-signal/40"
             />
-            <input
-              type="text"
+            <Input
               placeholder="Descrição curta"
               value={profileDesc}
               onChange={(e) => setProfileDesc(e.target.value)}
-              className="h-8 rounded-md bg-white/[0.04] border border-line px-2.5 text-xs text-fg placeholder:text-faint focus:outline-none focus:border-signal/40"
             />
-            <textarea
+            <Textarea
               placeholder="System prompt (instruções de comportamento)"
               value={profilePrompt}
               onChange={(e) => setProfilePrompt(e.target.value)}
               rows={3}
-              className="rounded-md bg-white/[0.04] border border-line px-2.5 py-2 text-xs text-fg placeholder:text-faint focus:outline-none focus:border-signal/40 resize-none"
             />
-            <button
-              type="button"
-              onClick={handleSaveProfile}
-              disabled={!profileName.trim()}
-              className="h-8 rounded-md bg-signal text-ink text-[11px] font-bold hover:brightness-110 transition-colors cursor-pointer disabled:opacity-40 flex items-center justify-center gap-1.5"
-            >
+            <div className="grid grid-cols-2 gap-2">
+              <Input
+                placeholder="Tom (ex: técnico, amigável)"
+                value={profileTone}
+                onChange={(e) => setProfileTone(e.target.value)}
+              />
+              <Input
+                placeholder="Estilo de resposta (ex: conciso, detalhado)"
+                value={profileResponseStyle}
+                onChange={(e) => setProfileResponseStyle(e.target.value)}
+              />
+            </div>
+            <Textarea
+              placeholder="Restrições (ex: máximo 3 parágrafos, sem jargão)"
+              value={profileConstraints}
+              onChange={(e) => setProfileConstraints(e.target.value)}
+              rows={2}
+            />
+            <div className="flex items-center gap-1">
+              {Object.keys(ICON_MAP).map((name) => {
+                const Icon = ICON_MAP[name] ?? Bot;
+                return (
+                  <IconButton
+                    key={name}
+                    title={name}
+                    active={profileIcon === name}
+                    onClick={() => setProfileIcon(name)}
+                    className="w-7 h-7"
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                  </IconButton>
+                );
+              })}
+            </div>
+            <Button variant="primary" size="sm" onClick={handleSaveProfile} disabled={!profileName.trim()}>
               <Check className="w-3.5 h-3.5" />
               {editingProfileId ? "Atualizar" : "Criar"}
-            </button>
+            </Button>
           </div>
         )}
 
@@ -194,7 +234,10 @@ export function PromptsPanel(p: Props) {
               >
                 <Icon className="w-4 h-4 text-mute shrink-0 mt-0.5" />
                 <div className="min-w-0 flex-1">
-                  <div className="text-xs font-semibold text-fg">{profile.name}</div>
+                  <div className="flex items-center gap-2">
+                    <div className="text-xs font-semibold text-fg">{profile.name}</div>
+                    {isActive && <Badge variant="signal">Ativo</Badge>}
+                  </div>
                   {profile.description && (
                     <div className="text-[10px] text-faint leading-relaxed mt-0.5">{profile.description}</div>
                   )}
@@ -203,34 +246,35 @@ export function PromptsPanel(p: Props) {
                       {profile.systemPrompt}
                     </div>
                   )}
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {profile.tone && <Badge variant="default">{profile.tone}</Badge>}
+                    {profile.responseStyle && <Badge variant="default">{profile.responseStyle}</Badge>}
+                    {profile.constraints && (
+                      <Badge variant="default" className="max-w-[200px] truncate">
+                        {profile.constraints}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    type="button"
+                  <Button
+                    variant={isActive ? "primary" : "secondary"}
+                    size="sm"
                     onClick={() => p.onSetActiveProfile(isActive ? null : profile.id)}
-                    className={`h-6 px-2 rounded text-[10px] font-semibold transition-colors cursor-pointer ${
-                      isActive
-                        ? "bg-signal/20 text-signal"
-                        : "border border-line text-mute hover:text-fg"
-                    }`}
                   >
                     {isActive ? "Ativo" : "Usar"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => startEditProfile(profile)}
-                    className="h-6 w-6 rounded flex items-center justify-center text-faint hover:text-fg hover:bg-white/5 transition-colors cursor-pointer"
-                  >
+                  </Button>
+                  <IconButton title="Editar perfil" onClick={() => startEditProfile(profile)}>
                     <PenLine className="w-3 h-3" />
-                  </button>
+                  </IconButton>
                   {profile.id !== "profile-default" && (
-                    <button
-                      type="button"
+                    <IconButton
+                      title="Excluir perfil"
                       onClick={() => p.onDeleteProfile(profile.id)}
-                      className="h-6 w-6 rounded flex items-center justify-center text-faint hover:text-bad hover:bg-bad/5 transition-colors cursor-pointer"
+                      className="hover:text-bad"
                     >
                       <Trash2 className="w-3 h-3" />
-                    </button>
+                    </IconButton>
                   )}
                 </div>
               </div>
@@ -239,41 +283,38 @@ export function PromptsPanel(p: Props) {
         </div>
       </section>
 
-      <hr className="border-line" />
+      <Separator />
 
       <section className="flex flex-col gap-2.5">
         <div className="flex items-center justify-between">
           <span className="text-[10px] text-faint font-mono uppercase font-bold select-none">
             Biblioteca de prompts
           </span>
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => {
               resetPromptForm();
               setShowAddPrompt(!showAddPrompt);
             }}
-            className="h-6 px-2 rounded-md border border-line text-[10px] font-semibold text-mute hover:text-fg transition-colors cursor-pointer flex items-center gap-1"
           >
             {showAddPrompt ? <X className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
             {showAddPrompt ? "Cancelar" : "Novo"}
-          </button>
+          </Button>
         </div>
 
         {showAddPrompt && (
           <div className="rounded-lg border border-signal/30 bg-signal/5 p-3 flex flex-col gap-2">
-            <input
-              type="text"
+            <Input
               placeholder="Título"
               value={promptTitle}
               onChange={(e) => setPromptTitle(e.target.value)}
-              className="h-8 rounded-md bg-white/[0.04] border border-line px-2.5 text-xs text-fg placeholder:text-faint focus:outline-none focus:border-signal/40"
             />
-            <textarea
+            <Textarea
               placeholder="Prompt (texto que será enviado ao agente)"
               value={promptText}
               onChange={(e) => setPromptText(e.target.value)}
               rows={3}
-              className="rounded-md bg-white/[0.04] border border-line px-2.5 py-2 text-xs text-fg placeholder:text-faint focus:outline-none focus:border-signal/40 resize-none"
             />
             <div className="flex items-center gap-2">
               <select
@@ -294,15 +335,16 @@ export function PromptsPanel(p: Props) {
                 <option value="simple">Simples</option>
                 <option value="workflow">Workflow</option>
               </select>
-              <button
-                type="button"
+              <Button
+                variant="primary"
+                size="sm"
                 onClick={handleSavePrompt}
                 disabled={!promptTitle.trim() || !promptText.trim()}
-                className="ml-auto h-8 px-3 rounded-md bg-signal text-ink text-[11px] font-bold hover:brightness-110 transition-colors cursor-pointer disabled:opacity-40 flex items-center gap-1.5"
+                className="ml-auto"
               >
                 <Check className="w-3.5 h-3.5" />
                 {editingPromptId ? "Atualizar" : "Criar"}
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -327,33 +369,29 @@ export function PromptsPanel(p: Props) {
                         {pr.prompt}
                       </div>
                       <div className="flex items-center gap-1.5 mt-1">
-                        <span className="text-[8px] font-mono uppercase text-faint bg-white/[0.04] px-1.5 py-0.5 rounded">
+                        <Badge variant={pr.executionMode === "workflow" ? "signal" : "default"}>
                           {pr.executionMode}
-                        </span>
+                        </Badge>
                       </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        type="button"
+                      <Button
+                        variant="secondary"
+                        size="sm"
                         onClick={() => p.onUsePrompt(pr.prompt, pr.executionMode)}
-                        className="h-6 px-2 rounded text-[10px] font-semibold bg-signal/15 text-signal hover:bg-signal/25 transition-colors cursor-pointer"
                       >
                         Usar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => startEditPrompt(pr)}
-                        className="h-6 w-6 rounded flex items-center justify-center text-faint hover:text-fg hover:bg-white/5 transition-colors cursor-pointer"
-                      >
+                      </Button>
+                      <IconButton title="Editar prompt" onClick={() => startEditPrompt(pr)}>
                         <PenLine className="w-3 h-3" />
-                      </button>
-                      <button
-                        type="button"
+                      </IconButton>
+                      <IconButton
+                        title="Excluir prompt"
                         onClick={() => p.onDeletePrompt(pr.id)}
-                        className="h-6 w-6 rounded flex items-center justify-center text-faint hover:text-bad hover:bg-bad/5 transition-colors cursor-pointer"
+                        className="hover:text-bad"
                       >
                         <Trash2 className="w-3 h-3" />
-                      </button>
+                      </IconButton>
                     </div>
                   </div>
                 );

@@ -136,15 +136,7 @@ export function ResponseBubble({
   );
 }
 
-function WebSourceItem({
-  title,
-  url,
-  snippet,
-}: {
-  title?: string;
-  url?: string;
-  snippet?: string;
-}) {
+function WebSourceItem({ title, url, snippet }: { title?: string; url?: string; snippet?: string }) {
   const [copied, setCopied] = useState(false);
   if (!url) return null;
 
@@ -180,9 +172,7 @@ function WebSourceItem({
         </button>
       </div>
       <div className="text-[9px] text-faint font-mono truncate mt-0.5">{url}</div>
-      {snippet && (
-        <div className="text-[10px] text-mute mt-1 leading-relaxed line-clamp-2">{snippet}</div>
-      )}
+      {snippet && <div className="text-[10px] text-mute mt-1 leading-relaxed line-clamp-2">{snippet}</div>}
     </div>
   );
 }
@@ -212,16 +202,14 @@ function BlockRenderer({ block, isStreaming }: { block: MessageBlock; isStreamin
       );
     case "tool_call": {
       const isWebSearch = block.toolName === "web.search";
-      const webResults = isWebSearch && block.output
-        ? (block.output as { results?: Array<{ title?: string; url?: string; snippet?: string }> }).results
-        : undefined;
+      const webResults =
+        isWebSearch && block.output
+          ? (block.output as { results?: Array<{ title?: string; url?: string; snippet?: string }> }).results
+          : undefined;
       const isOcr = block.toolName === "ocr.screenshot" || block.toolName === "ocr.image";
-      const ocrText = isOcr && block.output
-        ? (block.output as { text?: string; empty?: boolean }).text
-        : undefined;
-      const ocrEmpty = isOcr && block.output
-        ? (block.output as { empty?: boolean }).empty
-        : undefined;
+      const ocrText =
+        isOcr && block.output ? (block.output as { text?: string; empty?: boolean }).text : undefined;
+      const ocrEmpty = isOcr && block.output ? (block.output as { empty?: boolean }).empty : undefined;
       return (
         <div className="my-1.5">
           <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-white/[0.04] border border-line">
@@ -260,8 +248,13 @@ function BlockRenderer({ block, isStreaming }: { block: MessageBlock; isStreamin
               <div className="text-[9px] text-faint uppercase font-bold flex items-center gap-1">
                 <ExternalLink className="w-3 h-3" /> Fontes ({webResults.length})
               </div>
-              {webResults.map((src, idx) => (
-                <WebSourceItem key={`${src.url}-${idx}`} title={src.title} url={src.url} snippet={src.snippet} />
+              {webResults.map((src) => (
+                <WebSourceItem
+                  key={src.url ?? src.title ?? src.snippet ?? JSON.stringify(src)}
+                  title={src.title}
+                  url={src.url}
+                  snippet={src.snippet}
+                />
               ))}
             </div>
           )}

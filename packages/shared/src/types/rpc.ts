@@ -123,7 +123,7 @@ export type AuditEntry = {
   errorMessage?: string;
 };
 
-export type WindowMode = "collapsed" | "mini" | "normal" | "expanded";
+export type WindowMode = "collapsed" | "normal" | "expanded";
 
 export type AppSettings = {
   activeProvider: string;
@@ -287,6 +287,9 @@ export type AgentProfile = {
   systemPrompt: string;
   description: string;
   icon: string;
+  tone: string;
+  responseStyle: string;
+  constraints: string;
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
@@ -307,4 +310,7 @@ export type SaveProfileInput = {
   systemPrompt?: string;
   description?: string;
   icon?: string;
+  tone?: string;
+  responseStyle?: string;
+  constraints?: string;
 };

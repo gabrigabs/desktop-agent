@@ -10,7 +10,12 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useId, useState } from "react";
+import { Badge } from "../../components/ui/badge";
+import { Button } from "../../components/ui/button";
+import { IconButton } from "../../components/ui/icon-button";
+import { Input } from "../../components/ui/input";
+import { Textarea } from "../../components/ui/textarea";
 import type { SaveConnectorInput } from "./hooks/useCapabilities";
 
 type Props = {
@@ -69,14 +74,16 @@ function ConnectorEditor({
       .map(([k, v]) => `${k}=${v || ""}`)
       .join("\n"),
   );
+  const nameId = useId();
+  const commandId = useId();
+  const argsId = useId();
+  const envId = useId();
   const [permissions, setPermissions] = useState<PermissionLevel[]>(
     connector?.permissionPolicy ?? ["local.read"],
   );
 
   const togglePerm = (perm: PermissionLevel) => {
-    setPermissions((prev) =>
-      prev.includes(perm) ? prev.filter((p) => p !== perm) : [...prev, perm],
-    );
+    setPermissions((prev) => (prev.includes(perm) ? prev.filter((p) => p !== perm) : [...prev, perm]));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -111,48 +118,47 @@ function ConnectorEditor({
       onSubmit={handleSubmit}
       className="mt-3 rounded-lg border border-signal/20 bg-signal/[0.03] p-3 flex flex-col gap-2.5"
     >
-      <label className="flex flex-col gap-1">
+      <label htmlFor={nameId} className="flex flex-col gap-1">
         <span className="text-[9px] text-mute uppercase font-bold">Nome</span>
-        <input
-          type="text"
+        <Input
+          id={nameId}
           value={name}
           onChange={(e) => setName(e.target.value)}
           disabled={isPreset}
-          className="w-full bg-ink border border-line rounded-md px-2.5 py-1.5 text-xs text-fg outline-none disabled:opacity-60"
           placeholder="Meu MCP"
         />
       </label>
-      <label className="flex flex-col gap-1">
+      <label htmlFor={commandId} className="flex flex-col gap-1">
         <span className="text-[9px] text-mute uppercase font-bold">Comando</span>
-        <input
-          type="text"
+        <Input
+          id={commandId}
           value={command}
           onChange={(e) => setCommand(e.target.value)}
           disabled={isPreset}
-          className="w-full bg-ink border border-line rounded-md px-2.5 py-1.5 text-xs text-fg outline-none font-mono disabled:opacity-60"
           placeholder="npx"
+          className="font-mono"
         />
       </label>
-      <label className="flex flex-col gap-1">
+      <label htmlFor={argsId} className="flex flex-col gap-1">
         <span className="text-[9px] text-mute uppercase font-bold">Args (um por linha)</span>
-        <textarea
+        <Textarea
+          id={argsId}
           value={argsText}
           onChange={(e) => setArgsText(e.target.value)}
           rows={3}
-          className="w-full bg-ink border border-line rounded-md px-2.5 py-1.5 text-xs text-fg outline-none font-mono resize-y"
           placeholder={"-y\n@modelcontextprotocol/server-filesystem\n$HOME/Desktop"}
+          className="font-mono resize-y"
         />
       </label>
-      <label className="flex flex-col gap-1">
-        <span className="text-[9px] text-mute uppercase font-bold">
-          Env vars (KEY=value, uma por linha)
-        </span>
-        <textarea
+      <label htmlFor={envId} className="flex flex-col gap-1">
+        <span className="text-[9px] text-mute uppercase font-bold">Env vars (KEY=value, uma por linha)</span>
+        <Textarea
+          id={envId}
           value={envText}
           onChange={(e) => setEnvText(e.target.value)}
           rows={2}
-          className="w-full bg-ink border border-line rounded-md px-2.5 py-1.5 text-xs text-fg outline-none font-mono resize-y"
           placeholder="API_KEY=sua-chave-aqui"
+          className="font-mono resize-y"
         />
       </label>
       <div className="flex flex-col gap-1">
@@ -175,19 +181,12 @@ function ConnectorEditor({
         </div>
       </div>
       <div className="flex items-center gap-2 pt-1">
-        <button
-          type="submit"
-          className="h-7 px-3 rounded-md bg-signal text-ink text-[10px] font-bold hover:brightness-110 transition-colors cursor-pointer"
-        >
+        <Button type="submit" variant="primary" size="sm">
           Salvar
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="h-7 px-3 rounded-md border border-line text-[10px] font-semibold text-mute hover:text-fg transition-colors cursor-pointer"
-        >
+        </Button>
+        <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
           Cancelar
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -242,11 +241,7 @@ function ConnectorCard({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-fg truncate">{c.name}</span>
-          {c.preset && (
-            <span className="px-1 py-0.5 rounded bg-white/5 text-[8px] font-mono text-faint uppercase">
-              preset
-            </span>
-          )}
+          {c.preset && <Badge variant="default">preset</Badge>}
         </div>
         <div className="text-[10px] text-faint mt-0.5 truncate font-mono">
           {c.command || c.kind}
@@ -255,11 +250,7 @@ function ConnectorCard({
 
         {/* Status feedback */}
         <div className="flex items-center gap-2 mt-1.5">
-          <span
-            className={`px-1.5 py-0.5 rounded text-[9px] font-mono uppercase ${c.enabled ? "text-good bg-good/10 border border-good/20" : "text-faint bg-white/5 border border-line"}`}
-          >
-            {c.enabled ? "Ativo" : "Off"}
-          </span>
+          <Badge variant={c.enabled ? "success" : "default"}>{c.enabled ? "Ativo" : "Off"}</Badge>
           <span className="text-[9px] text-faint">{timeAgo(c.lastCheckedAt)}</span>
         </div>
 
@@ -279,20 +270,13 @@ function ConnectorCard({
               onClick={() => setShowTools(!showTools)}
               className="flex items-center gap-1 text-[10px] text-good font-semibold hover:text-good/80 transition-colors cursor-pointer"
             >
-              {showTools ? (
-                <ChevronDown className="w-3 h-3" />
-              ) : (
-                <ChevronRight className="w-3 h-3" />
-              )}
+              {showTools ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
               {tools.length} tools detectadas
             </button>
             {showTools && (
               <div className="mt-1.5 flex flex-col gap-1 animate-in fade-in duration-200">
                 {tools.map((t) => (
-                  <div
-                    key={t.name}
-                    className="rounded-md bg-white/[0.03] border border-line px-2 py-1"
-                  >
+                  <div key={t.name} className="rounded-md bg-white/[0.03] border border-line px-2 py-1">
                     <div className="text-[10px] font-mono text-fg">{t.name}</div>
                     {t.description && (
                       <div className="text-[9px] text-faint mt-0.5 leading-relaxed line-clamp-2">
@@ -316,10 +300,7 @@ function ConnectorCard({
         {/* Permission tags */}
         <div className="flex flex-wrap gap-1 mt-2">
           {c.permissionPolicy.map((perm) => (
-            <span
-              key={perm}
-              className="px-1.5 py-0.5 rounded bg-white/5 text-[9px] font-mono text-faint"
-            >
+            <span key={perm} className="px-1.5 py-0.5 rounded bg-white/5 text-[9px] font-mono text-faint">
               {perm}
             </span>
           ))}
@@ -329,10 +310,7 @@ function ConnectorCard({
         {c.env && Object.keys(c.env).length > 0 && (
           <div className="flex flex-wrap gap-1 mt-1.5">
             {Object.entries(c.env).map(([key, value]) => (
-              <span
-                key={key}
-                className="px-1.5 py-0.5 rounded bg-white/5 text-[9px] font-mono text-faint"
-              >
+              <span key={key} className="px-1.5 py-0.5 rounded bg-white/5 text-[9px] font-mono text-faint">
                 {key}={value ? "••••••••" : "vazio"}
               </span>
             ))}
@@ -348,71 +326,46 @@ function ConnectorCard({
         {confirmDelete && onDeleteConnector && (
           <div className="mt-2 flex items-center gap-2 rounded-md bg-bad/5 border border-bad/20 px-2.5 py-2">
             <span className="text-[10px] text-bad">Remover este conector?</span>
-            <button
-              type="button"
-              onClick={() => onDeleteConnector(c.id)}
-              className="h-6 px-2 rounded bg-bad text-ink text-[9px] font-bold hover:brightness-110 transition-colors cursor-pointer"
-            >
+            <Button variant="danger" size="sm" onClick={() => onDeleteConnector(c.id)}>
               Remover
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirmDelete(false)}
-              className="h-6 px-2 rounded border border-line text-[9px] font-semibold text-mute hover:text-fg transition-colors cursor-pointer"
-            >
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => setConfirmDelete(false)}>
               Não
-            </button>
+            </Button>
           </div>
         )}
       </div>
 
       {/* Action buttons */}
-      <div
-        className={`shrink-0 flex ${variant === "grid" ? "mt-auto" : "flex-col items-end"} gap-1.5`}
-      >
+      <div className={`shrink-0 flex ${variant === "grid" ? "mt-auto" : "flex-col items-end"} gap-1.5`}>
         <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => onTest(c.id)}
-            disabled={isTesting}
-            className="h-7 px-2 rounded-md border border-line text-[10px] font-semibold text-mute hover:text-fg transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1"
-          >
-            {isTesting ? (
-              <RefreshCw className="w-3 h-3 animate-spin" />
-            ) : (
-              <Check className="w-3 h-3" />
-            )}
+          <Button variant="secondary" size="sm" onClick={() => onTest(c.id)} disabled={isTesting}>
+            {isTesting ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
             {isTesting ? "Testando" : "Testar"}
-          </button>
-          <button
-            type="button"
-            onClick={() => onToggle(c.id)}
-            className="h-7 px-2 rounded-md border border-line text-[10px] font-semibold text-mute hover:text-fg transition-colors cursor-pointer"
-          >
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => onToggle(c.id)}>
             {c.enabled ? "Desligar" : "Ligar"}
-          </button>
+          </Button>
         </div>
         <div className="flex items-center gap-1.5">
           {onStartEditing && onCancelEditing && onSaveConnector && (
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => (isEditing ? onCancelEditing() : onStartEditing(c.id))}
-              className="h-7 px-2 rounded-md border border-line text-[10px] font-semibold text-mute hover:text-fg transition-colors cursor-pointer flex items-center gap-1"
-              title="Editar"
             >
               <Pencil className="w-3 h-3" />
               {isEditing ? "Fechar" : "Editar"}
-            </button>
+            </Button>
           )}
           {!c.preset && onDeleteConnector && (
-            <button
-              type="button"
+            <IconButton
+              title="Deletar conector"
               onClick={() => setConfirmDelete(!confirmDelete)}
-              className="h-7 px-2 rounded-md border border-line text-[10px] font-semibold text-mute hover:text-bad transition-colors cursor-pointer flex items-center gap-1"
-              title="Deletar"
+              className="hover:text-bad"
             >
               <Trash2 className="w-3 h-3" />
-            </button>
+            </IconButton>
           )}
         </div>
       </div>
@@ -441,13 +394,9 @@ export function ConnectorsPanel({
       <div className="py-8 text-center flex flex-col gap-3">
         <p className="text-xs text-faint">Nenhum conector carregado ainda.</p>
         {onShowAddConnector && (
-          <button
-            type="button"
-            onClick={() => onShowAddConnector(true)}
-            className="mx-auto h-8 px-3 rounded-lg border border-line text-[10px] font-semibold text-mute hover:text-fg hover:border-signal/30 transition-colors cursor-pointer flex items-center gap-1.5"
-          >
+          <Button variant="secondary" size="sm" onClick={() => onShowAddConnector(true)} className="mx-auto">
             <Plus className="w-3.5 h-3.5" /> Adicionar conector
-          </button>
+          </Button>
         )}
       </div>
     );
@@ -464,22 +413,18 @@ export function ConnectorsPanel({
         </div>
         <div className="flex items-center gap-2">
           {onShowAddConnector && (
-            <button
-              type="button"
+            <Button
+              variant={showAddConnector ? "primary" : "secondary"}
+              size="sm"
               onClick={() => onShowAddConnector(!showAddConnector)}
-              className={`h-8 px-2.5 rounded-lg border text-[10px] font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${showAddConnector ? "border-signal/30 bg-signal/10 text-signal" : "border-line text-mute hover:text-fg hover:border-signal/30"}`}
             >
               <Plus className="w-3.5 h-3.5" /> Adicionar
-            </button>
+            </Button>
           )}
           {onRefresh && (
-            <button
-              type="button"
-              onClick={onRefresh}
-              className="h-8 px-2.5 rounded-lg border border-line text-[10px] font-semibold text-mute hover:text-fg transition-colors cursor-pointer flex items-center gap-1.5"
-            >
+            <Button variant="secondary" size="sm" onClick={onRefresh}>
               <RefreshCw className="w-3.5 h-3.5" /> Atualizar
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -489,13 +434,9 @@ export function ConnectorsPanel({
         <div className="rounded-lg border border-signal/20 bg-signal/[0.02] p-3">
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] font-bold text-signal uppercase">Novo conector MCP</span>
-            <button
-              type="button"
-              onClick={onCancelEditing}
-              className="p-1 rounded-md text-mute hover:text-fg cursor-pointer"
-            >
+            <IconButton title="Cancelar" onClick={onCancelEditing}>
               <X className="w-3.5 h-3.5" />
-            </button>
+            </IconButton>
           </div>
           <ConnectorEditor onSave={onSaveConnector} onCancel={onCancelEditing} />
         </div>

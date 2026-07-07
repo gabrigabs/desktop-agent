@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { HelixDrawer } from "../../components/ui/helix-drawer";
+import { HelixHeader } from "../../components/ui/helix-header";
+import { HelixSidebar } from "../../components/ui/helix-sidebar";
 import { getAgent } from "../../lib/rpc";
-import { closeApp, hideWindow, isTauriRuntime, setWindowMode } from "../../lib/window";
+import { closeApp, hideWindow, setWindowMode } from "../../lib/window";
 import { useAgentStore } from "../../stores/agent";
-import { getActiveBadgeText } from "./constants";
 import { ExpandedView } from "./ExpandedView";
 import { useCapabilities } from "./hooks/useCapabilities";
 import { useClipboard } from "./hooks/useClipboard";
@@ -11,16 +13,18 @@ import { useExecute } from "./hooks/useExecute";
 import { useKeyboard } from "./hooks/useKeyboard";
 import { usePrompts } from "./hooks/usePrompts";
 import { useSettingsForm } from "./hooks/useSettingsForm";
-import { MiniView } from "./MiniView";
 import { NormalCommandView } from "./NormalCommandView";
 import { SettingsPanel } from "./SettingsPanel";
 
 type HelixProps = {
   onToastSuccess?: (message: string, duration?: number) => void;
   onToastError?: (message: string, duration?: number) => void;
+  onToggleAlwaysOnTop: () => void;
 };
 
-export function Helix({ onToastSuccess, onToastError }: HelixProps) {
+type HelixMode = "command" | "history" | "prompts" | "connectors";
+
+export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: HelixProps) {
   const {
     query,
     result,
@@ -39,28 +43,28 @@ export function Helix({ onToastSuccess, onToastError }: HelixProps) {
     setSettings,
   } = useAgentStore();
 
-  const [mode, setMode] = useState<"command" | "history" | "connectors" | "prompts">("command");
+  const [mode, setMode] = useState<HelixMode>("command");
   const [showSettings, setShowSettings] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const clipboard = useClipboard();
   const capabilities = useCapabilities();
   const promptsHook = usePrompts();
   const exec = useExecute();
-  const contextChips = useContextChips(clipboard.clipboardText);
+  const contextChips = useContextChips(clipboard.hasClipboard);
   const settingsForm = useSettingsForm(showSettings, onToastSuccess, onToastError);
 
   const handleChipClick = useCallback(
     (chip: ContextChipItem) => {
-      exec.setInputMode("clipboard");
       setQuery(chip.prompt);
       requestAnimationFrame(() => textareaRef.current?.focus());
     },
-    [exec, setQuery],
+    [setQuery],
   );
 
   const persistWindowMode = useCallback(
-    async (nextMode: "mini" | "normal" | "expanded" | "collapsed") => {
+    async (nextMode: "normal" | "expanded" | "collapsed") => {
       const nextSettings = { ...settings, lastWindowMode: nextMode };
       setSettings(nextSettings);
       try {
@@ -73,21 +77,36 @@ export function Helix({ onToastSuccess, onToastError }: HelixProps) {
     [setSettings, settings],
   );
 
-  const handleOpenMode = useCallback(
-    async (nextMode: "mini" | "normal" | "expanded") => {
-      setUiMode(nextMode);
-      await setWindowMode(nextMode, { alwaysOnTop: settings.alwaysOnTop });
-      await persistWindowMode(nextMode);
-    },
-    [setUiMode, settings.alwaysOnTop, persistWindowMode],
-  );
-
-  const handleExpandedMode = useCallback(async () => {
+  const handleToggleExpand = useCallback(async () => {
     const nextMode = uiMode === "expanded" ? "normal" : "expanded";
     setUiMode(nextMode);
     await setWindowMode(nextMode, { alwaysOnTop: settings.alwaysOnTop });
     await persistWindowMode(nextMode);
   }, [uiMode, setUiMode, settings.alwaysOnTop, persistWindowMode]);
+
+  const handleMinimize = useCallback(async () => {
+    await hideWindow();
+  }, []);
+
+  const handleClose = useCallback(async () => {
+    await closeApp();
+  }, []);
+
+  const handleNewTask = useCallback(() => {
+    exec.handleNewTask();
+    setMode("command");
+  }, [exec]);
+
+  const handleChangeMode = useCallback(
+    (next: "command" | "history" | "prompts" | "connectors" | "settings") => {
+      if (next === "settings") {
+        setShowSettings(true);
+        return;
+      }
+      setMode(next);
+    },
+    [],
+  );
 
   useKeyboard({
     handleExecute: exec.handleExecute,
@@ -111,16 +130,6 @@ export function Helix({ onToastSuccess, onToastError }: HelixProps) {
     [exec],
   );
 
-  const onMiniStarterAction = useCallback(
-    async (prompt: string, modeOverride?: "simple" | "workflow") => {
-      exec.handleStarterAction(prompt, modeOverride, textareaRef);
-      setMode("command");
-      await handleOpenMode("normal");
-      requestAnimationFrame(() => textareaRef.current?.focus());
-    },
-    [exec, handleOpenMode],
-  );
-
   const onEditPrompt = useCallback(
     (text: string) => {
       setQuery(text);
@@ -132,12 +141,7 @@ export function Helix({ onToastSuccess, onToastError }: HelixProps) {
   const onCopyResponse = useCallback(
     async (text: string) => {
       try {
-        if (isTauriRuntime()) {
-          const { writeText } = await import("@tauri-apps/plugin-clipboard-manager");
-          await writeText(text);
-        } else {
-          await navigator.clipboard?.writeText(text);
-        }
+        await navigator.clipboard?.writeText(text);
         onToastSuccess?.("Resposta copiada");
       } catch (err) {
         console.error("Failed to copy response:", err);
@@ -160,7 +164,7 @@ export function Helix({ onToastSuccess, onToastError }: HelixProps) {
     store.setResult(null);
     store.setError(null);
     onToastSuccess?.("Regenerando resposta");
-    void exec.handleExecute(promptText.content, lastUserTurn.sourceMode);
+    void exec.handleExecute(promptText.content);
   }, [exec, onToastSuccess]);
 
   const taskActive =
@@ -182,111 +186,98 @@ export function Helix({ onToastSuccess, onToastError }: HelixProps) {
   const workflowSteps = workflowRun?.steps ?? [];
   const approval = workflowRun?.approval;
   const visibleConnectors = connectors.slice(0, 7);
-  const expandedMode = uiMode === "expanded";
-  const inputModeLabel = exec.inputMode === "clipboard" ? "Interagir com clipboard" : "Conteúdo avulso";
-  const taskModeLabel = `${executionMode === "workflow" ? "Workflow" : "Simples"} · ${exec.activeTaskMode === "clipboard" ? "Clipboard" : "Livre"}`;
-  const composerPlaceholder =
-    exec.inputMode === "clipboard"
-      ? "Diga o que fazer com o texto copiado."
-      : "Pergunte algo, peça um rascunho ou comece por uma ação abaixo.";
-  const badgeText = getActiveBadgeText(settings.activeProvider, settings.model);
+  const composerPlaceholder = "Pergunte algo, peça um rascunho ou comece por uma ação abaixo.";
 
-  if (uiMode === "mini") {
-    return (
-      <MiniView
-        error={error}
-        result={result}
-        streaming={streaming}
-        taskActive={taskActive}
-        taskStatus={taskStatus}
-        taskModeLabel={taskModeLabel}
-        latestLogText={latestLog?.text}
-        clipboardText={clipboard.clipboardText}
-        hasClipboard={clipboard.hasClipboard}
-        activeRequestId={exec.activeRequestId}
-        copied={exec.copied}
-        onAbort={() => {
-          exec.handleAbort();
-          onToastSuccess?.("Resposta cancelada");
-        }}
-        onCopy={exec.handleCopyResult}
-        onOpenMode={handleOpenMode}
-        onQuickAction={exec.handleQuickAction}
-        onStarterAction={onMiniStarterAction}
-      />
-    );
-  }
+  const commonProps = {
+    error,
+    result,
+    streaming,
+    query,
+    clipboardText: clipboard.clipboardText,
+    hasClipboard: clipboard.hasClipboard,
+    taskActive,
+    taskStatus,
+    messages,
+    workflowSteps,
+    approval: approval
+      ? {
+          reason: approval.reason,
+          permissionLevel: approval.permissionLevel,
+          inputPreview: approval.inputPreview,
+        }
+      : undefined,
+    visibleLogs,
+    latestLogText: latestLog?.text,
+    connectors: visibleConnectors,
+    testingConnectorId: capabilities.testingConnectorId,
+    textareaRef,
+    mode,
+    activeRequestId: exec.activeRequestId,
+    copied: exec.copied,
+    executionMode,
+    composerPlaceholder,
+    chips: contextChips.chips,
+    onChipClick: handleChipClick,
+    onExecute: exec.handleExecute,
+    onAbort: () => {
+      exec.handleAbort();
+      onToastSuccess?.("Resposta cancelada");
+    },
+    onCopy: exec.handleCopyResult,
+    onNewTask: handleNewTask,
+    onStarterAction,
+    onEditPrompt,
+    onCopyResponse,
+    onRegenerate,
+    onApproval: exec.handleApproval,
+    setMode: handleChangeMode,
+    setExecutionMode,
+    setQuery,
+    onTestConnector: capabilities.handleTestConnector,
+    onToggleConnector: capabilities.handleToggleConnector,
+    onRefreshCapabilities: capabilities.refreshCapabilities,
+    onSaveConnector: capabilities.handleSaveConnector,
+    onDeleteConnector: capabilities.handleDeleteConnector,
+    onStartEditing: capabilities.handleStartEditing,
+    onCancelEditing: capabilities.handleCancelEditing,
+    onShowAddConnector: capabilities.setShowAddConnector,
+    connectorTestResults: capabilities.connectorTestResults,
+    editingConnectorId: capabilities.editingConnectorId,
+    showAddConnector: capabilities.showAddConnector,
+    prompts: promptsHook.prompts,
+    profiles: promptsHook.profiles,
+    activeProfileId: promptsHook.activeProfileId,
+    onSavePrompt: promptsHook.handleSavePrompt,
+    onDeletePrompt: promptsHook.handleDeletePrompt,
+    onSaveProfile: promptsHook.handleSaveProfile,
+    onDeleteProfile: promptsHook.handleDeleteProfile,
+    onSetActiveProfile: promptsHook.handleSetActiveProfile,
+  };
 
   if (uiMode === "expanded") {
     return (
       <>
-        <ExpandedView
-          error={error}
-          result={result}
-          streaming={streaming}
-          query={query}
-          clipboardText={clipboard.clipboardText}
-          hasClipboard={clipboard.hasClipboard}
-          taskActive={taskActive}
-          taskStatus={taskStatus}
-          taskModeLabel={taskModeLabel}
-          inputModeLabel={inputModeLabel}
-          composerPlaceholder={composerPlaceholder}
-          inputMode={exec.inputMode}
-          executionMode={executionMode}
-          mode={mode}
-          activeRequestId={exec.activeRequestId}
-          copied={exec.copied}
-          messages={messages}
-          workflowSteps={workflowSteps}
-          visibleLogs={visibleLogs}
-          latestLogText={latestLog?.text}
-          connectors={visibleConnectors}
-          testingConnectorId={capabilities.testingConnectorId}
-          textareaRef={textareaRef}
-          badgeText={badgeText}
-          showSettings={showSettings}
-          setMode={setMode}
-          setInputMode={exec.setInputMode}
-          setExecutionMode={setExecutionMode}
-          setQuery={setQuery}
-          setShowSettings={setShowSettings}
-          chips={contextChips.chips}
-          onChipClick={handleChipClick}
-          onExecute={() => exec.handleExecute()}
-          onAbort={() => {
-            exec.handleAbort();
-            onToastSuccess?.("Resposta cancelada");
-          }}
-          onCopy={exec.handleCopyResult}
-          onNewTask={exec.handleNewTask}
-          onOpenMode={handleOpenMode}
-          onStarterAction={onStarterAction}
-          onQuickAction={exec.handleQuickAction}
-          onTestConnector={capabilities.handleTestConnector}
-          onToggleConnector={capabilities.handleToggleConnector}
-          onSaveConnector={capabilities.handleSaveConnector}
-          onDeleteConnector={capabilities.handleDeleteConnector}
-          onStartEditing={capabilities.handleStartEditing}
-          onCancelEditing={capabilities.handleCancelEditing}
-          onShowAddConnector={capabilities.setShowAddConnector}
-          connectorTestResults={capabilities.connectorTestResults}
-          editingConnectorId={capabilities.editingConnectorId}
-          showAddConnector={capabilities.showAddConnector}
-          onEditPrompt={onEditPrompt}
-          onCopyResponse={onCopyResponse}
-          onRegenerate={onRegenerate}
-          onToastSuccess={onToastSuccess}
-          onToastError={onToastError}
-          prompts={promptsHook.prompts}
-          profiles={promptsHook.profiles}
-          activeProfileId={promptsHook.activeProfileId}
-          onSavePrompt={promptsHook.handleSavePrompt}
-          onDeletePrompt={promptsHook.handleDeletePrompt}
-          onSaveProfile={promptsHook.handleSaveProfile}
-          onDeleteProfile={promptsHook.handleDeleteProfile}
-          onSetActiveProfile={promptsHook.handleSetActiveProfile}
-        />
+        <div className="h-full w-full flex flex-col">
+          <HelixHeader
+            expanded
+            alwaysOnTop={settings.alwaysOnTop}
+            onToggleAlwaysOnTop={onToggleAlwaysOnTop}
+            onToggleExpand={handleToggleExpand}
+            onMinimize={handleMinimize}
+            onClose={handleClose}
+          />
+          <div className="flex-1 min-h-0 flex">
+            <HelixSidebar
+              mode={mode}
+              onChangeMode={handleChangeMode}
+              onNewTask={handleNewTask}
+              onToggleExpand={handleToggleExpand}
+            />
+            <main className="flex-1 min-h-0 overflow-hidden">
+              <ExpandedView {...commonProps} />
+            </main>
+          </div>
+        </div>
         {showSettings && (
           <SettingsPanel
             variant="expanded"
@@ -322,91 +313,27 @@ export function Helix({ onToastSuccess, onToastError }: HelixProps) {
 
   return (
     <>
-      <NormalCommandView
-        error={error}
-        result={result}
-        streaming={streaming}
-        query={query}
-        clipboardText={clipboard.clipboardText}
-        hasClipboard={clipboard.hasClipboard}
-        taskActive={taskActive}
-        taskStatus={taskStatus}
-        taskModeLabel={taskModeLabel}
-        inputModeLabel={inputModeLabel}
-        composerPlaceholder={composerPlaceholder}
-        inputMode={exec.inputMode}
-        executionMode={executionMode}
-        mode={mode}
-        expandedMode={expandedMode}
-        activeRequestId={exec.activeRequestId}
-        copied={exec.copied}
-        messages={messages}
-        workflowSteps={workflowSteps}
-        approval={
-          approval
-            ? {
-                reason: approval.reason,
-                permissionLevel: approval.permissionLevel,
-                inputPreview: approval.inputPreview,
-              }
-            : undefined
-        }
-        visibleLogs={visibleLogs}
-        latestLogText={latestLog?.text}
-        connectors={visibleConnectors}
-        testingConnectorId={capabilities.testingConnectorId}
-        textareaRef={textareaRef}
-        badgeText={badgeText}
-        showSettings={showSettings}
-        setMode={setMode}
-        setInputMode={exec.setInputMode}
-        setExecutionMode={setExecutionMode}
-        setQuery={setQuery}
-        setShowSettings={setShowSettings}
-        chips={contextChips.chips}
-        onChipClick={handleChipClick}
-        onExecute={() => exec.handleExecute()}
-        onAbort={() => {
-          exec.handleAbort();
-          onToastSuccess?.("Resposta cancelada");
-        }}
-        onApproval={exec.handleApproval}
-        onCopy={exec.handleCopyResult}
-        onNewTask={exec.handleNewTask}
-        onExpandedMode={handleExpandedMode}
-        onClose={async () => {
-          await closeApp();
-        }}
-        onMinimize={async () => {
-          await hideWindow();
-        }}
-        onStarterAction={onStarterAction}
-        onQuickAction={exec.handleQuickAction}
-        onTestConnector={capabilities.handleTestConnector}
-        onToggleConnector={capabilities.handleToggleConnector}
-        onRefreshCapabilities={capabilities.refreshCapabilities}
-        onSaveConnector={capabilities.handleSaveConnector}
-        onDeleteConnector={capabilities.handleDeleteConnector}
-        onStartEditing={capabilities.handleStartEditing}
-        onCancelEditing={capabilities.handleCancelEditing}
-        onShowAddConnector={capabilities.setShowAddConnector}
-        connectorTestResults={capabilities.connectorTestResults}
-        editingConnectorId={capabilities.editingConnectorId}
-        showAddConnector={capabilities.showAddConnector}
-        onEditPrompt={onEditPrompt}
-        onCopyResponse={onCopyResponse}
-        onRegenerate={onRegenerate}
-        onToastSuccess={onToastSuccess}
-        onToastError={onToastError}
-        prompts={promptsHook.prompts}
-        profiles={promptsHook.profiles}
-        activeProfileId={promptsHook.activeProfileId}
-        onSavePrompt={promptsHook.handleSavePrompt}
-        onDeletePrompt={promptsHook.handleDeletePrompt}
-        onSaveProfile={promptsHook.handleSaveProfile}
-        onDeleteProfile={promptsHook.handleDeleteProfile}
-        onSetActiveProfile={promptsHook.handleSetActiveProfile}
-      />
+      <div className="h-full w-full flex flex-col">
+        <HelixHeader
+          expanded={false}
+          alwaysOnTop={settings.alwaysOnTop}
+          onToggleAlwaysOnTop={onToggleAlwaysOnTop}
+          onToggleExpand={handleToggleExpand}
+          onMinimize={handleMinimize}
+          onClose={handleClose}
+          onOpenMenu={() => setDrawerOpen(true)}
+        />
+        <HelixDrawer
+          open={drawerOpen}
+          mode={mode}
+          onClose={() => setDrawerOpen(false)}
+          onChangeMode={handleChangeMode}
+          onNewTask={handleNewTask}
+        />
+        <main className="flex-1 min-h-0 overflow-hidden relative">
+          <NormalCommandView {...commonProps} onExpandedMode={handleToggleExpand} />
+        </main>
+      </div>
       {showSettings && (
         <SettingsPanel
           onClose={() => setShowSettings(false)}

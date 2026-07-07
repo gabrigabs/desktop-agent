@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
 import type { McpTestResult, PermissionLevel } from "@desktop-agent/shared";
+import { useCallback, useEffect, useState } from "react";
 import { useAgentStore } from "../../../stores/agent";
 import { callAgentWithRuntimeRefresh, isStaleRuntimeError } from "../constants";
 
@@ -98,9 +98,7 @@ export function useCapabilities() {
   const handleSaveConnector = useCallback(
     async (input: SaveConnectorInput) => {
       try {
-        await callAgentWithRuntimeRefresh("saveMcpServer", (api) =>
-          api.saveMcpServer({ server: input }),
-        );
+        await callAgentWithRuntimeRefresh("saveMcpServer", (api) => api.saveMcpServer({ server: input }));
         await refreshCapabilities();
         setEditingConnectorId(null);
         setShowAddConnector(false);

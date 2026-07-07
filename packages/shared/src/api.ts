@@ -9,8 +9,8 @@ import type {
   PermissionLevel,
   PromptTemplate,
   ProviderConfig,
-  SavePromptInput,
   SaveProfileInput,
+  SavePromptInput,
   ToolResult,
   Turn,
   WorkflowRun,
@@ -28,7 +28,7 @@ export type SaveMcpServerInput = {
   permissionPolicy?: PermissionLevel[];
 };
 
-export type { SavePromptInput, SaveProfileInput };
+export type { SaveProfileInput, SavePromptInput };
 
 export type AgentApi = {
   ping(): Promise<{ status: string }>;

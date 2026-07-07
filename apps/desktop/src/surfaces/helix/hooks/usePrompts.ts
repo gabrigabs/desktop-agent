@@ -1,4 +1,4 @@
-import type { AgentProfile, PromptTemplate } from "@desktop-agent/shared";
+import type { AgentProfile, PromptTemplate, SaveProfileInput } from "@desktop-agent/shared";
 import { useCallback, useEffect, useState } from "react";
 import { getAgent, isMissingRpcMethodError } from "../../../lib/rpc";
 
@@ -66,13 +66,7 @@ export function usePrompts() {
   );
 
   const handleSaveProfile = useCallback(
-    async (input: {
-      id?: string;
-      name: string;
-      systemPrompt?: string;
-      description?: string;
-      icon?: string;
-    }) => {
+    async (input: SaveProfileInput) => {
       try {
         const api = await getAgent();
         await api.saveAgentProfile(input);

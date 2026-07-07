@@ -21,19 +21,13 @@ export type AgentProfile = {
   systemPrompt: string;
   description: string;
   icon: string;
+  tone: string;
+  responseStyle: string;
+  constraints: string;
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
 };
-
-function parseJson<T>(value: unknown, fallback: T): T {
-  if (typeof value !== "string" || value.length === 0) return fallback;
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return fallback;
-  }
-}
 
 function mapPromptTemplate(row: unknown): PromptTemplate {
   const r = row as Record<string, unknown>;
@@ -58,6 +52,9 @@ function mapAgentProfile(row: unknown): AgentProfile {
     systemPrompt: r.system_prompt as string,
     description: r.description as string,
     icon: r.icon as string,
+    tone: (r.tone as string) ?? "",
+    responseStyle: (r.response_style as string) ?? "",
+    constraints: (r.constraints as string) ?? "",
     sortOrder: r.sort_order as number,
     createdAt: r.created_at as string,
     updatedAt: r.updated_at as string,
@@ -157,19 +154,25 @@ export function createAgentProfile(
     systemPrompt?: string;
     description?: string;
     icon?: string;
+    tone?: string;
+    responseStyle?: string;
+    constraints?: string;
   },
 ): string {
   const id = randomUUID();
   const sortOrder = Date.now();
   db.run(
-    `INSERT INTO agent_profiles (id, name, system_prompt, description, icon, sort_order)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO agent_profiles (id, name, system_prompt, description, icon, tone, response_style, constraints, sort_order)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       params.name,
       params.systemPrompt ?? "",
       params.description ?? "",
       params.icon ?? "Bot",
+      params.tone ?? "",
+      params.responseStyle ?? "",
+      params.constraints ?? "",
       sortOrder,
     ],
   );
@@ -184,6 +187,9 @@ export function updateAgentProfile(
     systemPrompt?: string;
     description?: string;
     icon?: string;
+    tone?: string;
+    responseStyle?: string;
+    constraints?: string;
   },
 ): void {
   const assignments: string[] = ["updated_at = datetime('now')"];
@@ -204,6 +210,18 @@ export function updateAgentProfile(
   if (params.icon !== undefined) {
     assignments.push("icon = ?");
     values.push(params.icon);
+  }
+  if (params.tone !== undefined) {
+    assignments.push("tone = ?");
+    values.push(params.tone);
+  }
+  if (params.responseStyle !== undefined) {
+    assignments.push("response_style = ?");
+    values.push(params.responseStyle);
+  }
+  if (params.constraints !== undefined) {
+    assignments.push("constraints = ?");
+    values.push(params.constraints);
   }
 
   if (assignments.length === 1) return;

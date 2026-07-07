@@ -1,6 +1,13 @@
 import type { LlmProvider } from "@desktop-agent/provider-gateway";
 import type { AgentEvent, ToolResult } from "@desktop-agent/shared";
-import { closeDb, createInteraction, getDb, runMigrations } from "@desktop-agent/storage";
+import {
+  closeDb,
+  createInteraction,
+  getAgentProfile,
+  getDb,
+  getSetting,
+  runMigrations,
+} from "@desktop-agent/storage";
 import { registry } from "@desktop-agent/tool-registry";
 
 export type OrchestratorConfig = {
@@ -8,6 +15,13 @@ export type OrchestratorConfig = {
   model?: string;
   dbPath?: string;
 };
+
+function loadActiveProfile() {
+  const db = getDb();
+  const id = getSetting(db, "activeProfileId");
+  if (!id) return null;
+  return getAgentProfile(db, id);
+}
 
 export type ExecutionResult = {
   result: ToolResult;
@@ -183,6 +197,16 @@ export class Orchestrator {
     const tools = registry.list();
     const toolsList = tools.map((t) => `- ${t.name}: ${t.description}`).join("\n");
 
+    const profile = loadActiveProfile();
+    const profileParts: string[] = [];
+    if (profile) {
+      if (profile.systemPrompt) profileParts.push(profile.systemPrompt);
+      if (profile.tone) profileParts.push(`Tom: ${profile.tone}.`);
+      if (profile.responseStyle) profileParts.push(`Estilo de resposta: ${profile.responseStyle}.`);
+      if (profile.constraints) profileParts.push(`Restrições: ${profile.constraints}.`);
+    }
+    const profileInstructions = profileParts.length > 0 ? `\n${profileParts.join("\n")}\n` : "";
+
     const systemPrompt = `Você é o "Helix", um agente pessoal leve rodando no desktop do usuário.
 Você pode receber um pedido livre do usuário, o conteúdo atual do clipboard e acesso a ferramentas locais.
 
@@ -191,7 +215,7 @@ Analise a requisição do usuário e use o clipboard apenas quando ele for relev
 Se o clipboard estiver vazio, irrelevante ou a tarefa for uma pergunta geral, responda diretamente preenchendo o campo "directResponse".
 Se precisar usar uma ferramenta local para processar texto do clipboard, selecione a ferramenta apropriada no JSON de resposta.
 Não invente conteúdo de clipboard quando ele vier vazio.
-
+${profileInstructions}
 Ferramentas disponíveis:
 ${toolsList}
 
