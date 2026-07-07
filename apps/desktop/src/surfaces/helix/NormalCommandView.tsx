@@ -19,6 +19,7 @@ import { Composer } from "./Composer";
 import { ConnectorsPanel } from "./ConnectorsPanel";
 import { FREE_ACTIONS, type InputMode, QUICK_ACTIONS } from "./constants";
 import { HistoryList } from "./history-list";
+import type { ContextChipItem } from "./hooks/useContextChips";
 
 type Props = {
   error: string | null;
@@ -53,6 +54,8 @@ type Props = {
   setExecutionMode: (m: "simple" | "workflow") => void;
   setQuery: (q: string) => void;
   setShowSettings: (v: boolean) => void;
+  chips?: ContextChipItem[];
+  onChipClick?: (chip: ContextChipItem) => void;
   onExecute: () => void;
   onAbort: () => void;
   onApproval: (approved: boolean) => void;
@@ -207,16 +210,6 @@ function ChatActiveView(p: Props) {
         </div>
       </div>
 
-      {p.error && (
-        <div className="shrink-0 p-3 bg-bad/10 rounded-xl text-bad text-xs flex gap-2.5 items-start border border-bad/20">
-          <AlertCircle className="w-4 h-4 text-bad flex-shrink-0 mt-0.5" />
-          <div className="select-text">
-            <strong className="font-bold mr-1">Erro:</strong>
-            {p.error}
-          </div>
-        </div>
-      )}
-
       <ChatView
         turns={p.messages}
         streaming={p.streaming}
@@ -237,6 +230,8 @@ function ChatActiveView(p: Props) {
           inputMode={p.inputMode}
           hasClipboard={p.hasClipboard}
           textareaRef={p.textareaRef}
+          chips={p.chips}
+          onChipClick={p.onChipClick}
           onExecute={p.onExecute}
         />
       </div>
@@ -557,6 +552,8 @@ function CommandIdleView(p: Props) {
           inputMode={p.inputMode}
           hasClipboard={p.hasClipboard}
           textareaRef={p.textareaRef}
+          chips={p.chips}
+          onChipClick={p.onChipClick}
           onExecute={p.onExecute}
         />
       </div>

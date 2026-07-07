@@ -94,6 +94,32 @@ select:focus-visible {
   margin: 0;
 }
 
+.composer-field {
+  position: relative;
+}
+.composer-field textarea:focus,
+.composer-field textarea:focus-visible {
+  outline: none;
+}
+.composer-field::after {
+  content: "";
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  bottom: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--color-signal), transparent);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+.composer-field:focus-within {
+  border-color: rgba(196, 153, 244, 0.3);
+  background: rgba(255, 255, 255, 0.05);
+}
+.composer-field:focus-within::after {
+  opacity: 0.7;
+}
+
 .noise-overlay {
   position: absolute;
   inset: 0;

@@ -6,6 +6,7 @@ import { getActiveBadgeText } from "./constants";
 import { ExpandedView } from "./ExpandedView";
 import { useCapabilities } from "./hooks/useCapabilities";
 import { useClipboard } from "./hooks/useClipboard";
+import { type ContextChipItem, useContextChips } from "./hooks/useContextChips";
 import { useExecute } from "./hooks/useExecute";
 import { useKeyboard } from "./hooks/useKeyboard";
 import { useSettingsForm } from "./hooks/useSettingsForm";
@@ -44,7 +45,17 @@ export function Helix({ onToastSuccess, onToastError }: HelixProps) {
   const clipboard = useClipboard();
   const capabilities = useCapabilities();
   const exec = useExecute();
+  const contextChips = useContextChips(clipboard.clipboardText);
   const settingsForm = useSettingsForm(showSettings, onToastSuccess, onToastError);
+
+  const handleChipClick = useCallback(
+    (chip: ContextChipItem) => {
+      exec.setInputMode("clipboard");
+      setQuery(chip.prompt);
+      requestAnimationFrame(() => textareaRef.current?.focus());
+    },
+    [exec, setQuery],
+  );
 
   const persistWindowMode = useCallback(
     async (nextMode: "mini" | "normal" | "expanded" | "collapsed") => {
@@ -238,6 +249,8 @@ export function Helix({ onToastSuccess, onToastError }: HelixProps) {
           setExecutionMode={setExecutionMode}
           setQuery={setQuery}
           setShowSettings={setShowSettings}
+          chips={contextChips.chips}
+          onChipClick={handleChipClick}
           onExecute={() => exec.handleExecute()}
           onAbort={() => {
             exec.handleAbort();
@@ -331,6 +344,8 @@ export function Helix({ onToastSuccess, onToastError }: HelixProps) {
         setExecutionMode={setExecutionMode}
         setQuery={setQuery}
         setShowSettings={setShowSettings}
+        chips={contextChips.chips}
+        onChipClick={handleChipClick}
         onExecute={() => exec.handleExecute()}
         onAbort={() => {
           exec.handleAbort();

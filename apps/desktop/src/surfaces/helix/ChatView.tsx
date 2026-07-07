@@ -35,13 +35,14 @@ export function ChatView({
     setShowJump(!nearBottom);
   };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-scroll on new turns/streaming
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     if (isNearBottomRef.current) {
       el.scrollTop = el.scrollHeight;
     }
-  }, []);
+  }, [turns, streaming]);
 
   const scrollToBottom = () => {
     const el = containerRef.current;

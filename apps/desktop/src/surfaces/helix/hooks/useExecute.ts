@@ -122,12 +122,15 @@ export function useExecute() {
         store.setWorkflowRun(res.run);
         store.setResult(res.run.result || "");
         if (res.run.status === "failed" || res.run.status === "cancelled") {
-          store.setError(res.run.errorMessage || "Workflow encerrado sem resultado.");
+          const msg = res.run.errorMessage || "Workflow encerrado sem resultado.";
+          store.setError(msg);
+          store.finalizeAssistantTurn(res.run.status === "failed" ? "error" : "cancelled", msg);
         }
       } catch (err) {
-        store.finalizeAssistantTurn("error");
-        store.setError(err instanceof Error ? err.message : "Erro ao executar comando");
-        store.addAgentLog({ type: "tool_fail", text: err instanceof Error ? err.message : String(err) });
+        const msg = err instanceof Error ? err.message : "Erro ao executar comando";
+        store.finalizeAssistantTurn("error", msg);
+        store.setError(msg);
+        store.addAgentLog({ type: "tool_fail", text: msg });
       } finally {
         useAgentStore.getState().setStreaming(false);
         setActiveRequestId((current) => (current === requestId ? null : current));

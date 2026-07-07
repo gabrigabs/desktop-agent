@@ -1,22 +1,12 @@
 import type { ConnectorConfig, Turn, WorkflowStep } from "@desktop-agent/shared";
-import {
-  AlertCircle,
-  ArrowLeft,
-  Bot,
-  Check,
-  Clipboard,
-  Clock,
-  Layers,
-  Settings,
-  Workflow,
-  X,
-} from "lucide-react";
+import { ArrowLeft, Bot, Check, Clipboard, Clock, Layers, Settings, Workflow, X } from "lucide-react";
 import type { RefObject } from "react";
 import { ChatView } from "./ChatView";
 import { Composer } from "./Composer";
 import { ConnectorsPanel } from "./ConnectorsPanel";
 import { FREE_ACTIONS, type InputMode, QUICK_ACTIONS } from "./constants";
 import { HistoryList } from "./history-list";
+import type { ContextChipItem } from "./hooks/useContextChips";
 
 type Props = {
   error: string | null;
@@ -49,6 +39,8 @@ type Props = {
   setExecutionMode: (m: "simple" | "workflow") => void;
   setQuery: (q: string) => void;
   setShowSettings: (v: boolean) => void;
+  chips?: ContextChipItem[];
+  onChipClick?: (chip: ContextChipItem) => void;
   onExecute: () => void;
   onAbort: () => void;
   onCopy: () => void;
@@ -166,7 +158,7 @@ export function ExpandedView(p: Props) {
         </div>
       </aside>
 
-      <main className="min-w-0 flex flex-col">
+      <main className="min-w-0 min-h-0 flex flex-col">
         <div className="h-[58px] border-b border-line px-5 flex items-center justify-between gap-4 bg-white/[0.012]">
           <div className="min-w-0">
             <div className="text-[9px] font-mono uppercase text-faint tracking-wider">
@@ -209,7 +201,7 @@ export function ExpandedView(p: Props) {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5">
+        <div className="flex-1 min-h-0 p-5">
           {p.mode === "history" ? (
             <HistoryList />
           ) : p.mode === "connectors" ? (
@@ -221,7 +213,7 @@ export function ExpandedView(p: Props) {
               variant="grid"
             />
           ) : p.taskActive && p.messages.length > 0 ? (
-            <div className="min-h-full flex flex-col gap-4">
+            <div className="h-full min-h-0 flex flex-col gap-4">
               <div className="flex items-center justify-between gap-3 shrink-0">
                 <button
                   type="button"
@@ -243,16 +235,6 @@ export function ExpandedView(p: Props) {
                 )}
               </div>
 
-              {p.error && (
-                <section className="p-4 bg-bad/10 rounded-xl text-bad text-sm flex gap-3 items-start border border-bad/20 shrink-0">
-                  <AlertCircle className="w-5 h-5 text-bad flex-shrink-0 mt-0.5" />
-                  <div className="select-text">
-                    <strong className="font-bold mr-1">Erro:</strong>
-                    {p.error}
-                  </div>
-                </section>
-              )}
-
               <ChatView
                 turns={p.messages}
                 streaming={p.streaming}
@@ -273,6 +255,8 @@ export function ExpandedView(p: Props) {
                   inputMode={p.inputMode}
                   hasClipboard={p.hasClipboard}
                   textareaRef={p.textareaRef}
+                  chips={p.chips}
+                  onChipClick={p.onChipClick}
                   onExecute={p.onExecute}
                 />
               </div>
@@ -299,16 +283,6 @@ export function ExpandedView(p: Props) {
                   )}
                 </div>
               </section>
-
-              {p.error && (
-                <section className="p-4 bg-bad/10 rounded-xl text-bad text-sm flex gap-3 items-start border border-bad/20">
-                  <AlertCircle className="w-5 h-5 text-bad flex-shrink-0 mt-0.5" />
-                  <div className="select-text">
-                    <strong className="font-bold mr-1">Erro:</strong>
-                    {p.error}
-                  </div>
-                </section>
-              )}
 
               <section className="flex-1 min-h-[420px] rounded-2xl border border-line bg-white/[0.03] overflow-hidden flex flex-col">
                 <div className="px-4 py-3 flex items-center justify-between bg-white/[0.03] border-b border-line">
@@ -363,6 +337,8 @@ export function ExpandedView(p: Props) {
                     inputMode={p.inputMode}
                     hasClipboard={p.hasClipboard}
                     textareaRef={p.textareaRef}
+                    chips={p.chips}
+                    onChipClick={p.onChipClick}
                     onExecute={p.onExecute}
                   />
                   <div className="mt-3 flex items-center justify-between gap-3">

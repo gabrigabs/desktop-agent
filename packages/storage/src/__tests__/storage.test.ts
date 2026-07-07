@@ -49,7 +49,7 @@ describe("Storage Package Tests", () => {
     const migrations = db.query("SELECT version FROM _migrations ORDER BY version").all() as {
       version: number;
     }[];
-    expect(migrations.map((migration) => migration.version)).toEqual([1, 2, 3, 4]);
+    expect(migrations.map((migration) => migration.version)).toEqual([1, 2, 3, 4, 5]);
 
     const settings = db.query("SELECT key, value FROM app_settings ORDER BY key").all() as {
       key: string;

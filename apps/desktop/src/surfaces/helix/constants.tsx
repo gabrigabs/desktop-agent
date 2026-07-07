@@ -1,7 +1,9 @@
 import {
   Bot,
+  Bug,
   CheckSquare,
   Clipboard,
+  Code,
   FileText,
   Languages,
   Layers,
@@ -11,6 +13,7 @@ import {
   PenLine,
   Search,
   Sparkles,
+  Type,
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { getAgent, isMissingRpcMethodError, restartRpc } from "../../lib/rpc";
@@ -207,6 +210,18 @@ export async function callAgentWithRuntimeRefresh<T>(
     throw err;
   }
 }
+
+export const CONTEXT_CHIP_META: Record<
+  import("@desktop-agent/shared").ContextType,
+  { icon: ComponentType<{ className?: string }>; accent: string }
+> = {
+  url: { icon: Link, accent: "text-good" },
+  code: { icon: Code, accent: "text-signal" },
+  error: { icon: Bug, accent: "text-bad" },
+  long_text: { icon: FileText, accent: "text-warn" },
+  message: { icon: MessageSquare, accent: "text-sky-400" },
+  plain_text: { icon: Type, accent: "text-faint" },
+};
 
 export function getActiveBadgeText(provider: string, model: string): string {
   if (provider === "mock") return "Provedor Local (Mock)";

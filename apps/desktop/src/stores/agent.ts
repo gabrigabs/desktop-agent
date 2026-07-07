@@ -64,7 +64,7 @@ type State = {
   setCurrentConversationId: (id: string | null) => void;
   startUserTurn: (prompt: string, sourceMode: "free" | "clipboard") => void;
   appendAssistantChunk: (chunk: string) => void;
-  finalizeAssistantTurn: (status: "complete" | "error" | "cancelled") => void;
+  finalizeAssistantTurn: (status: "complete" | "error" | "cancelled", errorMessage?: string) => void;
   setResult: (r: string | null) => void;
   setStreaming: (v: boolean) => void;
   addEvent: (e: AgentEvent) => void;
@@ -248,13 +248,17 @@ export const useAgentStore = create<State>((set) => ({
 
       return { messages, result: textContent };
     }),
-  finalizeAssistantTurn: (status) =>
+  finalizeAssistantTurn: (status, errorMessage) =>
     set((s) => {
       if (s.messages.length === 0) return s;
       const messages = [...s.messages];
       const last = messages[messages.length - 1];
       if (last?.role !== "assistant" || last.status !== "streaming") return s;
-      messages[messages.length - 1] = { ...last, status };
+      const blocks =
+        status === "error" && errorMessage
+          ? [...last.blocks, { type: "error" as const, message: errorMessage }]
+          : last.blocks;
+      messages[messages.length - 1] = { ...last, status, blocks };
       return { messages, streaming: false };
     }),
   setResult: (result) => set({ result }),

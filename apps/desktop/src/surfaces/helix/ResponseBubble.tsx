@@ -107,16 +107,18 @@ export function ResponseBubble({
           )}
         </div>
 
-        {!isStreaming && text && (
+        {!isStreaming && (text || turn.status === "error" || turn.status === "cancelled") && (
           <div className="flex items-center gap-1 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button
-              type="button"
-              onClick={handleCopy}
-              className="h-6 px-2 rounded-md text-[10px] font-semibold text-faint hover:text-fg hover:bg-white/[0.04] transition-colors cursor-pointer flex items-center gap-1"
-            >
-              {copied ? <Check className="w-3 h-3" /> : <Clipboard className="w-3 h-3" />}
-              {copied ? "Copiado" : "Copiar"}
-            </button>
+            {text && (
+              <button
+                type="button"
+                onClick={handleCopy}
+                className="h-6 px-2 rounded-md text-[10px] font-semibold text-faint hover:text-fg hover:bg-white/[0.04] transition-colors cursor-pointer flex items-center gap-1"
+              >
+                {copied ? <Check className="w-3 h-3" /> : <Clipboard className="w-3 h-3" />}
+                {copied ? "Copiado" : "Copiar"}
+              </button>
+            )}
             {onRegenerate && (
               <button
                 type="button"

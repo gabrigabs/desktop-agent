@@ -1,4 +1,13 @@
 export type { AgentApi, SaveMcpServerInput } from "./api";
+export {
+  type ContextSource,
+  type ContextSuggestion,
+  type ContextType,
+  type DetectedContext,
+  detectContext,
+  detectContextType,
+  getContextSuggestions,
+} from "./context-detector";
 export type {
   AgentEvent,
   ApprovalRequest,

@@ -452,21 +452,25 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável. O cam
 
 #### C01 - Context chips
 
-- Status: planejado.
+- Status: implementado no worktree atual.
 - Objetivo: detectar contexto útil sem executar ação surpresa.
-- Arquivos: `apps/desktop/src/lib/context-detector.ts`, `context-chips.tsx`, `composer.tsx`.
+- Arquivos: `packages/shared/src/context-detector.ts`, `packages/shared/src/__tests__/context-detector.test.ts`, `apps/desktop/src/surfaces/helix/ContextChipBar.tsx`, `apps/desktop/src/surfaces/helix/hooks/useContextChips.ts`, `apps/desktop/src/surfaces/helix/Composer.tsx`, `apps/desktop/src/surfaces/helix/constants.tsx`.
 - Implementação:
-  1. Classificar clipboard como `empty`, `url`, `code`, `error`, `long_text`, `message`, `plain_text`.
-  2. Gerar chips com label, prompt e source mode.
-  3. Clique em chip preenche composer e mostra chip de contexto usado.
-  4. Nunca executar automaticamente no clique.
-  5. Limitar preview para não despejar dados sensíveis na tela.
+  1. Detector genérico em `packages/shared` classifica clipboard como `url`, `code`, `error`, `long_text`, `message`, `plain_text`.
+  2. Hook `useContextChips` gera chips com ícone, label, prompt e source mode.
+  3. `ContextChipBar` renderiza header com ícone de clipboard e contador, seguido de botões de chip sempre visíveis.
+  4. Clique em chip ativa `inputMode='clipboard'` e preenche o composer com o prompt sugerido.
+  5. Nunca executar automaticamente no clique.
+  6. Chips mostram apenas ícone + label, sem preview do conteúdo.
 - Aceite:
-  - Clipboard vazio não é erro.
+  - Clipboard vazio não mostra chips.
   - URL sugere leitura/resumo.
   - Stack trace sugere debug/explain.
+  - Chips aparecem em `normal` e `expanded`, não em `mini`.
 - Verificação:
-  - testes unitários do detector.
+  - `bun test packages/shared/src/__tests__/context-detector.test.ts`
+  - `bun run typecheck`
+  - teste manual no app com diferentes tipos de clipboard.
 
 #### C02 - Web search com fontes
 
