@@ -49,6 +49,10 @@ html, body, #root {
 ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.16); }
 
+.scrollbar-thin::-webkit-scrollbar { height: 3px; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.06); border-radius: 3px; }
+.scrollbar-thin::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.12); }
+
 button, input, textarea, select {
   outline: none;
   box-shadow: none !important;
@@ -154,6 +158,8 @@ select:focus-visible {
 @keyframes pet-shockwave { 0% { transform: scale(0.8); opacity: 0.6; } 70% { opacity: 0.1; } 100% { transform: scale(1.6); opacity: 0; } }
 @keyframes pet-core-hover { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
 @keyframes pet-inner-ring-hover { 0%, 100% { transform: scale(1); opacity: 0.3; } 50% { transform: scale(1.15); opacity: 0.55; } }
+@keyframes pet-hero-pulse { 0%, 100% { transform: scale(1); opacity: 0.55; } 50% { transform: scale(1.08); opacity: 0.9; } }
+@keyframes pet-hero-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 @keyframes radial-enter {
   from { opacity: 0; transform: translate(-50%, -50%) scale(0.35); }
@@ -258,6 +264,64 @@ select:focus-visible {
   animation-direction: reverse;
 }
 
+.pet-hero-particle {
+  animation: pet-particle 7s linear infinite;
+  transform-origin: 50px 50px;
+}
+
+.pet-hero-particle-alt {
+  animation: pet-particle 9s linear infinite reverse;
+  transform-origin: 50px 50px;
+}
+
+.pet-hero-spiral {
+  animation: pet-spiral-flow 6s linear infinite;
+  transform-origin: center;
+  transition: opacity 0.25s ease, stroke-width 0.25s ease;
+}
+
+.pet-hero-orbit {
+  animation: pet-hero-pulse 5s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.pet-hero-outer-orbit {
+  animation: pet-hero-pulse 7s ease-in-out infinite reverse;
+  transform-origin: center;
+}
+
+.pet-hero {
+  animation: pet-hero-float 6s ease-in-out infinite;
+}
+
+.pet-compact-orbit {
+  animation: pet-compact-spin 12s linear infinite;
+  transform-origin: 50px 50px;
+}
+
+.pet-compact-orbit:nth-of-type(2) {
+  animation-duration: 18s;
+  animation-direction: reverse;
+}
+
+.pet-compact-orbit:nth-of-type(3) {
+  animation-duration: 24s;
+}
+
+@keyframes pet-compact-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 .pet-status-dot {
   animation: pet-scan 2.8s ease-in-out infinite;
   transform-origin: center;
@@ -329,6 +393,13 @@ select:focus-visible {
   .pet-orbit,
   .pet-highlight,
   .pet-particle,
+  .pet-particle-alt,
+  .pet-hero-particle,
+  .pet-hero-particle-alt,
+  .pet-hero-spiral,
+  .pet-hero-orbit,
+  .pet-hero-outer-orbit,
+  .pet-hero,
   .pet-status-dot,
   .pet-spiral-ring,
   .animate-pulse-fast,
@@ -339,7 +410,8 @@ select:focus-visible {
   .radial-click,
   .radial-halo,
   .radial-ray,
-  .radial-arc g {
+  .radial-arc g,
+  .animate-fade-in {
     animation: none;
   }
 }

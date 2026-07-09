@@ -18,10 +18,12 @@ import {
   X,
 } from "lucide-react";
 import type { RefObject } from "react";
+import { AgentIdentity } from "../../components/ui/agent-identity";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
+import { HeroHome } from "../../components/ui/hero-home";
 import { IconButton } from "../../components/ui/icon-button";
-import { Pet } from "../../components/ui/pet";
+import { MarkdownRenderer } from "../../components/ui/markdown-renderer";
 import { Separator } from "../../components/ui/separator";
 import { ChatView } from "./ChatView";
 import { Composer } from "./Composer";
@@ -38,6 +40,9 @@ type Props = {
   query: string;
   clipboardText: string;
   hasClipboard: boolean;
+  ignoreClipboard: boolean;
+  setIgnoreClipboard: (v: boolean) => void;
+  onReloadClipboard: () => void;
   taskActive: boolean;
   taskStatus: string;
   messages: Turn[];
@@ -54,6 +59,8 @@ type Props = {
   executionMode: "simple" | "workflow";
   composerPlaceholder: string;
   chips?: ContextChipItem[];
+  starterChips?: ContextChipItem[];
+  clipboardActions?: ContextChipItem[];
   onChipClick?: (chip: ContextChipItem) => void;
   onExecute: () => void;
   onAbort: () => void;
@@ -188,13 +195,10 @@ function PanelWrapper({
 
 function CommandHome(p: Props) {
   return (
-    <div className="flex flex-col h-full items-center justify-end pb-6 gap-5">
-      <div className="flex flex-col items-center gap-2 mb-2">
-        <Pet size={56} />
-        <span className="text-xl font-semibold tracking-tight text-fg">Helix</span>
-      </div>
+    <div className="min-h-full w-full flex flex-col items-center justify-center gap-2.5 py-2">
+      <HeroHome />
 
-      <div className="w-full max-w-sm flex flex-col gap-3">
+      <div className="w-full max-w-md flex flex-col gap-2 px-5">
         <div className="flex items-center justify-center gap-2">
           <button
             type="button"
@@ -227,9 +231,14 @@ function CommandHome(p: Props) {
           disabled={p.streaming}
           streaming={p.streaming}
           clipboardText={p.clipboardText}
+          hasClipboard={p.hasClipboard}
+          ignoreClipboard={p.ignoreClipboard}
+          setIgnoreClipboard={p.setIgnoreClipboard}
           textareaRef={p.textareaRef}
-          chips={p.chips}
+          starterChips={p.starterChips}
+          clipboardActions={p.clipboardActions}
           onChipClick={p.onChipClick}
+          onReloadClipboard={p.onReloadClipboard}
           onExecute={p.onExecute}
         />
       </div>
@@ -241,10 +250,17 @@ function ChatActive(p: Props) {
   return (
     <div className="flex flex-col h-full gap-3">
       <div className="flex items-center justify-between gap-2 shrink-0">
-        <Button variant="ghost" size="sm" onClick={p.onNewTask} disabled={p.streaming}>
-          <ArrowLeft className="w-3.5 h-3.5" /> Nova conversa
-        </Button>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <Button variant="ghost" size="sm" onClick={p.onNewTask} disabled={p.streaming}>
+            <ArrowLeft className="w-3.5 h-3.5" /> Nova conversa
+          </Button>
+          <AgentIdentity
+            profiles={p.profiles}
+            activeProfileId={p.activeProfileId}
+            onSetActiveProfile={p.onSetActiveProfile}
+          />
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
           <Badge variant={p.error ? "error" : p.streaming ? "warning" : "success"}>{p.taskStatus}</Badge>
           {p.streaming && (
             <Button variant="danger" size="sm" onClick={p.onAbort} disabled={!p.activeRequestId}>
@@ -275,7 +291,14 @@ function ChatActive(p: Props) {
           disabled={p.streaming}
           streaming={p.streaming}
           clipboardText={p.clipboardText}
+          hasClipboard={p.hasClipboard}
+          ignoreClipboard={p.ignoreClipboard}
+          setIgnoreClipboard={p.setIgnoreClipboard}
           textareaRef={p.textareaRef}
+          starterChips={p.starterChips}
+          clipboardActions={p.clipboardActions}
+          onChipClick={p.onChipClick}
+          onReloadClipboard={p.onReloadClipboard}
           onExecute={p.onExecute}
         />
       </div>
@@ -417,10 +440,10 @@ function TaskActive(p: Props) {
             </Button>
           )}
         </div>
-        <div className="flex-1 p-4 text-sm text-fg leading-relaxed whitespace-pre-wrap overflow-y-auto select-text">
+        <div className="flex-1 p-4 text-sm text-fg leading-relaxed overflow-y-auto select-text">
           {p.result ? (
             <>
-              {p.result}
+              <MarkdownRenderer content={p.result} />
               {p.streaming && (
                 <span className="inline-block w-1.5 h-4 ml-1 align-[-2px] rounded-sm bg-warn animate-pulse" />
               )}
@@ -439,7 +462,14 @@ function TaskActive(p: Props) {
           disabled={p.streaming}
           streaming={p.streaming}
           clipboardText={p.clipboardText}
+          hasClipboard={p.hasClipboard}
+          ignoreClipboard={p.ignoreClipboard}
+          setIgnoreClipboard={p.setIgnoreClipboard}
           textareaRef={p.textareaRef}
+          starterChips={p.starterChips}
+          clipboardActions={p.clipboardActions}
+          onChipClick={p.onChipClick}
+          onReloadClipboard={p.onReloadClipboard}
           onExecute={p.onExecute}
         />
       </div>

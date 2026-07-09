@@ -1,6 +1,8 @@
+import type { AgentProfile } from "@desktop-agent/shared";
 import { Maximize2, Menu, Minimize2, Pin, X } from "lucide-react";
 import { IconButton } from "./icon-button";
 import { Pet } from "./pet";
+import { ProfileSwitch } from "./profile-switch";
 
 interface HelixHeaderProps {
   expanded: boolean;
@@ -10,6 +12,9 @@ interface HelixHeaderProps {
   onMinimize: () => void;
   onClose: () => void;
   onOpenMenu?: () => void;
+  profiles?: AgentProfile[];
+  activeProfileId?: string | null;
+  onSetActiveProfile?: (profileId: string | null) => void;
 }
 
 export function HelixHeader({
@@ -20,6 +25,9 @@ export function HelixHeader({
   onMinimize,
   onClose,
   onOpenMenu,
+  profiles = [],
+  activeProfileId = null,
+  onSetActiveProfile,
 }: HelixHeaderProps) {
   return (
     <header
@@ -32,13 +40,21 @@ export function HelixHeader({
             <Menu className="w-3.5 h-3.5" />
           </IconButton>
         )}
-        <Pet size={16} variant="dot" className="shrink-0" />
-        <span
-          className="text-[15px] font-semibold tracking-tight text-fg leading-none"
-          data-tauri-drag-region
-        >
-          Helix
-        </span>
+        <Pet size={28} variant="compact" className="shrink-0" />
+        {onSetActiveProfile ? (
+          <ProfileSwitch
+            profiles={profiles}
+            activeProfileId={activeProfileId}
+            onSetActiveProfile={onSetActiveProfile}
+          />
+        ) : (
+          <span
+            className="text-[15px] font-semibold tracking-tight text-fg leading-none"
+            data-tauri-drag-region
+          >
+            Helix
+          </span>
+        )}
       </div>
 
       <div className="flex items-center gap-0.5">

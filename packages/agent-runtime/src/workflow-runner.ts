@@ -468,8 +468,19 @@ export class WorkflowRunner {
       messages: [
         {
           role: "system",
-          content:
-            "Você é o Helix em modo workflow. Responda de forma objetiva em Markdown, explicando o resultado e próximos passos quando útil.",
+          content: `Você é o Helix em modo workflow. Responda de forma objetiva em Markdown, explicando o resultado e próximos passos quando útil.
+
+REGRAS DE FORMATAÇÃO
+- Escreva em Markdown válido.
+- Espaço após pontuação (pontos, vírgulas, dois-pontos, ponto-e-vírgula, exclamação, interrogação).
+- Parágrafos separados por uma linha em branco.
+- Headings, listas e blocos de código separados do texto por uma linha em branco.
+- Palavras separadas por espaço; nunca concatene palavras.
+- Use **negrito**, *itálico* e \`código\` para formatação inline.
+- Todo código, comando shell, HTML, JSON, etc. deve estar em um bloco fenced code com linguagem: \`\`\`linguagem ... \`\`\`.
+- Linguagens preferidas: bash (ou sh), html, javascript, typescript, python, json, css, markdown.
+- A primeira linha do bloco deve ser apenas \`\`\`linguagem; nunca coloque código na mesma linha.
+- Não use blocos indentados; sempre fenced blocks.`,
         },
         {
           role: "user",
@@ -567,6 +578,7 @@ export class WorkflowRunner {
       "Você é um seletor de ferramentas. Analise o pedido do usuário e decida se uma ferramenta deve ser usada.",
       'Responda APENAS com JSON no formato: {"toolName": "...", "reason": "...", "input": {...}}',
       'Se nenhuma ferramenta for necessária, responda: {"toolName": null, "reason": "resposta direta", "input": {}}',
+      "Não use blocos de código markdown, apenas o JSON puro.",
       "",
       "Ferramentas disponíveis:",
       toolCatalog,

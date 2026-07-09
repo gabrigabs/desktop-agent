@@ -1,6 +1,15 @@
 import type { MessageBlock, Turn } from "@desktop-agent/shared";
-import { AlertCircle, Check, Clipboard, ExternalLink, RefreshCw, Wrench } from "lucide-react";
-import { useState } from "react";
+import {
+  AlertCircle,
+  Check,
+  ChevronDown,
+  Clipboard,
+  ExternalLink,
+  RefreshCw,
+  Sparkles,
+  Wrench,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { MarkdownRenderer } from "../../components/ui/markdown-renderer";
 import { Pet } from "../../components/ui/pet";
 
@@ -59,7 +68,7 @@ export function ResponseBubble({
   return (
     <div className="flex gap-2.5 group">
       <div className="shrink-0 mt-1">
-        <Pet size={14} variant="dot" />
+        <Pet size={24} variant="compact" />
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 mb-1">
@@ -74,26 +83,13 @@ export function ResponseBubble({
         </div>
 
         <div className="text-sm leading-relaxed text-fg">
-          {turn.blocks.map((block, i) => {
-            const blockKey = `${block.type}-${
-              block.type === "text"
-                ? block.content.slice(0, 40)
-                : block.type === "thinking"
-                  ? block.content.slice(0, 40)
-                  : block.type === "tool_call"
-                    ? block.toolName
-                    : block.type === "error"
-                      ? block.message.slice(0, 40)
-                      : ""
-            }`;
-            return (
-              <BlockRenderer
-                key={blockKey}
-                block={block}
-                isStreaming={isStreaming && i === turn.blocks.length - 1}
-              />
-            );
-          })}
+          {turn.blocks.map((block, i) => (
+            <BlockRenderer
+              key={`${block.type}-${i}`}
+              block={block}
+              isStreaming={isStreaming && i === turn.blocks.length - 1}
+            />
+          ))}
 
           {isStreaming && text === "" && (
             <div className="flex items-center gap-1.5 text-mute py-1">
@@ -181,7 +177,7 @@ function BlockRenderer({ block, isStreaming }: { block: MessageBlock; isStreamin
   switch (block.type) {
     case "text":
       return (
-        <div className="min-w-0">
+        <div className="min-w-0 animate-fade-in">
           <MarkdownRenderer content={block.content} />
           {isStreaming && (
             <span className="inline-block w-1.5 h-4 ml-0.5 align-[-2px] rounded-sm bg-signal animate-pulse" />
@@ -189,17 +185,7 @@ function BlockRenderer({ block, isStreaming }: { block: MessageBlock; isStreamin
         </div>
       );
     case "thinking":
-      return (
-        <details className="my-2 group/think">
-          <summary className="text-[10px] text-faint cursor-pointer hover:text-mute transition-colors select-none flex items-center gap-1.5">
-            <span className="w-1 h-1 rounded-full bg-faint group-open/think:bg-signal transition-colors" />
-            Pensamento
-          </summary>
-          <p className="text-xs text-mute italic mt-1.5 pl-3 border-l border-line leading-relaxed">
-            {block.content}
-          </p>
-        </details>
-      );
+      return <ThinkingBlock content={block.content} isStreaming={isStreaming} />;
     case "tool_call": {
       const isWebSearch = block.toolName === "web.search";
       const webResults =
@@ -278,4 +264,56 @@ function BlockRenderer({ block, isStreaming }: { block: MessageBlock; isStreamin
     default:
       return null;
   }
+}
+
+function ThinkingBlock({ content, isStreaming }: { content: string; isStreaming: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [height, setHeight] = useState(0);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isStreaming) {
+      setOpen(true);
+    }
+  }, [isStreaming]);
+
+  useEffect(() => {
+    const el = contentRef.current;
+    if (el) setHeight(el.scrollHeight);
+  }, [content, open]);
+
+  const toggle = () => setOpen((o) => !o);
+  const count = content.length;
+
+  return (
+    <div className="my-2 rounded-lg border border-signal/20 bg-signal/5 overflow-hidden">
+      <button
+        type="button"
+        onClick={toggle}
+        className="w-full px-3 py-2 flex items-center gap-2 text-left transition-colors hover:bg-white/[0.03]"
+        aria-expanded={open}
+      >
+        <Sparkles
+          className={`w-3.5 h-3.5 shrink-0 ${isStreaming ? "text-signal animate-pulse" : "text-faint"}`}
+        />
+        <span className="text-[10px] font-medium text-signal uppercase tracking-wider">Raciocínio</span>
+        <span className="ml-auto text-[9px] text-faint/70 font-mono">{count} car.</span>
+        <ChevronDown
+          className={`w-3 h-3 text-faint transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      <div
+        className="overflow-hidden transition-all duration-300 ease-out"
+        style={{ maxHeight: open ? `${height}px` : "0px", opacity: open ? 1 : 0 }}
+      >
+        <div ref={contentRef} className="px-3 pb-3 pt-0">
+          <div className="rounded-md bg-ink/40 border border-line/60 px-3 py-2">
+            <p className="text-[11px] leading-relaxed font-mono text-mute/90 whitespace-pre-wrap">
+              {content}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }

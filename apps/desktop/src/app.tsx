@@ -1,7 +1,9 @@
 import { listen } from "@tauri-apps/api/event";
 import { type CSSProperties, useCallback, useEffect, useRef } from "react";
+import { BootScreen } from "./components/ui/boot-screen";
 import { ErrorBoundary } from "./components/ui/error-boundary";
 import { HelixLauncher } from "./components/ui/helix-launcher";
+import { Starfield } from "./components/ui/starfield";
 import { ToastContainer } from "./components/ui/toast";
 import { useToast } from "./hooks/use-toast";
 import { getAgent } from "./lib/rpc";
@@ -16,9 +18,14 @@ import { useAgentStore } from "./stores/agent";
 import { Helix } from "./surfaces/helix";
 
 export function App() {
-  const { uiMode, setUiMode, settings, setSettings } = useAgentStore();
+  const { uiMode, setUiMode, settings, setSettings, bootState } = useAgentStore();
   const { toasts, dismiss, success, error } = useToast();
   const restoredWindowMode = useRef(false);
+
+  useEffect(() => {
+    // Proactively boot the sidecar once on mount
+    void getAgent();
+  }, []);
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -43,7 +50,7 @@ export function App() {
   );
 
   const applyWindowMode = useCallback(
-    async (mode: "collapsed" | "normal" | "expanded") => {
+    async (mode: "collapsed" | "mini" | "normal" | "expanded") => {
       setUiMode(mode);
       await setWindowMode(mode, { alwaysOnTop: settings.alwaysOnTop });
 
@@ -109,22 +116,26 @@ export function App() {
     return (
       <div className="agent-window-frame launcher-frame overflow-visible" data-tauri-drag-region>
         <div className="w-full h-full rounded-full overflow-visible flex items-center justify-center">
-          <HelixLauncher
-            petSize={settings.petSize ?? 72}
-            onOpenNormal={() => applyWindowMode("normal")}
-            onNewTask={() => {
-              applyWindowMode("normal");
-            }}
-            onFreeAsk={() => {
-              applyWindowMode("normal");
-            }}
-            onSearchWeb={() => {
-              applyWindowMode("normal");
-            }}
-            onReadScreen={() => {
-              applyWindowMode("normal");
-            }}
-          />
+          {bootState !== "ready" ? (
+            <BootScreen compact />
+          ) : (
+            <HelixLauncher
+              petSize={settings.petSize ?? 72}
+              onOpenNormal={() => applyWindowMode("normal")}
+              onNewTask={() => {
+                applyWindowMode("normal");
+              }}
+              onFreeAsk={() => {
+                applyWindowMode("normal");
+              }}
+              onSearchWeb={() => {
+                applyWindowMode("normal");
+              }}
+              onReadScreen={() => {
+                applyWindowMode("normal");
+              }}
+            />
+          )}
         </div>
       </div>
     );
@@ -138,11 +149,15 @@ export function App() {
         className={`w-full h-full flex flex-col agent-shell ${shellRadius} overflow-hidden relative select-none`}
         style={{ "--window-opacity": settings.windowOpacity ?? 0.72 } as CSSProperties}
       >
+        <div className="absolute inset-0 z-0 pointer-events-none opacity-70">
+          <Starfield density={24} />
+        </div>
         <main className="flex-1 overflow-hidden relative z-10">
           <ErrorBoundary>
             <Helix onToastSuccess={success} onToastError={error} onToggleAlwaysOnTop={toggleAlwaysOnTop} />
           </ErrorBoundary>
         </main>
+        {bootState !== "ready" && <BootScreen />}
       </div>
       <ToastContainer toasts={toasts} onDismiss={dismiss} />
     </div>

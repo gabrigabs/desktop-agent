@@ -4,6 +4,7 @@ import type {
   AppSettings,
   ConnectorConfig,
   ExecutionMode,
+  MessageBlock,
   RunStatus,
   Turn,
   WorkflowRun,
@@ -24,13 +25,18 @@ export type AgentLogEntry = {
   timestamp: number;
 };
 
-export type UiMode = "collapsed" | "normal" | "expanded";
+export type UiMode = "collapsed" | "mini" | "normal" | "expanded";
+
+export type BootState = "booting" | "ready" | "error";
 
 type State = {
   connected: boolean;
+  bootState: BootState;
+  bootError: string | null;
   tools: ToolDef[];
   query: string;
   clipboardText: string;
+  ignoreClipboard: boolean;
   messages: Turn[];
   currentConversationId: string | null;
   result: string | null;
@@ -54,9 +60,12 @@ type State = {
   agentLogs: AgentLogEntry[];
 
   setConnected: (v: boolean) => void;
+  setBootState: (s: BootState) => void;
+  setBootError: (e: string | null) => void;
   setTools: (tools: ToolDef[]) => void;
   setQuery: (q: string) => void;
   setClipboardText: (t: string) => void;
+  setIgnoreClipboard: (v: boolean) => void;
   setMessages: (messages: Turn[]) => void;
   addTurn: (turn: Turn) => void;
   updateLastTurn: (update: Partial<Turn>) => void;
@@ -161,9 +170,12 @@ const defaultConnectors: ConnectorConfig[] = [
 
 export const useAgentStore = create<State>((set) => ({
   connected: false,
+  bootState: "booting",
+  bootError: null,
   tools: [],
   query: "",
   clipboardText: "",
+  ignoreClipboard: true,
   messages: [],
   currentConversationId: null,
   result: null,
@@ -179,9 +191,12 @@ export const useAgentStore = create<State>((set) => ({
   agentLogs: [],
 
   setConnected: (connected) => set({ connected }),
+  setBootState: (bootState) => set({ bootState }),
+  setBootError: (bootError) => set({ bootError }),
   setTools: (tools) => set({ tools }),
   setQuery: (query) => set({ query }),
   setClipboardText: (clipboardText) => set({ clipboardText }),
+  setIgnoreClipboard: (ignoreClipboard) => set({ ignoreClipboard }),
   setMessages: (messages) => set({ messages }),
   addTurn: (turn) => set((s) => ({ messages: [...s.messages, turn] })),
   updateLastTurn: (update) =>
@@ -231,13 +246,10 @@ export const useAgentStore = create<State>((set) => ({
       const last = messages[messages.length - 1];
       if (last?.role !== "assistant") return s;
 
-      const blocks = [...last.blocks];
-      const lastBlock = blocks[blocks.length - 1];
-      if (lastBlock && lastBlock.type === "text") {
-        blocks[blocks.length - 1] = { type: "text", content: lastBlock.content + chunk };
-      } else {
-        blocks.push({ type: "text" as const, content: chunk });
-      }
+      const lastBlock = last.blocks[last.blocks.length - 1];
+      const currentText = lastBlock && lastBlock.type === "text" ? lastBlock.content : "";
+      const nextText = currentText + chunk;
+      const blocks = parseAssistantBlocks(nextText, last.status === "streaming");
 
       messages[messages.length - 1] = { ...last, blocks };
 
@@ -333,3 +345,90 @@ export const useAgentStore = create<State>((set) => ({
       agentLogs: [],
     }),
 }));
+
+function parseAssistantBlocks(raw: string, streaming: boolean): MessageBlock[] {
+  const blocks: MessageBlock[] = [];
+  const openTags = ["<thinking>", "<think>"];
+  const closeTags = ["</thinking>", "</think>"];
+  let cursor = 0;
+
+  const findEarliest = (
+    haystack: string,
+    needles: string[],
+    from: number,
+  ): { index: number; tag: string } | null => {
+    let best: { index: number; tag: string } | null = null;
+    for (const tag of needles) {
+      const idx = haystack.indexOf(tag, from);
+      if (idx !== -1 && (best === null || idx < best.index)) {
+        best = { index: idx, tag };
+      }
+    }
+    return best;
+  };
+
+  const trimBlock = (text: string): string => {
+    // Remove leading blank lines and trailing blank lines, but keep internal spacing.
+    return text.replace(/^\s*\n+/, "").replace(/\n+\s*$/, "");
+  };
+
+  const pushText = (text: string) => {
+    const normalized = trimBlock(text);
+    if (!normalized) return;
+    const last = blocks[blocks.length - 1];
+    if (last?.type === "text") {
+      last.content = `${last.content}\n\n${normalized}`;
+    } else {
+      blocks.push({ type: "text", content: normalized });
+    }
+  };
+
+  const pushThinking = (text: string) => {
+    const normalized = trimBlock(text);
+    if (!normalized) return;
+    blocks.push({ type: "thinking", content: normalized, collapsed: false });
+  };
+
+  while (cursor < raw.length) {
+    const open = findEarliest(raw, openTags, cursor);
+    const close = findEarliest(raw, closeTags, cursor);
+
+    // If a closing tag appears before any opening tag, everything before it is an implicit thinking block.
+    if (close && (!open || close.index < open.index)) {
+      pushThinking(raw.slice(cursor, close.index));
+      cursor = close.index + close.tag.length;
+      // The rest of the output is the real response; do not parse further tags inside it.
+      pushText(raw.slice(cursor));
+      break;
+    }
+
+    if (!open) {
+      pushText(raw.slice(cursor));
+      break;
+    }
+
+    if (open.index > cursor) {
+      pushText(raw.slice(cursor, open.index));
+    }
+
+    const contentStart = open.index + open.tag.length;
+    const closeAfter = findEarliest(raw, closeTags, contentStart);
+
+    if (!closeAfter) {
+      if (streaming) {
+        const partial = raw.slice(contentStart);
+        if (partial) {
+          blocks.push({ type: "thinking", content: partial, collapsed: false });
+        }
+      } else {
+        pushText(raw.slice(cursor));
+      }
+      break;
+    }
+
+    pushThinking(raw.slice(contentStart, closeAfter.index));
+    cursor = closeAfter.index + closeAfter.tag.length;
+  }
+
+  return blocks;
+}

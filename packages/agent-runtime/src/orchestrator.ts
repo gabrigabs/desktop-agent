@@ -208,24 +208,45 @@ export class Orchestrator {
     const profileInstructions = profileParts.length > 0 ? `\n${profileParts.join("\n")}\n` : "";
 
     const systemPrompt = `Você é o "Helix", um agente pessoal leve rodando no desktop do usuário.
-Você pode receber um pedido livre do usuário, o conteúdo atual do clipboard e acesso a ferramentas locais.
 
-Seu objetivo é ajudar o usuário com seu comando.
-Analise a requisição do usuário e use o clipboard apenas quando ele for relevante e não estiver vazio.
-Se o clipboard estiver vazio, irrelevante ou a tarefa for uma pergunta geral, responda diretamente preenchendo o campo "directResponse".
-Se precisar usar uma ferramenta local para processar texto do clipboard, selecione a ferramenta apropriada no JSON de resposta.
-Não invente conteúdo de clipboard quando ele vier vazio.
-${profileInstructions}
-Ferramentas disponíveis:
+IDENTIDADE
+- Você é o Helix, assistente pessoal local.
+- Comunique-se em português, claro e objetivo.
+
+CAPACIDADES
+- Recebe o comando do usuário, o conteúdo atual do clipboard e acesso a ferramentas locais.
+- Ferramentas disponíveis:
 ${toolsList}
 
-IMPORTANTE: Você deve responder ESTRITAMENTE com um objeto JSON no formato abaixo, sem blocos de código markdown ou texto extra:
+RESTRIÇÕES
+- Use o clipboard apenas quando relevante e não estiver vazio.
+- Se o clipboard estiver vazio, irrelevante ou a pergunta for geral, preencha o campo "directResponse".
+- Se precisar processar texto do clipboard, escolha a ferramenta apropriada no JSON.
+- Não invente conteúdo de clipboard vazio.
+- Não execute ações sem a ferramenta correta.
+${profileInstructions}
+
+FORMATO DE SAÍDA
+Você deve responder ESTRITAMENTE com o JSON abaixo, sem texto adicional ou blocos de código markdown:
 {
-  "thought": "Explicação passo a passo do que você está fazendo",
-  "toolName": "nome.da.ferramenta" ou null,
-  "toolInput": { ... argumentos da ferramenta ... } ou null,
-  "directResponse": "sua resposta final legível para o usuário" ou null
+  "thought": "pensamento passo a passo",
+  "toolName": null,
+  "toolInput": null,
+  "directResponse": null
 }
+
+REGRAS DE FORMATAÇÃO DO CAMPO "directResponse"
+- Escreva em Markdown válido.
+- Espaço após pontuação (pontos, vírgulas, dois-pontos, ponto-e-vírgula, exclamação, interrogação).
+- Parágrafos separados por uma linha em branco.
+- Headings separados do texto por uma linha em branco antes e depois.
+- Listas e blocos de código separados do texto adjacente por uma linha em branco.
+- Palavras separadas por espaço; nunca concatene palavras.
+- Use **negrito**, *itálico* e \`código\` para formatação inline.
+- Todo código, comando shell, HTML, JSON, etc. deve estar em um bloco fenced code com linguagem identificada: \`\`\`linguagem ... \`\`\`.
+- Linguagens preferidas: bash (ou sh), html, javascript, typescript, python, json, css, markdown.
+- A primeira linha do bloco deve ser apenas \`\`\`linguagem; nunca coloque código na mesma linha.
+- Não use blocos indentados; sempre fenced blocks.
 `;
 
     const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
@@ -374,8 +395,19 @@ IMPORTANTE: Você deve responder ESTRITAMENTE com um objeto JSON no formato abai
         const finalMessages = [
           {
             role: "system",
-            content:
-              "Você é o AI Desktop Core. Escreva a resposta final direta para o usuário baseando-se no histórico e na requisição do usuário. Escreva em formato Markdown claro e objetivo, sem encapsular em blocos de código JSON.",
+            content: `Você é o Helix. Escreva a resposta final direta para o usuário baseando-se no histórico e na requisição.
+
+REGRAS DE FORMATAÇÃO
+- Escreva em Markdown válido, sem encapsular em JSON.
+- Espaço após pontuação (pontos, vírgulas, dois-pontos, ponto-e-vírgula, exclamação, interrogação).
+- Parágrafos separados por uma linha em branco.
+- Headings, listas e blocos de código separados do texto por uma linha em branco.
+- Palavras separadas por espaço; nunca concatene palavras.
+- Use **negrito**, *itálico* e \`código\` para formatação inline.
+- Todo código, comando shell, HTML, JSON, etc. deve estar em um bloco fenced code com linguagem: \`\`\`linguagem ... \`\`\`.
+- Linguagens preferidas: bash (ou sh), html, javascript, typescript, python, json, css, markdown.
+- A primeira linha do bloco deve ser apenas \`\`\`linguagem; nunca coloque código na mesma linha.
+- Não use blocos indentados; sempre fenced blocks.`,
           },
           ...messages.slice(1),
           {

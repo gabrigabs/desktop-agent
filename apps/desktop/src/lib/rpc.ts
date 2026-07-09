@@ -35,6 +35,8 @@ export async function initializeRpc(): Promise<AgentApi> {
   if (agent) return agent;
 
   const store = useAgentStore.getState();
+  store.setBootState("booting");
+  store.setBootError(null);
 
   const cmd = Command.sidecar("binaries/agent-runtime");
   child = await cmd.spawn();
@@ -165,6 +167,8 @@ export async function initializeRpc(): Promise<AgentApi> {
 
     if (ping.status === "ok") {
       store.setConnected(true);
+      store.setBootState("ready");
+      store.setBootError(null);
     }
 
     try {
@@ -177,6 +181,8 @@ export async function initializeRpc(): Promise<AgentApi> {
     }
   } catch (err) {
     store.setConnected(false);
+    store.setBootState("error");
+    store.setBootError(err instanceof Error ? err.message : String(err));
     console.error("Failed to connect to agent runtime:", err);
     window.dispatchEvent(new CustomEvent("agent-connection-error", { detail: String(err) }));
   }
@@ -210,4 +216,5 @@ export async function destroyRpc(): Promise<void> {
     child = null;
   }
   agent = null;
+  useAgentStore.getState().setConnected(false);
 }

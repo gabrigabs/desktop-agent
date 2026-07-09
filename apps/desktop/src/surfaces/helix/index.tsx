@@ -13,6 +13,7 @@ import { useExecute } from "./hooks/useExecute";
 import { useKeyboard } from "./hooks/useKeyboard";
 import { usePrompts } from "./hooks/usePrompts";
 import { useSettingsForm } from "./hooks/useSettingsForm";
+import { MiniView } from "./MiniView";
 import { NormalCommandView } from "./NormalCommandView";
 import { SettingsPanel } from "./SettingsPanel";
 
@@ -52,15 +53,34 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
   const capabilities = useCapabilities();
   const promptsHook = usePrompts();
   const exec = useExecute();
-  const contextChips = useContextChips(clipboard.hasClipboard);
+  const ignoreClipboard = useAgentStore((s) => s.ignoreClipboard);
+  const setIgnoreClipboard = useAgentStore((s) => s.setIgnoreClipboard);
+  const contextChips = useContextChips(clipboard.hasClipboard, ignoreClipboard);
   const settingsForm = useSettingsForm(showSettings, onToastSuccess, onToastError);
 
   const handleChipClick = useCallback(
     (chip: ContextChipItem) => {
-      setQuery(chip.prompt);
+      if (chip.action === "ignore-clipboard") {
+        const currentQuery = useAgentStore.getState().query;
+        if (ignoreClipboard) {
+          setIgnoreClipboard(false);
+          const marker = currentQuery.includes("[CLIPBOARD]")
+            ? currentQuery
+            : `${currentQuery ? currentQuery + " " : ""}[CLIPBOARD]`;
+          setQuery(marker);
+        } else {
+          setIgnoreClipboard(true);
+          setQuery(currentQuery.replace(/\s?\[CLIPBOARD\]\s?/g, ""));
+        }
+        requestAnimationFrame(() => textareaRef.current?.focus());
+        return;
+      }
+      const next = chip.usesClipboard ? `${chip.prompt}${chip.prompt ? " " : ""}[CLIPBOARD]` : chip.prompt;
+      setIgnoreClipboard(!chip.usesClipboard);
+      setQuery(next);
       requestAnimationFrame(() => textareaRef.current?.focus());
     },
-    [setQuery],
+    [ignoreClipboard, setIgnoreClipboard, setQuery],
   );
 
   const persistWindowMode = useCallback(
@@ -94,10 +114,49 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     await closeApp();
   }, []);
 
+  const handleOpenMini = useCallback(
+    async (next: "normal" | "expanded") => {
+      setUiMode(next);
+      await setWindowMode(next, { alwaysOnTop: settings.alwaysOnTop });
+      await persistWindowMode(next);
+    },
+    [persistWindowMode, setUiMode, settings.alwaysOnTop],
+  );
+
   const handleNewTask = useCallback(() => {
     exec.handleNewTask();
     setMode("command");
   }, [exec]);
+
+  const handleMiniQuickAction = useCallback(
+    (action: { id: string; prompt: string }) => {
+      const prompt = `${action.prompt} [CLIPBOARD]`;
+      setQuery(prompt);
+      setIgnoreClipboard(false);
+      void exec.handleExecute(prompt);
+    },
+    [exec, setIgnoreClipboard, setQuery],
+  );
+
+  const handleMiniStarterAction = useCallback(
+    (action: { id: string; prompt: string; executionMode?: "simple" | "workflow" }) => {
+      if (action.id === "pergunta") {
+        setUiMode("normal");
+        void setWindowMode("normal", { alwaysOnTop: settings.alwaysOnTop });
+        void persistWindowMode("normal");
+        setQuery("");
+        requestAnimationFrame(() => textareaRef.current?.focus());
+        return;
+      }
+      setQuery(action.prompt);
+      setExecutionMode(action.executionMode ?? executionMode);
+      setUiMode("normal");
+      void setWindowMode("normal", { alwaysOnTop: settings.alwaysOnTop });
+      void persistWindowMode("normal");
+      requestAnimationFrame(() => textareaRef.current?.focus());
+    },
+    [executionMode, persistWindowMode, setExecutionMode, setQuery, setUiMode, settings.alwaysOnTop],
+  );
 
   const handleChangeMode = useCallback(
     (next: "command" | "history" | "prompts" | "connectors" | "settings") => {
@@ -123,6 +182,12 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
       textareaRef.current.focus();
     }
   }, [mode, showSettings]);
+
+  useEffect(() => {
+    const handler = () => setShowSettings(true);
+    window.addEventListener("open-settings", handler);
+    return () => window.removeEventListener("open-settings", handler);
+  }, []);
 
   const onStarterAction = useCallback(
     (prompt: string, modeOverride?: "simple" | "workflow") => {
@@ -189,6 +254,7 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
   const approval = workflowRun?.approval;
   const visibleConnectors = connectors.slice(0, 7);
   const composerPlaceholder = "Pergunte algo, peça um rascunho ou comece por uma ação abaixo.";
+  const taskModeLabel = executionMode === "workflow" ? "Workflow" : "Simples";
 
   const commonProps = {
     error,
@@ -197,6 +263,9 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     query,
     clipboardText: clipboard.clipboardText,
     hasClipboard: clipboard.hasClipboard,
+    ignoreClipboard,
+    setIgnoreClipboard,
+    onReloadClipboard: clipboard.checkClipboard,
     taskActive,
     taskStatus,
     messages,
@@ -219,6 +288,8 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     executionMode,
     composerPlaceholder,
     chips: contextChips.chips,
+    starterChips: contextChips.starterChips,
+    clipboardActions: contextChips.clipboardChips,
     onChipClick: handleChipClick,
     onExecute: exec.handleExecute,
     onAbort: () => {
@@ -255,6 +326,75 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     onDeleteProfile: promptsHook.handleDeleteProfile,
     onSetActiveProfile: promptsHook.handleSetActiveProfile,
   };
+
+  if (uiMode === "mini") {
+    return (
+      <>
+        <div className="h-full w-full flex flex-col">
+          <HelixHeader
+            expanded={false}
+            alwaysOnTop={settings.alwaysOnTop}
+            onToggleAlwaysOnTop={onToggleAlwaysOnTop}
+            onToggleExpand={handleToggleExpand}
+            onMinimize={handleMinimize}
+            onClose={handleClose}
+            onOpenMenu={() => setDrawerOpen(true)}
+          />
+          <main className="flex-1 min-h-0 overflow-hidden relative">
+            <MiniView
+              error={error}
+              result={result}
+              streaming={streaming}
+              taskActive={taskActive}
+              taskStatus={taskStatus}
+              taskModeLabel={taskModeLabel}
+              latestLogText={latestLog?.text}
+              clipboardText={clipboard.clipboardText}
+              hasClipboard={clipboard.hasClipboard}
+              activeRequestId={exec.activeRequestId}
+              copied={exec.copied}
+              onAbort={() => {
+                exec.handleAbort();
+                onToastSuccess?.("Resposta cancelada");
+              }}
+              onCopy={exec.handleCopyResult}
+              onOpenMode={handleOpenMini}
+              onQuickAction={handleMiniQuickAction}
+              onStarterAction={handleMiniStarterAction}
+            />
+          </main>
+        </div>
+        {showSettings && (
+          <SettingsPanel
+            onClose={() => setShowSettings(false)}
+            settings={settings}
+            formProvider={settingsForm.formProvider}
+            setFormProvider={settingsForm.setFormProvider}
+            formApiKey={settingsForm.formApiKey}
+            setFormApiKey={settingsForm.setFormApiKey}
+            formBaseUrl={settingsForm.formBaseUrl}
+            setFormBaseUrl={settingsForm.setFormBaseUrl}
+            formModel={settingsForm.formModel}
+            setFormModel={settingsForm.setFormModel}
+            formHidePet={settingsForm.formHidePet}
+            setFormHidePet={settingsForm.setFormHidePet}
+            formTimeout={settingsForm.formTimeout}
+            setFormTimeout={settingsForm.setFormTimeout}
+            formWindowOpacity={settingsForm.formWindowOpacity}
+            setFormWindowOpacity={settingsForm.setFormWindowOpacity}
+            formPetSize={settingsForm.formPetSize}
+            setFormPetSize={settingsForm.setFormPetSize}
+            showKey={settingsForm.showKey}
+            setShowKey={settingsForm.setShowKey}
+            fetchedModels={settingsForm.fetchedModels}
+            loadingModels={settingsForm.loadingModels}
+            savingSettings={settingsForm.savingSettings}
+            handleSaveSettings={settingsForm.handleSaveSettings}
+          />
+        )}
+      </>
+    );
+  }
 
   if (uiMode === "expanded") {
     return (

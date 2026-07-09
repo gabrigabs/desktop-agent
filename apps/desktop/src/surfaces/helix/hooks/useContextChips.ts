@@ -1,4 +1,4 @@
-import { Bot, Globe, Languages, Lightbulb, ListChecks, Search, Sparkles } from "lucide-react";
+import { Bot, EyeOff, Globe, Languages, Lightbulb, ListChecks, Search, Sparkles } from "lucide-react";
 import type { ComponentType } from "react";
 import { useMemo } from "react";
 
@@ -9,6 +9,7 @@ export interface ContextChipItem {
   accent: string;
   prompt: string;
   usesClipboard: boolean;
+  action?: "ignore-clipboard";
 }
 
 const CLIPBOARD_CHIPS: ContextChipItem[] = [
@@ -89,10 +90,37 @@ const STARTER_CHIPS: ContextChipItem[] = [
   },
 ];
 
-export function useContextChips(hasClipboard: boolean) {
-  const chips = useMemo<ContextChipItem[]>(() => {
-    return hasClipboard ? CLIPBOARD_CHIPS : STARTER_CHIPS;
-  }, [hasClipboard]);
+export function useContextChips(hasClipboard: boolean, ignoreClipboard: boolean = true) {
+  const result = useMemo(() => {
+    const starterChips = [...STARTER_CHIPS];
+    const clipboardChips = hasClipboard ? [...CLIPBOARD_CHIPS] : [];
+    const ignoreChip: ContextChipItem | null = hasClipboard
+      ? {
+          id: "ignore-clipboard",
+          label: ignoreClipboard ? "Usar clipboard" : "Ignorar clipboard",
+          icon: EyeOff,
+          accent: ignoreClipboard ? "text-good" : "text-bad",
+          prompt: "",
+          usesClipboard: false,
+          action: "ignore-clipboard",
+        }
+      : null;
 
-  return { chips, hasChips: chips.length > 0 };
+    const chips: ContextChipItem[] = [...starterChips];
+    if (hasClipboard) {
+      chips.unshift(...clipboardChips);
+      if (ignoreChip) {
+        chips.push(ignoreChip);
+      }
+    }
+
+    return {
+      chips,
+      starterChips,
+      clipboardChips,
+      hasChips: chips.length > 0,
+    };
+  }, [hasClipboard, ignoreClipboard]);
+
+  return result;
 }

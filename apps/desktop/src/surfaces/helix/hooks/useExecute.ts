@@ -48,10 +48,16 @@ export function useExecute() {
       let requestId: string | null = null;
       let runId: string | null = null;
       try {
-        const clipboardContent = store.clipboardText;
-        const sourceMode: "free" | "clipboard" = clipboardContent.trim() ? "clipboard" : "free";
-        store.startUserTurn(activeQuery, sourceMode);
+        const hasClipboardMarker = activeQuery.includes("[CLIPBOARD]");
+        const rawClipboardText = store.clipboardText || "";
+        const resolvedPrompt = hasClipboardMarker
+          ? activeQuery.replace(/\[CLIPBOARD\]/g, rawClipboardText.trim())
+          : activeQuery;
+        const sourceMode: "free" | "clipboard" = hasClipboardMarker ? "clipboard" : "free";
+        const clipboardPreview = rawClipboardText.slice(0, 500);
+        store.startUserTurn(resolvedPrompt, sourceMode);
         store.setQuery("");
+        store.setIgnoreClipboard(true);
 
         requestId = crypto.randomUUID();
         setRpcActiveRequestId(requestId);
@@ -60,10 +66,10 @@ export function useExecute() {
 
         const runInput = {
           requestId,
-          prompt: activeQuery,
+          prompt: resolvedPrompt,
           mode: store.executionMode,
           sourceMode,
-          clipboardText: clipboardContent,
+          clipboardText: "",
           maxSteps: store.executionMode === "workflow" ? 8 : 1,
         };
 
@@ -74,8 +80,8 @@ export function useExecute() {
             const fallbackApi = await getAgent();
             const fallback = await fallbackApi.runAgent({
               requestId: requestId || crypto.randomUUID(),
-              query: activeQuery,
-              clipboardText: clipboardContent,
+              query: resolvedPrompt,
+              clipboardText: "",
             });
             return {
               run: {
@@ -84,9 +90,9 @@ export function useExecute() {
                 updatedAt: new Date().toISOString(),
                 mode: "simple" as const,
                 status: "completed" as const,
-                prompt: activeQuery,
+                prompt: resolvedPrompt,
                 sourceMode,
-                clipboardPreview: clipboardContent.slice(0, 500),
+                clipboardPreview: clipboardPreview,
                 providerId: store.settings.activeProvider,
                 model: store.settings.model,
                 maxSteps: 1,
