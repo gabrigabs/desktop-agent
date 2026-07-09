@@ -78,6 +78,11 @@ select:focus-visible {
     drop-shadow(0 0 16px rgba(196, 153, 244, 0.1));
 }
 
+.launcher-frame {
+  padding: 0;
+  filter: none;
+}
+
 .agent-shell {
   background:
     radial-gradient(120% 80% at 18% 0%, rgba(196, 153, 244, 0.08), transparent 42%),
@@ -149,11 +154,35 @@ select:focus-visible {
 @keyframes pet-shockwave { 0% { transform: scale(0.8); opacity: 0.6; } 70% { opacity: 0.1; } 100% { transform: scale(1.6); opacity: 0; } }
 @keyframes pet-core-hover { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
 @keyframes pet-inner-ring-hover { 0%, 100% { transform: scale(1); opacity: 0.3; } 50% { transform: scale(1.15); opacity: 0.55; } }
+@keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes radial-enter {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.35); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes halo-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-color) 70%, transparent); }
+  50% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--accent-color) 25%, transparent); }
+}
+@keyframes ray-glow {
+  0%, 100% { filter: drop-shadow(0 0 3px var(--accent-color)); }
+  50% { filter: drop-shadow(0 0 8px var(--accent-color)); }
+}
+@keyframes radial-click {
+  0% { transform: scale(var(--base-scale, 1)); }
+  35% { transform: scale(calc(var(--base-scale, 1) * 0.95)); }
+  70% { transform: scale(calc(var(--base-scale, 1) * 1.03)); }
+  100% { transform: scale(var(--base-scale, 1)); }
+}
+@keyframes twinkle { 0%, 100% { opacity: 0.2; transform: scale(0.8); } 50% { opacity: 0.8; transform: scale(1.2); } }
+@keyframes pulse-soft { 0%, 100% { opacity: 0.55; transform: scale(1); } 50% { opacity: 0.9; transform: scale(1.06); } }
 
 .animate-spin-clockwise { animation: spin-clockwise 10s linear infinite; transform-origin: center; }
 .animate-spin-counter { animation: spin-counter 14s linear infinite; transform-origin: center; }
+.animate-spin-slow { animation: spin-slow 24s linear infinite; transform-origin: center; }
 .animate-pulse-gentle { animation: pulse-gentle 4s ease-in-out infinite; }
 .animate-pulse-fast { animation: pulse-fast 1.2s ease-in-out infinite; }
+.animate-pulse-soft { animation: pulse-soft 3.2s ease-in-out infinite; }
+.animate-twinkle { animation: twinkle 2.8s ease-in-out infinite; }
 .animate-thinking-1 { animation: thinking-dot 1.4s ease-in-out infinite 0s; }
 .animate-thinking-2 { animation: thinking-dot 1.4s ease-in-out infinite 0.2s; }
 .animate-thinking-3 { animation: thinking-dot 1.4s ease-in-out infinite 0.4s; }
@@ -245,6 +274,29 @@ select:focus-visible {
   stroke-width: 3.2;
 }
 
+.radial-item {
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.18s ease, color 0.18s ease;
+  will-change: transform;
+}
+
+.radial-item-enter {
+  animation: radial-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+.radial-click {
+  animation: radial-click 0.27s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.radial-halo {
+  animation: halo-pulse 1.2s ease-in-out infinite;
+}
+
+.radial-ray {
+  animation: ray-glow 2.5s ease-in-out infinite;
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.18s ease;
+  will-change: transform;
+}
+
 .discrete-enter {
   opacity: 0;
   transform: scale(0.96);
@@ -267,7 +319,10 @@ select:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .animate-spin-clockwise,
   .animate-spin-counter,
+  .animate-spin-slow,
   .animate-pulse-gentle,
+  .animate-pulse-soft,
+  .animate-twinkle,
   .animate-pet-breathe,
   .animate-float,
   .pet-core,
@@ -279,7 +334,12 @@ select:focus-visible {
   .animate-pulse-fast,
   .animate-thinking-1,
   .animate-thinking-2,
-  .animate-thinking-3 {
+  .animate-thinking-3,
+  .radial-item-enter,
+  .radial-click,
+  .radial-halo,
+  .radial-ray,
+  .radial-arc g {
     animation: none;
   }
 }

@@ -85,8 +85,10 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
   }, [uiMode, setUiMode, settings.alwaysOnTop, persistWindowMode]);
 
   const handleMinimize = useCallback(async () => {
-    await hideWindow();
-  }, []);
+    setUiMode("collapsed");
+    await setWindowMode("collapsed", { alwaysOnTop: settings.alwaysOnTop });
+    await persistWindowMode("collapsed");
+  }, [setUiMode, settings.alwaysOnTop, persistWindowMode]);
 
   const handleClose = useCallback(async () => {
     await closeApp();

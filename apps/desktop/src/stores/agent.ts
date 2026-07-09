@@ -93,7 +93,7 @@ const defaultSettings: AppSettings = {
   lastWindowMode: "normal",
   timeout: 120,
   windowOpacity: 0.72,
-  petSize: 58,
+  petSize: 72,
 };
 
 const defaultConnectors: ConnectorConfig[] = [

@@ -33,6 +33,7 @@ pub fn run() {
 
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.set_shadow(false);
+                let _ = window.set_decorations(false);
             }
 
             // Register global shortcut: Control+Shift+Space
@@ -63,6 +64,7 @@ pub fn run() {
                             use tauri::Emitter;
                             use tauri_plugin_positioner::{Position, WindowExt};
                             let _ = window.set_shadow(false);
+                            let _ = window.set_decorations(false);
                             let _ = window.set_resizable(true);
                             let _ = window.set_min_size::<tauri::Size>(None);
                             let _ = window.set_fullscreen(false);
@@ -98,6 +100,7 @@ pub fn run() {
                                 use tauri::Emitter;
                                 use tauri_plugin_positioner::{Position, WindowExt};
                                 let _ = window.set_shadow(false);
+                                let _ = window.set_decorations(false);
                                 let _ = window.set_resizable(true);
                                 let _ = window.set_min_size::<tauri::Size>(None);
                                 let _ = window.set_fullscreen(false);

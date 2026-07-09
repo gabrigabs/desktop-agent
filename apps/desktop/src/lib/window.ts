@@ -3,10 +3,12 @@ import { currentMonitor, getCurrentWindow, LogicalPosition, LogicalSize } from "
 export type WindowMode = "collapsed" | "normal" | "expanded";
 
 export const WINDOW_SIZES = {
-  collapsed: { width: 104, height: 104 },
+  collapsed: { width: 120, height: 120 },
   normal: { width: 520, height: 820 },
   expanded: { width: 1180, height: 820 },
 };
+
+export const LAUNCHER_MENU_SIZE = 420;
 
 export function isTauriRuntime() {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -30,6 +32,62 @@ async function getExpandedWindowBounds() {
     width,
     height,
   };
+}
+
+/**
+ * Expande ou recolhe a janela no modo collapsed para acomodar o menu circular
+ * do launcher, mantendo o centro do pet no mesmo lugar da tela.
+ */
+export async function setLauncherMenuOpen(open: boolean) {
+  if (!isTauriRuntime()) return;
+
+  try {
+    const appWindow = getCurrentWindow();
+    const monitor = await currentMonitor();
+    const scaleFactor = monitor?.scaleFactor ?? 1;
+
+    const position = await appWindow.outerPosition();
+    const size = await appWindow.outerSize();
+    const logicalPos = position.toLogical(scaleFactor);
+    const logicalSize = size.toLogical(scaleFactor);
+
+    const centerX = logicalPos.x + logicalSize.width / 2;
+    const centerY = logicalPos.y + logicalSize.height / 2;
+    const targetSize = open ? LAUNCHER_MENU_SIZE : WINDOW_SIZES.collapsed.width;
+
+    let targetX = Math.round(centerX - targetSize / 2);
+    let targetY = Math.round(centerY - targetSize / 2);
+
+    if (monitor) {
+      const workPos = monitor.workArea.position.toLogical(scaleFactor);
+      const workSize = monitor.workArea.size.toLogical(scaleFactor);
+      const margin = 16;
+      targetX = Math.min(
+        Math.max(targetX, workPos.x + margin),
+        workPos.x + workSize.width - targetSize - margin,
+      );
+      targetY = Math.min(
+        Math.max(targetY, workPos.y + margin),
+        workPos.y + workSize.height - targetSize - margin,
+      );
+    }
+
+    await appWindow.setResizable(true);
+    await appWindow.setMaxSize(null);
+    await appWindow.setMinSize(null);
+    await appWindow.setFullscreen(false);
+    await appWindow.setSimpleFullscreen(false);
+    await appWindow.unmaximize();
+    await appWindow.setSize(new LogicalSize(targetSize, targetSize));
+    await appWindow.setPosition(new LogicalPosition(targetX, targetY));
+    await appWindow.show();
+    await appWindow.setShadow(false);
+
+    await new Promise((r) => setTimeout(r, 150));
+    await appWindow.setResizable(false);
+  } catch (err) {
+    console.error("Erro ao redimensionar menu do launcher:", err);
+  }
 }
 
 /**

@@ -107,15 +107,25 @@ export function App() {
 
   if (uiMode === "collapsed" && !settings.hidePet) {
     return (
-      <div className="w-[92px] h-[92px]">
-        <HelixLauncher
-          petSize={settings.petSize ?? 64}
-          onOpenNormal={() => applyWindowMode("normal")}
-          onNewTask={() => {}}
-          onFreeAsk={() => {}}
-          onSearchWeb={() => {}}
-          onReadScreen={() => {}}
-        />
+      <div className="agent-window-frame launcher-frame overflow-visible" data-tauri-drag-region>
+        <div className="w-full h-full rounded-full overflow-visible flex items-center justify-center">
+          <HelixLauncher
+            petSize={settings.petSize ?? 72}
+            onOpenNormal={() => applyWindowMode("normal")}
+            onNewTask={() => {
+              applyWindowMode("normal");
+            }}
+            onFreeAsk={() => {
+              applyWindowMode("normal");
+            }}
+            onSearchWeb={() => {
+              applyWindowMode("normal");
+            }}
+            onReadScreen={() => {
+              applyWindowMode("normal");
+            }}
+          />
+        </div>
       </div>
     );
   }
