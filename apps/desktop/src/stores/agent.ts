@@ -4,13 +4,13 @@ import type {
   AppSettings,
   ConnectorConfig,
   ExecutionMode,
-  MessageBlock,
   RunStatus,
   Turn,
   WorkflowRun,
   WorkflowStep,
 } from "@desktop-agent/shared";
 import { create } from "zustand";
+import { parseAssistantContent } from "../lib/assistant-content";
 
 type ToolDef = {
   name: string;
@@ -25,7 +25,7 @@ export type AgentLogEntry = {
   timestamp: number;
 };
 
-export type UiMode = "collapsed" | "mini" | "normal" | "expanded";
+export type UiMode = "collapsed" | "normal" | "expanded";
 
 export type BootState = "booting" | "ready" | "error";
 
@@ -38,6 +38,7 @@ type State = {
   clipboardText: string;
   ignoreClipboard: boolean;
   messages: Turn[];
+  assistantDraft: string;
   currentConversationId: string | null;
   result: string | null;
   streaming: boolean;
@@ -177,6 +178,7 @@ export const useAgentStore = create<State>((set) => ({
   clipboardText: "",
   ignoreClipboard: true,
   messages: [],
+  assistantDraft: "",
   currentConversationId: null,
   result: null,
   streaming: false,
@@ -197,7 +199,7 @@ export const useAgentStore = create<State>((set) => ({
   setQuery: (query) => set({ query }),
   setClipboardText: (clipboardText) => set({ clipboardText }),
   setIgnoreClipboard: (ignoreClipboard) => set({ ignoreClipboard }),
-  setMessages: (messages) => set({ messages }),
+  setMessages: (messages) => set({ messages, assistantDraft: "" }),
   addTurn: (turn) => set((s) => ({ messages: [...s.messages, turn] })),
   updateLastTurn: (update) =>
     set((s) => {
@@ -208,7 +210,7 @@ export const useAgentStore = create<State>((set) => ({
       messages[messages.length - 1] = { ...last, ...update };
       return { messages };
     }),
-  clearMessages: () => set({ messages: [] }),
+  clearMessages: () => set({ messages: [], assistantDraft: "" }),
   setCurrentConversationId: (currentConversationId) => set({ currentConversationId }),
   startUserTurn: (prompt, sourceMode) =>
     set((s) => {
@@ -235,6 +237,7 @@ export const useAgentStore = create<State>((set) => ({
       const currentConversationId = s.currentConversationId ?? crypto.randomUUID();
       return {
         messages: [...s.messages, userTurn, assistantTurn],
+        assistantDraft: "",
         currentConversationId,
         result: "",
       };
@@ -246,10 +249,8 @@ export const useAgentStore = create<State>((set) => ({
       const last = messages[messages.length - 1];
       if (last?.role !== "assistant") return s;
 
-      const lastBlock = last.blocks[last.blocks.length - 1];
-      const currentText = lastBlock && lastBlock.type === "text" ? lastBlock.content : "";
-      const nextText = currentText + chunk;
-      const blocks = parseAssistantBlocks(nextText, last.status === "streaming");
+      const assistantDraft = s.assistantDraft + chunk;
+      const blocks = parseAssistantContent(assistantDraft, last.status === "streaming");
 
       messages[messages.length - 1] = { ...last, blocks };
 
@@ -258,7 +259,7 @@ export const useAgentStore = create<State>((set) => ({
         .map((b) => b.content)
         .join("");
 
-      return { messages, result: textContent };
+      return { messages, assistantDraft, result: textContent };
     }),
   finalizeAssistantTurn: (status, errorMessage) =>
     set((s) => {
@@ -266,12 +267,17 @@ export const useAgentStore = create<State>((set) => ({
       const messages = [...s.messages];
       const last = messages[messages.length - 1];
       if (last?.role !== "assistant" || last.status !== "streaming") return s;
+      const completedBlocks = s.assistantDraft ? parseAssistantContent(s.assistantDraft, false) : last.blocks;
       const blocks =
         status === "error" && errorMessage
-          ? [...last.blocks, { type: "error" as const, message: errorMessage }]
-          : last.blocks;
+          ? [...completedBlocks, { type: "error" as const, message: errorMessage }]
+          : completedBlocks;
+      const result = completedBlocks
+        .filter((block) => block.type === "text")
+        .map((block) => (block.type === "text" ? block.content : ""))
+        .join("");
       messages[messages.length - 1] = { ...last, status, blocks };
-      return { messages, streaming: false };
+      return { messages, assistantDraft: "", result: result || s.result, streaming: false };
     }),
   setResult: (result) => set({ result }),
   setStreaming: (streaming) => set({ streaming }),
@@ -336,6 +342,7 @@ export const useAgentStore = create<State>((set) => ({
     set({
       query: "",
       messages: [],
+      assistantDraft: "",
       currentConversationId: null,
       result: null,
       streaming: false,
@@ -345,90 +352,3 @@ export const useAgentStore = create<State>((set) => ({
       agentLogs: [],
     }),
 }));
-
-function parseAssistantBlocks(raw: string, streaming: boolean): MessageBlock[] {
-  const blocks: MessageBlock[] = [];
-  const openTags = ["<thinking>", "<think>"];
-  const closeTags = ["</thinking>", "</think>"];
-  let cursor = 0;
-
-  const findEarliest = (
-    haystack: string,
-    needles: string[],
-    from: number,
-  ): { index: number; tag: string } | null => {
-    let best: { index: number; tag: string } | null = null;
-    for (const tag of needles) {
-      const idx = haystack.indexOf(tag, from);
-      if (idx !== -1 && (best === null || idx < best.index)) {
-        best = { index: idx, tag };
-      }
-    }
-    return best;
-  };
-
-  const trimBlock = (text: string): string => {
-    // Remove leading blank lines and trailing blank lines, but keep internal spacing.
-    return text.replace(/^\s*\n+/, "").replace(/\n+\s*$/, "");
-  };
-
-  const pushText = (text: string) => {
-    const normalized = trimBlock(text);
-    if (!normalized) return;
-    const last = blocks[blocks.length - 1];
-    if (last?.type === "text") {
-      last.content = `${last.content}\n\n${normalized}`;
-    } else {
-      blocks.push({ type: "text", content: normalized });
-    }
-  };
-
-  const pushThinking = (text: string) => {
-    const normalized = trimBlock(text);
-    if (!normalized) return;
-    blocks.push({ type: "thinking", content: normalized, collapsed: false });
-  };
-
-  while (cursor < raw.length) {
-    const open = findEarliest(raw, openTags, cursor);
-    const close = findEarliest(raw, closeTags, cursor);
-
-    // If a closing tag appears before any opening tag, everything before it is an implicit thinking block.
-    if (close && (!open || close.index < open.index)) {
-      pushThinking(raw.slice(cursor, close.index));
-      cursor = close.index + close.tag.length;
-      // The rest of the output is the real response; do not parse further tags inside it.
-      pushText(raw.slice(cursor));
-      break;
-    }
-
-    if (!open) {
-      pushText(raw.slice(cursor));
-      break;
-    }
-
-    if (open.index > cursor) {
-      pushText(raw.slice(cursor, open.index));
-    }
-
-    const contentStart = open.index + open.tag.length;
-    const closeAfter = findEarliest(raw, closeTags, contentStart);
-
-    if (!closeAfter) {
-      if (streaming) {
-        const partial = raw.slice(contentStart);
-        if (partial) {
-          blocks.push({ type: "thinking", content: partial, collapsed: false });
-        }
-      } else {
-        pushText(raw.slice(cursor));
-      }
-      break;
-    }
-
-    pushThinking(raw.slice(contentStart, closeAfter.index));
-    cursor = closeAfter.index + closeAfter.tag.length;
-  }
-
-  return blocks;
-}

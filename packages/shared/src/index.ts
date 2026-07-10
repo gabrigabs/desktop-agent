@@ -1,3 +1,10 @@
+export { z } from "zod";
+export {
+  type AgentDecision,
+  parseAgentDecision,
+  stripThinkingMarkup,
+  unwrapAgentResponse,
+} from "./agent-decision";
 export type { AgentApi, SaveMcpServerInput } from "./api";
 export {
   type ContextSource,

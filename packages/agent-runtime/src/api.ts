@@ -20,13 +20,13 @@ import {
   createInteraction,
   createPromptTemplate,
   createMcpServer as createStoredMcpServer,
-  createTurn,
   createWorkflowRun,
   deleteAgentProfile,
   deletePromptTemplate,
   deleteMcpServer as deleteStoredMcpServer,
   ensureDefaultMcpPresets,
   getAgentProfile,
+  getConversation,
   getDb,
   getRecentInteractions,
   getSetting,
@@ -41,16 +41,25 @@ import {
   listWorkflowTemplates,
   setSetting,
   updateAgentProfile,
+  updateConversationTitle,
   updateMcpServerStatus,
   updatePromptTemplate,
   updateWorkflowRun,
   upsertMcpServer,
+  upsertTurn,
 } from "@desktop-agent/storage";
 import { registry } from "@desktop-agent/tool-registry";
 import { createClipboardTool } from "@desktop-agent/tools-desktop";
 import { createOcrImageTool, createScreenshotOcrTool } from "@desktop-agent/tools-ocr";
 import { createRewriteTool, createSummarizeTool, createTranslateTool } from "@desktop-agent/tools-text";
 import { createWebCrawlTool, createWebExtractTool, createWebSearchTool } from "@desktop-agent/tools-web";
+import { conversationTitleFromTurns, sanitizeConversationTitle } from "./conversation-title";
+import {
+  expandMcpArgs,
+  registerEnabledMcpTools,
+  registerMcpToolsForServer,
+  unregisterMcpToolsForServer,
+} from "./mcp-tools";
 import { Orchestrator } from "./orchestrator";
 import { WorkflowRunner } from "./workflow-runner";
 
@@ -98,7 +107,8 @@ function getActiveProviderConfig() {
   const model = getSetting(db, "model") || (activeProvider === "pinstripes" ? "ps/warp" : "");
   const hidePet = getSetting(db, "hidePet") === "true";
   const alwaysOnTop = getSetting(db, "alwaysOnTop") === "true";
-  const lastWindowMode = getSetting(db, "lastWindowMode") || "normal";
+  const rawLastWindowMode = getSetting(db, "lastWindowMode") || "normal";
+  const lastWindowMode = rawLastWindowMode === "mini" ? "normal" : rawLastWindowMode;
   const timeoutVal = getSetting(db, "timeout");
   const timeout = timeoutVal ? Number.parseInt(timeoutVal, 10) : 120;
   const windowOpacityVal = getSetting(db, "windowOpacity");
@@ -233,6 +243,7 @@ function createQueuedRun(input: {
   sourceMode?: "free" | "clipboard";
   clipboardText?: string;
   maxSteps?: number;
+  history?: { role: "user" | "assistant" | "system"; content: string }[];
 }) {
   const db = getDb();
   const config = getActiveProviderConfig();
@@ -262,6 +273,10 @@ function ensureMcpReady() {
 export const agentApi: AgentApi = {
   async ping() {
     return { status: "ok" };
+  },
+
+  async getVersion() {
+    return "1.0.0";
   },
 
   async execute({ requestId, toolName, input }) {
@@ -303,6 +318,7 @@ export const agentApi: AgentApi = {
       sourceMode: input.sourceMode,
       clipboardText: input.clipboardText,
       maxSteps: input.maxSteps,
+      history: input.history,
     });
 
     const controller = new AbortController();
@@ -325,6 +341,7 @@ export const agentApi: AgentApi = {
         runId: run.id,
         prompt: input.prompt,
         clipboardText: input.clipboardText ?? "",
+        history: input.history ?? [],
         signal: controller.signal,
       });
       return { run: completedRun, events };
@@ -400,6 +417,7 @@ export const agentApi: AgentApi = {
 
   async listCapabilities() {
     ensureMcpReady();
+    await registerEnabledMcpTools();
     return {
       tools: listToolCapabilities(),
       connectors: listStoredMcpServers(getDb()),
@@ -440,20 +458,37 @@ export const agentApi: AgentApi = {
       });
     }
 
-    return getStoredMcpServer(db, id) as NonNullable<ReturnType<typeof getStoredMcpServer>>;
+    const saved = getStoredMcpServer(db, id) as NonNullable<ReturnType<typeof getStoredMcpServer>>;
+    unregisterMcpToolsForServer(saved.id);
+    if (saved.enabled) {
+      await registerMcpToolsForServer(saved.id);
+    } else {
+      unregisterMcpToolsForServer(saved.id);
+    }
+    return saved;
   },
 
   async deleteMcpServer({ id }) {
+    unregisterMcpToolsForServer(id);
     deleteStoredMcpServer(getDb(), id);
   },
 
   async testMcpServer({ id }) {
     const db = getDb();
+    const startTime = Date.now();
     const server = getStoredMcpServer(db, id, true);
     if (!server) {
       const error = `MCP não encontrado: ${id}`;
       updateMcpServerStatus(db, id, { lastCheckedAt: new Date().toISOString(), lastError: error });
       return { ok: false, error };
+    }
+
+    if (server.command === "direct") {
+      const tools = registry
+        .listByCategory("web")
+        .map((tool) => ({ name: tool.name, description: tool.description }));
+      updateMcpServerStatus(db, id, { lastCheckedAt: new Date().toISOString(), lastError: null });
+      return { ok: true, tools, durationMs: Date.now() - startTime };
     }
 
     const missingEnv = Object.entries(server.env ?? {})
@@ -471,32 +506,32 @@ export const agentApi: AgentApi = {
       return { ok: false, error };
     }
 
-    const startTime = Date.now();
     const childEnv = { ...process.env, ...server.env };
     let child: import("node:child_process").ChildProcessWithoutNullStreams | null = null;
 
     try {
-      child = spawn(server.command, server.args ?? [], {
+      child = spawn(server.command, expandMcpArgs(server.args, childEnv), {
         env: childEnv,
         stdio: ["pipe", "pipe", "pipe"],
       });
+      const activeChild = child;
 
       let stderrBuf = "";
-      child.stderr.on("data", (chunk: Buffer) => {
+      activeChild.stderr.on("data", (chunk: Buffer) => {
         stderrBuf += chunk.toString();
         if (stderrBuf.length > 2000) stderrBuf = stderrBuf.slice(-2000);
       });
 
       const sendRpc = (method: string, params: Record<string, unknown> = {}) => {
         const msg = JSON.stringify({ jsonrpc: "2.0", id: Math.floor(Math.random() * 1e9), method, params });
-        child!.stdin.write(msg + "\n");
+        activeChild.stdin.write(`${msg}\n`);
       };
 
       const waitForResponse = (timeoutMs: number) =>
         new Promise<{ result?: unknown; error?: { message: string } } | null>((resolve) => {
           let buf = "";
           const timer = setTimeout(() => {
-            child!.stdout.removeAllListeners("data");
+            activeChild.stdout.removeAllListeners("data");
             resolve(null);
           }, timeoutMs);
 
@@ -510,7 +545,7 @@ export const agentApi: AgentApi = {
                 const parsed = JSON.parse(line);
                 if (parsed.id !== undefined) {
                   clearTimeout(timer);
-                  child!.stdout.removeListener("data", onData);
+                  activeChild.stdout.removeListener("data", onData);
                   resolve({ result: parsed.result, error: parsed.error });
                   return;
                 }
@@ -520,7 +555,7 @@ export const agentApi: AgentApi = {
             }
           };
 
-          child!.stdout.on("data", onData);
+          activeChild.stdout.on("data", onData);
         });
 
       // Step 1: initialize handshake
@@ -543,7 +578,7 @@ export const agentApi: AgentApi = {
       }
 
       // Send initialized notification
-      child.stdin.write(JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) + "\n");
+      activeChild.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" })}\n`);
 
       // Step 2: list tools
       sendRpc("tools/list", {});
@@ -562,6 +597,10 @@ export const agentApi: AgentApi = {
       const toolsRaw =
         (toolsResult.result as { tools?: { name: string; description?: string }[] })?.tools ?? [];
       const tools = toolsRaw.map((t) => ({ name: t.name, description: t.description ?? "" }));
+
+      void registerMcpToolsForServer(id).catch((err) => {
+        console.error(`Failed to register MCP tools for ${id}:`, err);
+      });
 
       updateMcpServerStatus(db, id, { lastCheckedAt: new Date().toISOString(), lastError: null });
       return { ok: true, tools, durationMs: Date.now() - startTime };
@@ -658,7 +697,7 @@ export const agentApi: AgentApi = {
     }
   },
 
-  async runAgent({ requestId, query, clipboardText }) {
+  async runAgent({ requestId, query, clipboardText, history }) {
     const startedAt = Date.now();
     const providerId = getLlmProvider().name;
     const inputPreview = formatAgentInputPreview(query, clipboardText);
@@ -680,6 +719,7 @@ export const agentApi: AgentApi = {
         requestId,
         query,
         clipboardText,
+        history ?? [],
         emit,
         getLlmProvider,
         () => getActiveProviderConfig().model,
@@ -730,7 +770,12 @@ export const agentApi: AgentApi = {
   },
 
   async listConversations({ limit } = { limit: 20 }) {
-    return listConversations(getDb(), limit);
+    const db = getDb();
+    return listConversations(db, limit).map((conversation) => {
+      const title = sanitizeConversationTitle(conversation.title);
+      if (title !== conversation.title) updateConversationTitle(db, conversation.id, title);
+      return { ...conversation, title };
+    });
   },
 
   async listTurns({ conversationId }) {
@@ -739,17 +784,18 @@ export const agentApi: AgentApi = {
 
   async saveConversation({ conversationId, turns }): Promise<void> {
     const db = getDb();
-    const existing = listConversations(db, 1).find((c) => c.id === conversationId);
+    const existing = getConversation(db, conversationId);
+    const title = conversationTitleFromTurns(turns);
+
     if (!existing) {
-      const firstUserTurn = turns.find((t) => t.role === "user");
-      const titleBlock = firstUserTurn?.blocks.find((b) => b.type === "text");
-      const title = titleBlock?.type === "text" ? titleBlock.content.slice(0, 80) : "Nova conversa";
       createConversation(db, { id: conversationId, title });
+    } else if (title !== existing.title) {
+      updateConversationTitle(db, conversationId, title);
     }
 
     for (const turn of turns) {
       if (turn.status === "streaming") continue;
-      createTurn(db, {
+      upsertTurn(db, {
         id: turn.id,
         conversationId,
         role: turn.role,

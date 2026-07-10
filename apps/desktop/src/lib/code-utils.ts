@@ -38,7 +38,7 @@ export function normalizeLanguage(language: string): string {
   const normalized = language.trim().toLowerCase();
   if (normalized === "sh") return "bash";
   if (normalized === "js") return "javascript";
-  if (normalized === "ts" || normalized === "tsx") return "typescript";
+  if (normalized === "ts") return "typescript";
   if (normalized === "py") return "python";
   if (normalized === "md") return "markdown";
   if (normalized === "yml") return "yaml";

@@ -1,5 +1,6 @@
 import type { LlmProvider } from "@desktop-agent/provider-gateway";
 import type { AgentEvent, ToolResult } from "@desktop-agent/shared";
+import { parseAgentDecision, stripThinkingMarkup } from "@desktop-agent/shared";
 import {
   closeDb,
   createInteraction,
@@ -53,6 +54,26 @@ async function sleep(ms: number, signal?: AbortSignal) {
 
     signal?.addEventListener("abort", abort, { once: true });
   });
+}
+
+async function emitResponseChunks(
+  text: string,
+  requestId: string,
+  emit: (event: AgentEvent) => void,
+  signal?: AbortSignal,
+) {
+  const characters = Array.from(text);
+  const chunkSize = 56;
+
+  for (let index = 0; index < characters.length; index += chunkSize) {
+    throwIfAborted(signal);
+    emit({
+      type: "agent.chunk",
+      requestId,
+      chunk: characters.slice(index, index + chunkSize).join(""),
+    });
+    if (index + chunkSize < characters.length) await sleep(8, signal);
+  }
 }
 
 export class Orchestrator {
@@ -183,8 +204,9 @@ export class Orchestrator {
     requestId: string,
     query: string,
     clipboardText: string,
+    history: { role: "user" | "assistant" | "system"; content: string }[],
     emit: (event: AgentEvent) => void,
-    getLlmProviderFn: () => any,
+    getLlmProviderFn: () => LlmProvider,
     getActiveModelFn: () => string,
     signal?: AbortSignal,
   ): Promise<string> {
@@ -229,7 +251,6 @@ ${profileInstructions}
 FORMATO DE SAÍDA
 Você deve responder ESTRITAMENTE com o JSON abaixo, sem texto adicional ou blocos de código markdown:
 {
-  "thought": "pensamento passo a passo",
   "toolName": null,
   "toolInput": null,
   "directResponse": null
@@ -251,6 +272,7 @@ REGRAS DE FORMATAÇÃO DO CAMPO "directResponse"
 
     const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
       { role: "system", content: systemPrompt },
+      ...history,
       {
         role: "user",
         content: `Comando do usuário: "${query}"\nConteúdo do clipboard (${clipboardText ? `${clipboardText.length} caracteres` : "vazio"}): "${clipboardText}"`,
@@ -260,6 +282,7 @@ REGRAS DE FORMATAÇÃO DO CAMPO "directResponse"
     let steps = 0;
     const maxSteps = 5;
     let finalResult = "";
+    let emittedFinalResponse = false;
 
     while (steps < maxSteps) {
       steps++;
@@ -295,34 +318,22 @@ REGRAS DE FORMATAÇÃO DO CAMPO "directResponse"
             text: clipboardText,
             instruction: query,
           });
+          const output = executionResult.result.output;
+          const outputRecord =
+            typeof output === "object" && output !== null ? (output as Record<string, unknown>) : {};
           const text =
-            (executionResult.result.output as any).rewritten ||
-            (executionResult.result.output as any).summary ||
-            (executionResult.result.output as any).translation ||
-            JSON.stringify(executionResult.result.output);
+            [outputRecord.rewritten, outputRecord.summary, outputRecord.translation].find(
+              (value): value is string => typeof value === "string",
+            ) ?? JSON.stringify(output);
 
-          const words = text.split(" ");
-          let acc = "";
-          for (const word of words) {
-            throwIfAborted(signal);
-            const chunk = `${word} `;
-            acc += chunk;
-            emit({ type: "agent.chunk", requestId, chunk });
-            await sleep(20, signal);
-          }
-          finalResult = acc;
+          emittedFinalResponse = true;
+          await emitResponseChunks(text, requestId, emit, signal);
+          finalResult = text;
         } else {
           const text = `[Mock] Executado com sucesso. Comando: "${query}". Clipboard: "${clipboardText.slice(0, 50)}".`;
-          const words = text.split(" ");
-          let acc = "";
-          for (const word of words) {
-            throwIfAborted(signal);
-            const chunk = `${word} `;
-            acc += chunk;
-            emit({ type: "agent.chunk", requestId, chunk });
-            await sleep(20, signal);
-          }
-          finalResult = acc;
+          emittedFinalResponse = true;
+          await emitResponseChunks(text, requestId, emit, signal);
+          finalResult = text;
         }
         break;
       }
@@ -337,32 +348,12 @@ REGRAS DE FORMATAÇÃO DO CAMPO "directResponse"
       });
 
       const responseText = res.content.trim();
-      let parsed: {
-        thought: string;
-        toolName: string | null;
-        toolInput: any;
-        directResponse: string | null;
-      };
-
-      try {
-        const jsonText = responseText
-          .replace(/```json/g, "")
-          .replace(/```/g, "")
-          .trim();
-        parsed = JSON.parse(jsonText);
-      } catch (err) {
-        console.error("Failed to parse agent JSON response:", responseText, err);
-        parsed = {
-          thought: "Falha ao analisar JSON. Tratando como resposta direta.",
-          toolName: null,
-          toolInput: null,
-          directResponse: responseText,
-        };
-      }
-
-      if (parsed.thought) {
-        emit({ type: "agent.thought", requestId, thought: parsed.thought });
-      }
+      const parsed = parseAgentDecision(responseText);
+      const decisionMessage = JSON.stringify({
+        toolName: parsed.toolName,
+        toolInput: parsed.toolInput,
+        directResponse: parsed.directResponse,
+      });
 
       if (parsed.toolName) {
         emit({ type: "agent.thought", requestId, thought: `Executando ferramenta: ${parsed.toolName}` });
@@ -373,7 +364,7 @@ REGRAS DE FORMATAÇÃO DO CAMPO "directResponse"
 
           messages.push({
             role: "assistant",
-            content: JSON.stringify(parsed),
+            content: decisionMessage,
           });
           messages.push({
             role: "user",
@@ -383,7 +374,7 @@ REGRAS DE FORMATAÇÃO DO CAMPO "directResponse"
           const errorMsg = toolErr instanceof Error ? toolErr.message : String(toolErr);
           messages.push({
             role: "assistant",
-            content: JSON.stringify(parsed),
+            content: decisionMessage,
           });
           messages.push({
             role: "user",
@@ -391,51 +382,52 @@ REGRAS DE FORMATAÇÃO DO CAMPO "directResponse"
           });
         }
       } else {
-        emit({ type: "agent.thought", requestId, thought: "Gerando resposta final com streaming..." });
-        const finalMessages = [
-          {
-            role: "system",
-            content: `Você é o Helix. Escreva a resposta final direta para o usuário baseando-se no histórico e na requisição.
+        if (parsed.structured && parsed.directResponse?.trim()) {
+          finalResult = parsed.directResponse.trim();
+        } else {
+          emit({ type: "agent.thought", requestId, thought: "Preparando resposta final..." });
+          const recovery = await provider.complete({
+            model,
+            messages: [
+              {
+                role: "system",
+                content: `Você é o Helix. Responda diretamente ao usuário em português.
 
-REGRAS DE FORMATAÇÃO
-- Escreva em Markdown válido, sem encapsular em JSON.
-- Espaço após pontuação (pontos, vírgulas, dois-pontos, ponto-e-vírgula, exclamação, interrogação).
-- Parágrafos separados por uma linha em branco.
-- Headings, listas e blocos de código separados do texto por uma linha em branco.
-- Palavras separadas por espaço; nunca concatene palavras.
-- Use **negrito**, *itálico* e \`código\` para formatação inline.
-- Todo código, comando shell, HTML, JSON, etc. deve estar em um bloco fenced code com linguagem: \`\`\`linguagem ... \`\`\`.
-- Linguagens preferidas: bash (ou sh), html, javascript, typescript, python, json, css, markdown.
-- A primeira linha do bloco deve ser apenas \`\`\`linguagem; nunca coloque código na mesma linha.
-- Não use blocos indentados; sempre fenced blocks.`,
-          },
-          ...messages.slice(1),
-          {
-            role: "assistant",
-            content: parsed.thought ? `Pensamento: ${parsed.thought}` : "",
-          },
-        ];
-
-        let accumulatedText = "";
-        for await (const chunk of provider.stream({
-          model,
-          messages: finalMessages,
-          temperature: 0.3,
-          signal,
-        })) {
-          throwIfAborted(signal);
-          if (chunk.content) {
-            accumulatedText += chunk.content;
-            emit({ type: "agent.chunk", requestId, chunk: chunk.content });
-          }
+REGRAS
+- Entregue apenas a resposta final em Markdown.
+- Não retorne JSON.
+- Não descreva seu raciocínio, planejamento, instruções ou processo interno.
+- Preserve espaços, parágrafos, listas e blocos de código válidos.`,
+              },
+              ...history,
+              {
+                role: "user",
+                content: clipboardText.trim()
+                  ? `${query}\n\nContexto opcional do clipboard:\n${clipboardText}`
+                  : query,
+              },
+            ],
+            temperature: 0.3,
+            signal,
+          });
+          const recoveredDecision = parseAgentDecision(recovery.content);
+          finalResult =
+            recoveredDecision.directResponse?.trim() ||
+            stripThinkingMarkup(recovery.content) ||
+            "Não foi possível obter uma resposta final do agente.";
         }
-        finalResult = accumulatedText || parsed.directResponse || responseText;
+        emittedFinalResponse = true;
+        await emitResponseChunks(finalResult, requestId, emit, signal);
         break;
       }
     }
 
     if (!finalResult) {
       finalResult = "Não foi possível obter uma resposta do agente.";
+    }
+
+    if (!emittedFinalResponse) {
+      emit({ type: "agent.chunk", requestId, chunk: finalResult });
     }
 
     emit({ type: "agent.completed", requestId });

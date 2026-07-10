@@ -24,7 +24,7 @@ export function App() {
 
   useEffect(() => {
     // Proactively boot the sidecar once on mount
-    void getAgent();
+    void getAgent().catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -50,7 +50,7 @@ export function App() {
   );
 
   const applyWindowMode = useCallback(
-    async (mode: "collapsed" | "mini" | "normal" | "expanded") => {
+    async (mode: "collapsed" | "normal" | "expanded") => {
       setUiMode(mode);
       await setWindowMode(mode, { alwaysOnTop: settings.alwaysOnTop });
 

@@ -3,9 +3,11 @@ export { runMigrations } from "./migrations";
 export {
   createConversation,
   createTurn,
+  getConversation,
   listConversations,
   listTurns,
   updateConversationTitle,
+  upsertTurn,
 } from "./repositories/conversations";
 export {
   createInteraction,

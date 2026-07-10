@@ -32,6 +32,7 @@ export type { SaveProfileInput, SavePromptInput };
 
 export type AgentApi = {
   ping(): Promise<{ status: string }>;
+  getVersion(): Promise<string>;
   execute(input: { requestId: string; toolName: string; input: unknown }): Promise<{
     result: ToolResult;
     events: AgentEvent[];
@@ -42,7 +43,12 @@ export type AgentApi = {
   getSettings(): Promise<AppSettings>;
   saveSettings(settings: AppSettings): Promise<void>;
   fetchModels(provider: string, apiKey: string, baseUrl?: string): Promise<string[]>;
-  runAgent(input: { requestId: string; query: string; clipboardText: string }): Promise<{
+  runAgent(input: {
+    requestId: string;
+    query: string;
+    clipboardText: string;
+    history?: { role: "user" | "assistant" | "system"; content: string }[];
+  }): Promise<{
     result: string;
     events: AgentEvent[];
   }>;
@@ -54,6 +60,7 @@ export type AgentApi = {
     sourceMode?: "free" | "clipboard";
     clipboardText?: string;
     maxSteps?: number;
+    history?: { role: "user" | "assistant" | "system"; content: string }[];
   }): Promise<{
     run: WorkflowRun;
     events: AgentEvent[];

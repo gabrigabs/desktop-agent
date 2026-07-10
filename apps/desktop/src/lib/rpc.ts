@@ -13,9 +13,18 @@ let channel: RPCChannel<FrontendApi, AgentApi> | null = null;
 let child: Child | null = null;
 let beforeUnloadHandler: (() => void) | null = null;
 let activeRequestId: string | null = null;
+let bootPromise: Promise<AgentApi> | null = null;
+let sidecarVersion: string | null = null;
+let bootAttempt = 0;
+
+const BOOT_TIMEOUT_MS = 10000;
 
 export function setActiveRequestId(id: string | null) {
   activeRequestId = id;
+}
+
+export function clearActiveRequestId(id: string | null) {
+  if (id && activeRequestId === id) activeRequestId = null;
 }
 
 export function isMissingRpcMethodError(err: unknown, method?: string) {
@@ -31,15 +40,27 @@ export function isMissingRpcMethodError(err: unknown, method?: string) {
   );
 }
 
-export async function initializeRpc(): Promise<AgentApi> {
-  if (agent) return agent;
+function reportBootError(err: unknown) {
+  const message = err instanceof Error ? err.message : String(err);
+  const store = useAgentStore.getState();
+  store.setConnected(false);
+  store.setBootState("error");
+  store.setBootError(message);
+  window.dispatchEvent(new CustomEvent("agent-connection-error", { detail: message }));
+}
 
+async function doInitializeRpc(attempt: number): Promise<AgentApi> {
   const store = useAgentStore.getState();
   store.setBootState("booting");
   store.setBootError(null);
 
   const cmd = Command.sidecar("binaries/agent-runtime");
-  child = await cmd.spawn();
+  const spawnedChild = await cmd.spawn();
+  if (attempt !== bootAttempt) {
+    await spawnedChild.kill().catch(() => undefined);
+    throw new Error("Inicialização do agente substituída.");
+  }
+  child = spawnedChild;
 
   if (!beforeUnloadHandler) {
     beforeUnloadHandler = () => {
@@ -60,7 +81,7 @@ export async function initializeRpc(): Promise<AgentApi> {
         store.addEvent(event as AgentEvent);
 
         // Filter stale events from cancelled/superseded requests
-        if ("requestId" in event && activeRequestId !== null && event.requestId !== activeRequestId) {
+        if ("requestId" in event && event.requestId !== activeRequestId) {
           return;
         }
 
@@ -142,7 +163,6 @@ export async function initializeRpc(): Promise<AgentApi> {
             store.setError("Execução abortada pelo usuário.");
             break;
           case "agent.completed":
-            if (event.requestId === activeRequestId) activeRequestId = null;
             store.finalizeAssistantTurn("complete");
             store.addAgentLog({ type: "info", text: "Resposta pronta" });
             break;
@@ -156,13 +176,15 @@ export async function initializeRpc(): Promise<AgentApi> {
 
   try {
     const ping = await agent.ping();
+    if (attempt !== bootAttempt) throw new Error("Inicialização do agente substituída.");
 
-    // Load initial tools list
-    const tools = await agent.listTools();
+    sidecarVersion = await agent.getVersion();
+    if (attempt !== bootAttempt) throw new Error("Inicialização do agente substituída.");
+
+    const [tools, settings] = await Promise.all([agent.listTools(), agent.getSettings()]);
+    if (attempt !== bootAttempt) throw new Error("Inicialização do agente substituída.");
+
     store.setTools(tools);
-
-    // Load settings from database
-    const settings = await agent.getSettings();
     store.setSettings(settings);
 
     if (ping.status === "ok") {
@@ -170,39 +192,68 @@ export async function initializeRpc(): Promise<AgentApi> {
       store.setBootState("ready");
       store.setBootError(null);
     }
-
-    try {
-      const capabilities = await agent.listCapabilities();
-      store.setConnectors(capabilities.connectors);
-    } catch (err) {
-      if (!isMissingRpcMethodError(err, "listCapabilities")) {
-        console.error("Failed to load agent capabilities:", err);
-      }
-    }
   } catch (err) {
-    store.setConnected(false);
-    store.setBootState("error");
-    store.setBootError(err instanceof Error ? err.message : String(err));
-    console.error("Failed to connect to agent runtime:", err);
-    window.dispatchEvent(new CustomEvent("agent-connection-error", { detail: String(err) }));
+    if (attempt === bootAttempt) {
+      reportBootError(err);
+      console.error("Failed to connect to agent runtime:", err);
+      await destroyRpc();
+    }
+    throw err;
   }
 
   return agent;
+}
+
+export async function initializeRpc(): Promise<AgentApi> {
+  if (bootPromise) return bootPromise;
+  if (agent && sidecarVersion && useAgentStore.getState().connected) return agent;
+
+  const attempt = ++bootAttempt;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      if (attempt !== bootAttempt) return;
+
+      const err = new Error("O agente demorou demais para iniciar. Tente novamente.");
+      reportBootError(err);
+      void destroyRpc();
+      reject(err);
+    }, BOOT_TIMEOUT_MS);
+  });
+
+  const promise = Promise.race([doInitializeRpc(attempt), timeout]);
+  bootPromise = promise;
+
+  try {
+    return await promise;
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+    if (bootPromise === promise) bootPromise = null;
+  }
 }
 
 export async function getAgent(): Promise<AgentApi> {
-  if (!agent) {
-    return initializeRpc();
+  try {
+    return await initializeRpc();
+  } catch (err) {
+    if (isMissingRpcMethodError(err, "getVersion")) {
+      console.warn("Runtime sidecar is stale, restarting to load updated sidecar...");
+      return restartRpc();
+    }
+    throw err;
   }
-  return agent;
 }
 
 export async function restartRpc(): Promise<AgentApi> {
+  sidecarVersion = null;
   await destroyRpc();
   return initializeRpc();
 }
 
 export async function destroyRpc(): Promise<void> {
+  bootAttempt += 1;
+  bootPromise = null;
+  sidecarVersion = null;
   if (beforeUnloadHandler) {
     window.removeEventListener("beforeunload", beforeUnloadHandler);
     beforeUnloadHandler = null;

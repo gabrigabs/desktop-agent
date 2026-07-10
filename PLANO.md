@@ -1,8 +1,8 @@
 # Plano Helix
 
 > Fonte principal do produto. `BACKLOG.md` fica como histórico/status resumido.
-> Última atualização: 2026-07-07.
-> Foco atual: UI/UX redesign, system design e evolução de Profiles.
+> Última atualização: 2026-07-10.
+> Foco atual: confiabilidade do chat, validação dos workflows e fechamento das entregas parciais do redesign.
 
 ---
 
@@ -17,7 +17,7 @@
 | Plataforma    | macOS Apple Silicon                                                                                       |
 | Idioma UI     | Português PT-BR                                                                                           |
 | Atalho global | `Control+Shift+Space`                                                                                     |
-| Janela        | Collapsed `104x104`, Normal `520x820`, Expanded até `1180x820`                                              |
+| Janela        | Collapsed `120x120`, Normal `520x820`, Expanded até `1180x820`                                              |
 | Produto       | Copilot macOS leve, keyboard-first, com pet launcher, home minimalista, navegação lateral e permissões explícitas |
 
 ## Estado Auditado Do Worktree
@@ -95,7 +95,7 @@
 
 ### Chat Core
 
-- `messages: Turn[]` é a fonte de verdade; `result` deve ser removido nesta fase de redesign se ainda existir.
+- `messages: Turn[]` é a fonte de verdade; `result` permanece apenas como projeção transitória para views legadas.
 - Streaming modifica a última turn em andamento; turns completas são imutáveis.
 - Context window usa sliding window dos últimos N turns, default 10.
 - Perfil ativo injeta `systemPrompt` no início da conversa (como turn `system` ou prepend na primeira mensagem `user`).
@@ -121,11 +121,13 @@
 
 Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
+> Auditoria de 2026-07-10: os status abaixo refletem o código e a validação nativa, não apenas a intenção do redesign.
+
 ### Fase 1 — Home Page Minimalista
 
 #### H01 — Limpar a home vazia
 
-- Status: planejado.
+- Status: parcialmente concluído — a home foi simplificada, mas o seletor Simples/Workflow e a área de starters ainda precisam de uma decisão final de produto.
 - Objetivo: remover informação repetida e deixar a tela inicial focada no composer, como produtos de referência (ChatGPT, Claude, Grok).
 - Arquivos: `apps/desktop/src/surfaces/helix/NormalCommandView.tsx`, `apps/desktop/src/surfaces/helix/ExpandedView.tsx`, `apps/desktop/src/surfaces/helix/index.tsx`, `apps/desktop/src/index.css`.
 - Implementação:
@@ -138,7 +140,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### H02 — Reposicionar o composer
 
-- Status: planejado.
+- Status: concluído.
 - Objetivo: destacar o campo de input sem poluir a tela.
 - Arquivos: `apps/desktop/src/surfaces/helix/NormalCommandView.tsx`, `apps/desktop/src/surfaces/helix/ExpandedView.tsx`, `apps/desktop/src/surfaces/helix/Composer.tsx`.
 - Implementação:
@@ -151,7 +153,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### H03 — Chips de sugestão contextual
 
-- Status: planejado.
+- Status: concluído.
 - Objetivo: substituir o grid de ações por uma linha discreta de chips.
 - Arquivos: `apps/desktop/src/surfaces/helix/ContextChipBar.tsx`, `apps/desktop/src/surfaces/helix/hooks/useContextChips.ts`, `apps/desktop/src/surfaces/helix/constants.tsx`.
 - Implementação:
@@ -165,7 +167,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### H04 — Clipboard preview colapsável
 
-- Status: planejado.
+- Status: concluído.
 - Objetivo: unificar o clipboard ao chat normal, mantendo preview compacto e interativo.
 - Arquivos: `apps/desktop/src/surfaces/helix/Composer.tsx`, `apps/desktop/src/surfaces/helix/ContextChipBar.tsx`, `apps/desktop/src/surfaces/helix/index.tsx`.
 - Implementação:
@@ -181,7 +183,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### P01 — Criar componente HelixHeader
 
-- Status: planejado.
+- Status: concluído.
 - Objetivo: unificar controles de janela, título e status em uma única top bar limpa.
 - Arquivos: `apps/desktop/src/components/ui/helix-header.tsx`, `apps/desktop/src/surfaces/helix/index.tsx`, `apps/desktop/src/surfaces/helix/NormalCommandView.tsx`, `apps/desktop/src/surfaces/helix/ExpandedView.tsx`.
 - Implementação:
@@ -194,7 +196,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### P02 — Redesign do pet
 
-- Status: planejado.
+- Status: concluído.
 - Objetivo: corrigir alinhamento e fazer o pet comunicar estado de forma limpa.
 - Arquivos: `apps/desktop/src/components/ui/pet.tsx`, `apps/desktop/src/index.css`.
 - Implementação:
@@ -208,7 +210,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### P03 — Pet collapsed como launcher
 
-- Status: planejado.
+- Status: concluído.
 - Objetivo: substituir o modo mini da janela principal pelo menu do pet collapsed.
 - Arquivos: `apps/desktop/src/app.tsx`, `apps/desktop/src/components/ui/pet.tsx`, `apps/desktop/src/lib/window.ts`, `apps/desktop/src/surfaces/helix/MiniView.tsx`.
 - Implementação:
@@ -222,7 +224,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### P04 — Navegação lateral e drawer
 
-- Status: planejado.
+- Status: concluído.
 - Objetivo: mover navegação secundária para fora do header.
 - Arquivos: `apps/desktop/src/components/ui/helix-sidebar.tsx`, `apps/desktop/src/components/ui/helix-drawer.tsx`, `apps/desktop/src/surfaces/helix/ExpandedView.tsx`, `apps/desktop/src/surfaces/helix/NormalCommandView.tsx`.
 - Implementação:
@@ -238,7 +240,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### D01 — Tokens de design
 
-- Status: planejado.
+- Status: concluído.
 - Objetivo: consolidar a base visual para a nova superfície e páginas internas.
 - Arquivos: `apps/desktop/src/index.css`.
 - Implementação:
@@ -251,7 +253,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### D02 — Biblioteca de componentes
 
-- Status: planejado.
+- Status: concluído.
 - Objetivo: criar componentes reutilizáveis consistentes.
 - Arquivos: `apps/desktop/src/components/ui/button.tsx`, `icon-button.tsx`, `input.tsx`, `card.tsx`, `badge.tsx`, `separator.tsx`, `helix-shell.tsx`.
 - Implementação:
@@ -268,7 +270,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### D03 — Aplicar design system às páginas internas
 
-- Status: planejado.
+- Status: parcialmente concluído — tokens e componentes já são usados, mas ainda há composição específica demais nas páginas internas.
 - Objetivo: deixar Config, Prompts/Profiles e Connectors visualmente aderentes ao system design sem reestruturar conteúdo.
 - Arquivos: `apps/desktop/src/surfaces/helix/SettingsPanel.tsx`, `PromptsPanel.tsx`, `ConnectorsPanel.tsx`.
 - Implementação:
@@ -284,7 +286,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### PR01 — Renomear Prompts para Perfis na navegação
 
-- Status: planejado.
+- Status: concluído.
 - Objetivo: reposicionar a aba como central de Profiles, mantendo templates de prompt acessíveis.
 - Arquivos: `apps/desktop/src/surfaces/helix/PromptsPanel.tsx`, `apps/desktop/src/components/ui/helix-sidebar.tsx`, `apps/desktop/src/components/ui/helix-drawer.tsx`, `apps/desktop/src/surfaces/helix/ExpandedView.tsx`, `apps/desktop/src/surfaces/helix/NormalCommandView.tsx`.
 - Implementação:
@@ -297,7 +299,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### PR02 — Evoluir modelo de Profile
 
-- Status: planejado.
+- Status: concluído.
 - Objetivo: permitir system prompt evoluído e metadados por profile.
 - Arquivos: `packages/storage/src/repositories/prompt-library.ts`, `packages/storage/src/migrations/006_prompt_library.ts`, `packages/shared/src/types/rpc.ts`, `packages/shared/src/api.ts`.
 - Implementação:
@@ -311,7 +313,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### PR03 — Aplicar profile ativo ao chat
 
-- Status: planejado.
+- Status: parcialmente concluído — o profile ativo chega ao runtime, mas a troca ainda pode afetar uma conversa já aberta.
 - Objetivo: o system prompt do profile influenciar as respostas.
 - Arquivos: `packages/agent-runtime/src/orchestrator.ts`, `packages/agent-runtime/src/workflow-runner.ts`, `apps/desktop/src/stores/agent.ts`.
 - Implementação:
@@ -324,7 +326,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### PR04 — Unificar clipboard ao chat normal
 
-- Status: planejado.
+- Status: parcialmente concluído — o clipboard já entra pelo composer e pelo runtime, mas ainda não é persistido como bloco explícito do turn.
 - Objetivo: eliminar o modo de input "clipboard" como estado separado e tornar o fluxo mais natural.
 - Arquivos: `apps/desktop/src/surfaces/helix/index.tsx`, `apps/desktop/src/surfaces/helix/hooks/useExecute.ts`, `apps/desktop/src/surfaces/helix/ContextChipBar.tsx`, `apps/desktop/src/surfaces/helix/Composer.tsx`.
 - Implementação:
@@ -374,6 +376,8 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 ```bash
 bun run lint
 bun run typecheck
+bun test
+bun run desktop:build
 ```
 
 Testes manuais obrigatórios:

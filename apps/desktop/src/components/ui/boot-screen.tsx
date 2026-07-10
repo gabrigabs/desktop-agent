@@ -1,6 +1,6 @@
 import { RefreshCw, Settings } from "lucide-react";
-import { useAgentStore } from "../../stores/agent";
 import { restartRpc } from "../../lib/rpc";
+import { useAgentStore } from "../../stores/agent";
 import { Button } from "./button";
 import { Pet } from "./pet";
 
@@ -15,7 +15,7 @@ export function BootScreen({ compact }: BootScreenProps) {
   const bootError = useAgentStore((s) => s.bootError);
 
   const handleRetry = () => {
-    void restartRpc();
+    void restartRpc().catch(() => undefined);
   };
 
   const handleOpenSettings = () => {

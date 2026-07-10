@@ -33,6 +33,7 @@ type RunInput = {
   runId: string;
   prompt: string;
   clipboardText: string;
+  history?: { role: "user" | "assistant" | "system"; content: string }[];
   signal?: AbortSignal;
 };
 
@@ -170,7 +171,7 @@ export class WorkflowRunner {
 
     const payload = approvalStep?.input as { toolName?: string; toolInput?: unknown } | undefined;
     if (!payload?.toolName) {
-      return this.runWorkflow(input);
+      return this.runWorkflowLoop(input, []);
     }
 
     const toolOutput = await this.executeTool(input, {
@@ -178,8 +179,8 @@ export class WorkflowRunner {
       input: payload.toolInput ?? {},
       reason: "Execução retomada após aprovação.",
     });
-    this.recordObservation(input, toolOutput);
-    return this.finishWorkflow(input, [toolOutput]);
+    this.recordObservation(input, { tool: payload.toolName, output: toolOutput, next: "continue" });
+    return this.runWorkflowLoop(input, [toolOutput]);
   }
 
   private async runSimple(input: RunInput): Promise<WorkflowRun> {
@@ -204,6 +205,7 @@ export class WorkflowRunner {
       input.requestId,
       input.prompt,
       input.clipboardText,
+      input.history ?? [],
       this.emit,
       this.getLlmProvider,
       this.getActiveModel,
@@ -240,7 +242,6 @@ export class WorkflowRunner {
       detail: "Workflow iniciado.",
     });
 
-    const toolPlan = await this.selectTool(input, input.prompt, input.clipboardText);
     const planStep = this.createStep(input.requestId, run.id, {
       kind: "plan",
       status: "running",
@@ -256,42 +257,51 @@ export class WorkflowRunner {
 
     this.updateStep(input.requestId, run.id, planStep.id, {
       status: "completed",
-      detail: toolPlan
-        ? `Usar ${toolPlan.toolName} e sintetizar o resultado.`
-        : "Responder diretamente com base no pedido e contexto disponível.",
+      detail: `Workflow de até ${run.maxSteps} passos com observações intermediárias.`,
       output: {
-        steps: toolPlan
-          ? ["Entender pedido", `Executar ${toolPlan.toolName}`, "Observar resultado", "Responder"]
-          : ["Entender pedido", "Gerar resposta final"],
+        steps: ["Entender pedido", "Selecionar ferramenta", "Executar", "Observar", "Repetir ou finalizar"],
       },
       completedAt: nowIso(),
     });
 
-    throwIfAborted(input.signal);
+    return this.runWorkflowLoop(input, []);
+  }
 
-    if (!toolPlan) {
-      return this.finishWorkflow(input, []);
+  private async runWorkflowLoop(input: RunInput, observations: unknown[]): Promise<WorkflowRun> {
+    const run = getWorkflowRun(getDb(), input.runId) as WorkflowRun;
+
+    while (observations.length < run.maxSteps) {
+      throwIfAborted(input.signal);
+
+      const toolPlan = await this.selectTool(input, observations);
+      if (!toolPlan) {
+        break;
+      }
+
+      const tool = registry.get(toolPlan.toolName);
+      if (!tool) {
+        this.recordObservation(input, {
+          error: `Ferramenta indisponível: ${toolPlan.toolName}`,
+          next: "continue",
+        });
+        continue;
+      }
+
+      if (requiresApproval(tool.permissionLevel)) {
+        return this.waitForApproval(input, toolPlan, tool.permissionLevel);
+      }
+
+      try {
+        const toolOutput = await this.executeTool(input, toolPlan);
+        this.recordObservation(input, { tool: toolPlan.toolName, output: toolOutput, next: "continue" });
+        observations.push(toolOutput);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        this.recordObservation(input, { error: message, tool: toolPlan.toolName, next: "continue" });
+      }
     }
 
-    const tool = registry.get(toolPlan.toolName);
-    if (!tool) {
-      this.createStep(input.requestId, run.id, {
-        kind: "observation",
-        status: "completed",
-        title: "Ferramenta indisponível",
-        detail: `${toolPlan.toolName} ainda não está registrada. Vou responder com o que já existe.`,
-        output: { toolName: toolPlan.toolName },
-      });
-      return this.finishWorkflow(input, []);
-    }
-
-    if (requiresApproval(tool.permissionLevel)) {
-      return this.waitForApproval(input, toolPlan, tool.permissionLevel);
-    }
-
-    const toolOutput = await this.executeTool(input, toolPlan);
-    this.recordObservation(input, toolOutput);
-    return this.finishWorkflow(input, [toolOutput]);
+    return this.finishWorkflow(input, observations);
   }
 
   private async waitForApproval(
@@ -376,6 +386,7 @@ export class WorkflowRunner {
     throwIfAborted(input.signal);
     const execution = await this.orchestrator.execute(input.requestId, toolPlan.toolName, toolPlan.input);
     for (const event of execution.events) {
+      if (event.type === "agent.started" || event.type === "agent.completed") continue;
       this.emit(event);
     }
 
@@ -394,15 +405,17 @@ export class WorkflowRunner {
     return execution.result.output;
   }
 
-  private recordObservation(input: RunInput, toolOutput: unknown) {
+  private recordObservation(input: RunInput, observation: unknown) {
     this.createStep(input.requestId, input.runId, {
       kind: "observation",
       status: "completed",
       title: "Observação",
       detail: "Resultado auditado; próximos passos definidos antes da resposta final.",
       output: {
-        preview: stringifyOutput(toolOutput).slice(0, 1200),
-        next: "finish",
+        preview: stringifyOutput(observation).slice(0, 1200),
+        ...(typeof observation === "object" && observation !== null
+          ? (observation as Record<string, unknown>)
+          : {}),
       },
       completedAt: nowIso(),
     });
@@ -460,7 +473,9 @@ export class WorkflowRunner {
       return result;
     }
 
+    const history = input.history ?? [];
     let result = "";
+    let emittedChunk = false;
     for await (const chunk of provider.stream({
       model,
       temperature: 0.3,
@@ -482,6 +497,7 @@ REGRAS DE FORMATAÇÃO
 - A primeira linha do bloco deve ser apenas \`\`\`linguagem; nunca coloque código na mesma linha.
 - Não use blocos indentados; sempre fenced blocks.`,
         },
+        ...history,
         {
           role: "user",
           content: `Pedido: ${input.prompt}\nClipboard: ${input.clipboardText || "(vazio)"}\nObservações:\n${observations.map(stringifyOutput).join("\n\n")}`,
@@ -491,21 +507,28 @@ REGRAS DE FORMATAÇÃO
       throwIfAborted(input.signal);
       if (chunk.content) {
         result += chunk.content;
+        emittedChunk = true;
         this.emit({ type: "agent.chunk", requestId: input.requestId, chunk: chunk.content });
       }
     }
 
-    return result || "Workflow concluído sem conteúdo retornado.";
+    const finalResult = result || "Workflow concluído sem conteúdo retornado.";
+    if (!emittedChunk) {
+      this.emit({ type: "agent.chunk", requestId: input.requestId, chunk: finalResult });
+    }
+    return finalResult;
   }
 
-  private async selectTool(input: RunInput, prompt: string, clipboardText: string): Promise<ToolPlan | null> {
-    const keywordPlan = this.selectToolKeyword(prompt, clipboardText);
+  private async selectTool(input: RunInput, observations: unknown[]): Promise<ToolPlan | null> {
+    const keywordPlan = this.selectToolKeyword(input.prompt, input.clipboardText, observations);
     if (keywordPlan) return keywordPlan;
 
-    return this.selectToolWithLlm(input, prompt, clipboardText);
+    return this.selectToolWithLlm(input, observations);
   }
 
-  private selectToolKeyword(prompt: string, clipboardText: string): ToolPlan | null {
+  private selectToolKeyword(prompt: string, clipboardText: string, observations: unknown[]): ToolPlan | null {
+    if (observations.length > 0) return null;
+
     const query = normalize(prompt);
     const hasClipboard = clipboardText.trim().length > 0;
     const urlMatch = prompt.match(/https?:\/\/[^\s]+/i);
@@ -561,11 +584,7 @@ REGRAS DE FORMATAÇÃO
     return null;
   }
 
-  private async selectToolWithLlm(
-    input: RunInput,
-    prompt: string,
-    clipboardText: string,
-  ): Promise<ToolPlan | null> {
+  private async selectToolWithLlm(input: RunInput, observations: unknown[]): Promise<ToolPlan | null> {
     const provider = this.getLlmProvider();
     if (provider.name === "mock") return null;
 
@@ -575,25 +594,33 @@ REGRAS DE FORMATAÇÃO
       .join("\n");
 
     const systemPrompt = [
-      "Você é um seletor de ferramentas. Analise o pedido do usuário e decida se uma ferramenta deve ser usada.",
+      "Você é um seletor de ferramentas para workflow multi-step. Analise o pedido, o histórico e as observações já coletadas.",
       'Responda APENAS com JSON no formato: {"toolName": "...", "reason": "...", "input": {...}}',
-      'Se nenhuma ferramenta for necessária, responda: {"toolName": null, "reason": "resposta direta", "input": {}}',
+      'Se nenhuma ferramenta for mais necessária, responda: {"toolName": null, "reason": "resposta direta", "input": {}}',
       "Não use blocos de código markdown, apenas o JSON puro.",
       "",
       "Ferramentas disponíveis:",
       toolCatalog,
     ].join("\n");
 
-    const userMessage = [`Pedido: ${prompt}`, `Clipboard: ${clipboardText || "(vazio)"}`].join("\n");
+    const userMessage = [
+      `Pedido: ${input.prompt}`,
+      `Clipboard: ${input.clipboardText || "(vazio)"}`,
+      observations.length > 0
+        ? `Observações já coletadas:\n${observations.map(stringifyOutput).join("\n\n")}`
+        : "",
+    ].join("\n");
 
     try {
       throwIfAborted(input.signal);
+      const history = input.history ?? [];
       const result = await provider.complete({
         model: this.getActiveModel() || "gpt-4o",
         temperature: 0,
         signal: input.signal,
         messages: [
           { role: "system", content: systemPrompt },
+          ...history,
           { role: "user", content: userMessage },
         ],
       });

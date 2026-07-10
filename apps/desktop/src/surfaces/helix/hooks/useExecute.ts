@@ -1,9 +1,42 @@
+import type { Turn } from "@desktop-agent/shared";
+import { unwrapAgentResponse } from "@desktop-agent/shared";
 import { readText as readClipboard, writeText as writeClipboard } from "@tauri-apps/plugin-clipboard-manager";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getAgent, setActiveRequestId as setRpcActiveRequestId } from "../../../lib/rpc";
+import {
+  clearActiveRequestId as clearRpcActiveRequestId,
+  getAgent,
+  setActiveRequestId as setRpcActiveRequestId,
+} from "../../../lib/rpc";
 import { isTauriRuntime } from "../../../lib/window";
 import { useAgentStore } from "../../../stores/agent";
 import { callAgentWithRuntimeRefresh, isStaleRuntimeError, QUICK_ACTIONS } from "../constants";
+
+const CLIPBOARD_MARKER = /[ \t]*\\?\[CLIPBOARD\][ \t]*/g;
+
+function buildHistory(
+  messages: Turn[],
+  limit = 10,
+): { role: "user" | "assistant" | "system"; content: string }[] {
+  const history: { role: "user" | "assistant" | "system"; content: string }[] = [];
+  for (const turn of messages) {
+    if (turn.status !== "complete") continue;
+    const text = turn.blocks
+      .filter((b) => b.type === "text")
+      .map((b) => (turn.role === "assistant" ? unwrapAgentResponse(b.content) : b.content))
+      .join("\n")
+      .trim();
+    if (!text) continue;
+    history.push({ role: turn.role, content: text });
+  }
+  return history.slice(-limit);
+}
+
+function cleanPrompt(text: string): string {
+  return text
+    .replace(CLIPBOARD_MARKER, "")
+    .replace(/^[ \t]+$/gm, "")
+    .trim();
+}
 
 export function useExecute() {
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
@@ -48,13 +81,13 @@ export function useExecute() {
       let requestId: string | null = null;
       let runId: string | null = null;
       try {
-        const hasClipboardMarker = activeQuery.includes("[CLIPBOARD]");
         const rawClipboardText = store.clipboardText || "";
-        const resolvedPrompt = hasClipboardMarker
-          ? activeQuery.replace(/\[CLIPBOARD\]/g, rawClipboardText.trim())
-          : activeQuery;
-        const sourceMode: "free" | "clipboard" = hasClipboardMarker ? "clipboard" : "free";
+        const hasClipboard = rawClipboardText.trim().length > 0 && !store.ignoreClipboard;
+        const sourceMode: "free" | "clipboard" = hasClipboard ? "clipboard" : "free";
+        const resolvedPrompt = cleanPrompt(activeQuery);
+        if (!resolvedPrompt) return;
         const clipboardPreview = rawClipboardText.slice(0, 500);
+        const history = buildHistory(store.messages);
         store.startUserTurn(resolvedPrompt, sourceMode);
         store.setQuery("");
         store.setIgnoreClipboard(true);
@@ -64,24 +97,27 @@ export function useExecute() {
         setActiveRequestId(requestId);
         setActiveRunId(null);
 
+        const clipboardText = hasClipboard ? rawClipboardText : "";
         const runInput = {
           requestId,
           prompt: resolvedPrompt,
           mode: store.executionMode,
           sourceMode,
-          clipboardText: "",
+          clipboardText,
           maxSteps: store.executionMode === "workflow" ? 8 : 1,
+          history,
         };
 
         const res = await callAgentWithRuntimeRefresh("startRun", (runtimeApi) =>
           runtimeApi.startRun(runInput),
         ).catch(async (err) => {
-          if (store.executionMode === "simple" && isStaleRuntimeError(err)) {
+          if (isStaleRuntimeError(err)) {
             const fallbackApi = await getAgent();
             const fallback = await fallbackApi.runAgent({
               requestId: requestId || crypto.randomUUID(),
               query: resolvedPrompt,
-              clipboardText: "",
+              clipboardText,
+              history,
             });
             return {
               run: {
@@ -92,7 +128,7 @@ export function useExecute() {
                 status: "completed" as const,
                 prompt: resolvedPrompt,
                 sourceMode,
-                clipboardPreview: clipboardPreview,
+                clipboardPreview,
                 providerId: store.settings.activeProvider,
                 model: store.settings.model,
                 maxSteps: 1,
@@ -123,6 +159,7 @@ export function useExecute() {
         store.addAgentLog({ type: "tool_fail", text: msg });
       } finally {
         useAgentStore.getState().setStreaming(false);
+        clearRpcActiveRequestId(requestId);
         setActiveRequestId((current) => (current === requestId ? null : current));
         setActiveRunId((current) => (current === runId ? null : current));
         void saveConversationToStorage();
@@ -184,6 +221,7 @@ export function useExecute() {
     if (!workflowRun) return;
 
     const requestId = crypto.randomUUID();
+    setRpcActiveRequestId(requestId);
     setActiveRequestId(requestId);
     setActiveRunId(workflowRun.id);
     store.setStreaming(approved);
@@ -203,6 +241,7 @@ export function useExecute() {
       store.addAgentLog({ type: "tool_fail", text: err instanceof Error ? err.message : String(err) });
     } finally {
       useAgentStore.getState().setStreaming(false);
+      clearRpcActiveRequestId(requestId);
       setActiveRequestId((current) => (current === requestId ? null : current));
       setActiveRunId((current) => (current === workflowRun.id ? null : current));
     }
@@ -221,6 +260,7 @@ export function useExecute() {
           // keep existing store value
         }
       }
+      store.setIgnoreClipboard(!action.requiresClipboard);
       store.setQuery(action.prompt);
       await handleExecute(action.prompt);
     },

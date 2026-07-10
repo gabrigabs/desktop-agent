@@ -30,3 +30,4 @@ Thumbs.db
 # Local verification artifacts
 .playwright-cli/
 output/
+apps/desktop/src-tauri/$HOME/

@@ -72,4 +72,22 @@ describe("Tool Registry Tests", () => {
     expect(systemTools.length).toBe(1);
     expect(systemTools[0]?.name).toBe("system.tool2");
   });
+
+  test("Should unregister a tool", () => {
+    const registry = new ToolRegistry();
+    const tool: RegisteredTool = {
+      name: "temporary.tool",
+      description: "A temporary tool",
+      category: "system",
+      permissionLevel: "local.read",
+      inputSchema: z.object({}),
+      handler: async () => ({}),
+    };
+
+    registry.register(tool);
+
+    expect(registry.unregister(tool.name)).toBe(true);
+    expect(registry.get(tool.name)).toBeUndefined();
+    expect(registry.unregister(tool.name)).toBe(false);
+  });
 });

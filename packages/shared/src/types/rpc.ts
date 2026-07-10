@@ -123,7 +123,7 @@ export type AuditEntry = {
   errorMessage?: string;
 };
 
-export type WindowMode = "collapsed" | "mini" | "normal" | "expanded";
+export type WindowMode = "collapsed" | "normal" | "expanded";
 
 export type AppSettings = {
   activeProvider: string;

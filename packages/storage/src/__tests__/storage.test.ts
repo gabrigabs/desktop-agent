@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { closeDb, getDb } from "../db";
 import { runMigrations } from "../migrations";
+import { createConversation, getConversation, listTurns, upsertTurn } from "../repositories/conversations";
 import { createInteraction, getRecentInteractions, searchInteractions } from "../repositories/interactions";
 import {
   ensureDefaultMcpPresets,
@@ -51,7 +52,7 @@ describe("Storage Package Tests", () => {
     const migrations = db.query("SELECT version FROM _migrations ORDER BY version").all() as {
       version: number;
     }[];
-    expect(migrations.map((migration) => migration.version)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(migrations.map((migration) => migration.version)).toEqual([1, 2, 3, 4, 5, 6, 7]);
 
     const settings = db.query("SELECT key, value FROM app_settings ORDER BY key").all() as {
       key: string;
@@ -197,5 +198,44 @@ describe("Storage Package Tests", () => {
     expect(custom?.env?.API_KEY).toBe("********");
     expect(custom?.permissionPolicy).toEqual(["network"]);
     expect(custom?.lastCheckedAt).toBe("2026-07-05T12:00:00.000Z");
+  });
+
+  test("Should upsert conversation turns", () => {
+    const conversationId = createConversation(db, { title: "Test" });
+    const turnId = "turn-1";
+    upsertTurn(db, {
+      id: turnId,
+      conversationId,
+      role: "user",
+      blocks: [{ type: "text", content: "hello" }],
+      status: "complete",
+      timestamp: "2026-07-05T12:00:00.000Z",
+      sourceMode: "free",
+      executionMode: "simple",
+    });
+
+    upsertTurn(db, {
+      id: turnId,
+      conversationId,
+      role: "user",
+      blocks: [{ type: "text", content: "hello world" }],
+      status: "complete",
+      timestamp: "2026-07-05T12:00:00.000Z",
+      sourceMode: "free",
+      executionMode: "simple",
+    });
+
+    const turns = listTurns(db, conversationId);
+    expect(turns.length).toBe(1);
+    const block = turns[0]?.blocks[0];
+    expect(block?.type === "text" ? block.content : "").toBe("hello world");
+  });
+
+  test("Should find a conversation by id outside the recent list", () => {
+    const olderId = createConversation(db, { title: "Older" });
+    createConversation(db, { title: "Recent" });
+
+    expect(getConversation(db, olderId)).toMatchObject({ id: olderId, title: "Older" });
+    expect(getConversation(db, "missing")).toBeNull();
   });
 });

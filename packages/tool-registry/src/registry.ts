@@ -25,6 +25,10 @@ export class ToolRegistry {
     return this.tools.get(name);
   }
 
+  unregister(name: string): boolean {
+    return this.tools.delete(name);
+  }
+
   list(): ToolDefinition[] {
     return Array.from(this.tools.values()).map(
       ({ name, description, category, permissionLevel, inputSchema }) => ({

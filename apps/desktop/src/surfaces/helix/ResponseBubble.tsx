@@ -1,15 +1,7 @@
 import type { MessageBlock, Turn } from "@desktop-agent/shared";
-import {
-  AlertCircle,
-  Check,
-  ChevronDown,
-  Clipboard,
-  ExternalLink,
-  RefreshCw,
-  Sparkles,
-  Wrench,
-} from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { unwrapAgentResponse } from "@desktop-agent/shared";
+import { AlertCircle, Check, Clipboard, ExternalLink, RefreshCw, Sparkles, Wrench } from "lucide-react";
+import { useState } from "react";
 import { MarkdownRenderer } from "../../components/ui/markdown-renderer";
 import { Pet } from "../../components/ui/pet";
 
@@ -21,10 +13,24 @@ interface ResponseBubbleProps {
   onToastError?: (message: string, duration?: number) => void;
 }
 
+function blockKey(block: MessageBlock, index: number): string {
+  switch (block.type) {
+    case "text":
+    case "thinking":
+      return `block-${block.type}-${block.content.slice(0, 40)}-${index}`;
+    case "tool_call":
+      return `block-tool_call-${block.toolName}-${index}`;
+    case "error":
+      return `block-error-${block.message.slice(0, 40)}-${index}`;
+    default:
+      return `block-${index}`;
+  }
+}
+
 function getResponseText(turn: Turn): string {
   return turn.blocks
     .filter((b): b is { type: "text"; content: string } => b.type === "text")
-    .map((b) => b.content)
+    .map((b) => unwrapAgentResponse(b.content))
     .join("");
 }
 
@@ -48,6 +54,7 @@ export function ResponseBubble({
   const [copied, setCopied] = useState(false);
   const isStreaming = turn.status === "streaming";
   const text = getResponseText(turn);
+  const hasThinkingBlock = turn.blocks.some((block) => block.type === "thinking");
 
   const handleCopy = async () => {
     if (!text) return;
@@ -85,13 +92,13 @@ export function ResponseBubble({
         <div className="text-sm leading-relaxed text-fg">
           {turn.blocks.map((block, i) => (
             <BlockRenderer
-              key={`${block.type}-${i}`}
+              key={blockKey(block, i)}
               block={block}
               isStreaming={isStreaming && i === turn.blocks.length - 1}
             />
           ))}
 
-          {isStreaming && text === "" && (
+          {isStreaming && text === "" && !hasThinkingBlock && (
             <div className="flex items-center gap-1.5 text-mute py-1">
               <span className="text-xs">pensando</span>
               <span className="flex items-center gap-0.5">
@@ -178,14 +185,14 @@ function BlockRenderer({ block, isStreaming }: { block: MessageBlock; isStreamin
     case "text":
       return (
         <div className="min-w-0 animate-fade-in">
-          <MarkdownRenderer content={block.content} />
+          <MarkdownRenderer content={unwrapAgentResponse(block.content)} />
           {isStreaming && (
             <span className="inline-block w-1.5 h-4 ml-0.5 align-[-2px] rounded-sm bg-signal animate-pulse" />
           )}
         </div>
       );
     case "thinking":
-      return <ThinkingBlock content={block.content} isStreaming={isStreaming} />;
+      return <ThinkingBlock isStreaming={isStreaming} />;
     case "tool_call": {
       const isWebSearch = block.toolName === "web.search";
       const webResults =
@@ -266,54 +273,13 @@ function BlockRenderer({ block, isStreaming }: { block: MessageBlock; isStreamin
   }
 }
 
-function ThinkingBlock({ content, isStreaming }: { content: string; isStreaming: boolean }) {
-  const [open, setOpen] = useState(false);
-  const [height, setHeight] = useState(0);
-  const contentRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (isStreaming) {
-      setOpen(true);
-    }
-  }, [isStreaming]);
-
-  useEffect(() => {
-    const el = contentRef.current;
-    if (el) setHeight(el.scrollHeight);
-  }, [content, open]);
-
-  const toggle = () => setOpen((o) => !o);
-  const count = content.length;
-
+function ThinkingBlock({ isStreaming }: { isStreaming: boolean }) {
   return (
-    <div className="my-2 rounded-lg border border-signal/20 bg-signal/5 overflow-hidden">
-      <button
-        type="button"
-        onClick={toggle}
-        className="w-full px-3 py-2 flex items-center gap-2 text-left transition-colors hover:bg-white/[0.03]"
-        aria-expanded={open}
-      >
-        <Sparkles
-          className={`w-3.5 h-3.5 shrink-0 ${isStreaming ? "text-signal animate-pulse" : "text-faint"}`}
-        />
-        <span className="text-[10px] font-medium text-signal uppercase tracking-wider">Raciocínio</span>
-        <span className="ml-auto text-[9px] text-faint/70 font-mono">{count} car.</span>
-        <ChevronDown
-          className={`w-3 h-3 text-faint transition-transform duration-200 ${open ? "rotate-180" : ""}`}
-        />
-      </button>
-      <div
-        className="overflow-hidden transition-all duration-300 ease-out"
-        style={{ maxHeight: open ? `${height}px` : "0px", opacity: open ? 1 : 0 }}
-      >
-        <div ref={contentRef} className="px-3 pb-3 pt-0">
-          <div className="rounded-md bg-ink/40 border border-line/60 px-3 py-2">
-            <p className="text-[11px] leading-relaxed font-mono text-mute/90 whitespace-pre-wrap">
-              {content}
-            </p>
-          </div>
-        </div>
-      </div>
+    <div className="my-2 flex items-center gap-2 rounded-md border border-line bg-white/[0.025] px-2.5 py-1.5">
+      <Sparkles className={`w-3 h-3 ${isStreaming ? "text-signal animate-pulse" : "text-faint"}`} />
+      <span className="text-[10px] text-mute">
+        {isStreaming ? "Analisando contexto..." : "Análise concluída"}
+      </span>
     </div>
   );
 }

@@ -127,7 +127,7 @@ export function NormalCommandView(p: Props) {
         )
       ) : p.mode === "history" ? (
         <PanelWrapper title="Histórico" onBack={() => p.setMode("command")}>
-          <HistoryList />
+          <HistoryList onSelectConversation={() => p.setMode("command")} />
         </PanelWrapper>
       ) : p.mode === "prompts" ? (
         <PanelWrapper title="Perfis" onBack={() => p.setMode("command")}>

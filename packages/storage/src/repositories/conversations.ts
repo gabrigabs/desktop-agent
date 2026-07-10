@@ -55,6 +55,45 @@ export function createTurn(
   return id;
 }
 
+export function upsertTurn(
+  db: Database,
+  params: {
+    id: string;
+    conversationId: string;
+    role: "user" | "assistant" | "system";
+    blocks: MessageBlock[];
+    status: "streaming" | "complete" | "error" | "cancelled";
+    timestamp: string;
+    sourceMode: "free" | "clipboard";
+    executionMode: ExecutionMode;
+  },
+): void {
+  db.run(
+    `INSERT INTO turns (id, conversation_id, role, blocks_json, status, timestamp, source_mode, execution_mode)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       conversation_id = excluded.conversation_id,
+       role = excluded.role,
+       blocks_json = excluded.blocks_json,
+       status = excluded.status,
+       timestamp = excluded.timestamp,
+       source_mode = excluded.source_mode,
+       execution_mode = excluded.execution_mode`,
+    [
+      params.id,
+      params.conversationId,
+      params.role,
+      stringifyJson(params.blocks),
+      params.status,
+      params.timestamp,
+      params.sourceMode,
+      params.executionMode,
+    ],
+  );
+
+  db.run(`UPDATE conversations SET updated_at = datetime('now') WHERE id = ?`, [params.conversationId]);
+}
+
 export function listConversations(db: Database, limit = 20): Conversation[] {
   const rows = db
     .query("SELECT id, title, created_at, updated_at FROM conversations ORDER BY updated_at DESC LIMIT ?")
@@ -71,6 +110,25 @@ export function listConversations(db: Database, limit = 20): Conversation[] {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }));
+}
+
+export function getConversation(db: Database, id: string): Conversation | null {
+  const row = db
+    .query("SELECT id, title, created_at, updated_at FROM conversations WHERE id = ?")
+    .get(id) as {
+    id: string;
+    title: string;
+    created_at: string;
+    updated_at: string;
+  } | null;
+
+  if (!row) return null;
+  return {
+    id: row.id,
+    title: row.title,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
 }
 
 export function listTurns(db: Database, conversationId: string): Turn[] {

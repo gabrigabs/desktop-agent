@@ -3,7 +3,7 @@ import { HelixDrawer } from "../../components/ui/helix-drawer";
 import { HelixHeader } from "../../components/ui/helix-header";
 import { HelixSidebar } from "../../components/ui/helix-sidebar";
 import { getAgent } from "../../lib/rpc";
-import { closeApp, hideWindow, setWindowMode } from "../../lib/window";
+import { closeApp, setWindowMode } from "../../lib/window";
 import { useAgentStore } from "../../stores/agent";
 import { ExpandedView } from "./ExpandedView";
 import { useCapabilities } from "./hooks/useCapabilities";
@@ -13,7 +13,6 @@ import { useExecute } from "./hooks/useExecute";
 import { useKeyboard } from "./hooks/useKeyboard";
 import { usePrompts } from "./hooks/usePrompts";
 import { useSettingsForm } from "./hooks/useSettingsForm";
-import { MiniView } from "./MiniView";
 import { NormalCommandView } from "./NormalCommandView";
 import { SettingsPanel } from "./SettingsPanel";
 
@@ -66,7 +65,7 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
           setIgnoreClipboard(false);
           const marker = currentQuery.includes("[CLIPBOARD]")
             ? currentQuery
-            : `${currentQuery ? currentQuery + " " : ""}[CLIPBOARD]`;
+            : `${currentQuery ? `${currentQuery} ` : ""}[CLIPBOARD]`;
           setQuery(marker);
         } else {
           setIgnoreClipboard(true);
@@ -114,49 +113,10 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     await closeApp();
   }, []);
 
-  const handleOpenMini = useCallback(
-    async (next: "normal" | "expanded") => {
-      setUiMode(next);
-      await setWindowMode(next, { alwaysOnTop: settings.alwaysOnTop });
-      await persistWindowMode(next);
-    },
-    [persistWindowMode, setUiMode, settings.alwaysOnTop],
-  );
-
   const handleNewTask = useCallback(() => {
     exec.handleNewTask();
     setMode("command");
   }, [exec]);
-
-  const handleMiniQuickAction = useCallback(
-    (action: { id: string; prompt: string }) => {
-      const prompt = `${action.prompt} [CLIPBOARD]`;
-      setQuery(prompt);
-      setIgnoreClipboard(false);
-      void exec.handleExecute(prompt);
-    },
-    [exec, setIgnoreClipboard, setQuery],
-  );
-
-  const handleMiniStarterAction = useCallback(
-    (action: { id: string; prompt: string; executionMode?: "simple" | "workflow" }) => {
-      if (action.id === "pergunta") {
-        setUiMode("normal");
-        void setWindowMode("normal", { alwaysOnTop: settings.alwaysOnTop });
-        void persistWindowMode("normal");
-        setQuery("");
-        requestAnimationFrame(() => textareaRef.current?.focus());
-        return;
-      }
-      setQuery(action.prompt);
-      setExecutionMode(action.executionMode ?? executionMode);
-      setUiMode("normal");
-      void setWindowMode("normal", { alwaysOnTop: settings.alwaysOnTop });
-      void persistWindowMode("normal");
-      requestAnimationFrame(() => textareaRef.current?.focus());
-    },
-    [executionMode, persistWindowMode, setExecutionMode, setQuery, setUiMode, settings.alwaysOnTop],
-  );
 
   const handleChangeMode = useCallback(
     (next: "command" | "history" | "prompts" | "connectors" | "settings") => {
@@ -220,13 +180,20 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
 
   const onRegenerate = useCallback(() => {
     const store = useAgentStore.getState();
-    const lastUserTurn = [...store.messages].reverse().find((t) => t.role === "user");
+    let lastUserIndex = -1;
+    for (let index = store.messages.length - 1; index >= 0; index -= 1) {
+      if (store.messages[index]?.role === "user") {
+        lastUserIndex = index;
+        break;
+      }
+    }
+    const lastUserTurn = store.messages[lastUserIndex];
     if (!lastUserTurn || store.streaming) return;
 
     const promptText = lastUserTurn.blocks.find((b) => b.type === "text");
     if (promptText?.type !== "text") return;
 
-    const newMessages = store.messages.slice(0, -1);
+    const newMessages = store.messages.slice(0, lastUserIndex);
     store.setMessages(newMessages);
     store.setResult(null);
     store.setError(null);
@@ -254,7 +221,6 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
   const approval = workflowRun?.approval;
   const visibleConnectors = connectors.slice(0, 7);
   const composerPlaceholder = "Pergunte algo, peça um rascunho ou comece por uma ação abaixo.";
-  const taskModeLabel = executionMode === "workflow" ? "Workflow" : "Simples";
 
   const commonProps = {
     error,
@@ -326,75 +292,6 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     onDeleteProfile: promptsHook.handleDeleteProfile,
     onSetActiveProfile: promptsHook.handleSetActiveProfile,
   };
-
-  if (uiMode === "mini") {
-    return (
-      <>
-        <div className="h-full w-full flex flex-col">
-          <HelixHeader
-            expanded={false}
-            alwaysOnTop={settings.alwaysOnTop}
-            onToggleAlwaysOnTop={onToggleAlwaysOnTop}
-            onToggleExpand={handleToggleExpand}
-            onMinimize={handleMinimize}
-            onClose={handleClose}
-            onOpenMenu={() => setDrawerOpen(true)}
-          />
-          <main className="flex-1 min-h-0 overflow-hidden relative">
-            <MiniView
-              error={error}
-              result={result}
-              streaming={streaming}
-              taskActive={taskActive}
-              taskStatus={taskStatus}
-              taskModeLabel={taskModeLabel}
-              latestLogText={latestLog?.text}
-              clipboardText={clipboard.clipboardText}
-              hasClipboard={clipboard.hasClipboard}
-              activeRequestId={exec.activeRequestId}
-              copied={exec.copied}
-              onAbort={() => {
-                exec.handleAbort();
-                onToastSuccess?.("Resposta cancelada");
-              }}
-              onCopy={exec.handleCopyResult}
-              onOpenMode={handleOpenMini}
-              onQuickAction={handleMiniQuickAction}
-              onStarterAction={handleMiniStarterAction}
-            />
-          </main>
-        </div>
-        {showSettings && (
-          <SettingsPanel
-            onClose={() => setShowSettings(false)}
-            settings={settings}
-            formProvider={settingsForm.formProvider}
-            setFormProvider={settingsForm.setFormProvider}
-            formApiKey={settingsForm.formApiKey}
-            setFormApiKey={settingsForm.setFormApiKey}
-            formBaseUrl={settingsForm.formBaseUrl}
-            setFormBaseUrl={settingsForm.setFormBaseUrl}
-            formModel={settingsForm.formModel}
-            setFormModel={settingsForm.setFormModel}
-            formHidePet={settingsForm.formHidePet}
-            setFormHidePet={settingsForm.setFormHidePet}
-            formTimeout={settingsForm.formTimeout}
-            setFormTimeout={settingsForm.setFormTimeout}
-            formWindowOpacity={settingsForm.formWindowOpacity}
-            setFormWindowOpacity={settingsForm.setFormWindowOpacity}
-            formPetSize={settingsForm.formPetSize}
-            setFormPetSize={settingsForm.setFormPetSize}
-            showKey={settingsForm.showKey}
-            setShowKey={settingsForm.setShowKey}
-            fetchedModels={settingsForm.fetchedModels}
-            loadingModels={settingsForm.loadingModels}
-            savingSettings={settingsForm.savingSettings}
-            handleSaveSettings={settingsForm.handleSaveSettings}
-          />
-        )}
-      </>
-    );
-  }
 
   if (uiMode === "expanded") {
     return (

@@ -106,7 +106,7 @@ export function ExpandedView(p: Props) {
         {p.mode === "history" ? (
           <div className="max-w-2xl">
             <h2 className="text-sm font-semibold text-fg mb-3">Histórico</h2>
-            <HistoryList />
+            <HistoryList onSelectConversation={() => p.setMode("command")} />
           </div>
         ) : p.mode === "prompts" ? (
           <div className="max-w-3xl">

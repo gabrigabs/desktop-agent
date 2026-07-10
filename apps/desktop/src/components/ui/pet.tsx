@@ -163,7 +163,10 @@ function PetCompact({
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
         className="relative z-10"
+        role="img"
+        aria-label={config.label}
       >
+        <title>{config.label}</title>
         <defs>
           <radialGradient id={coreGradientId} cx="35%" cy="30%" r="60%">
             <stop offset="0%" stopColor={config.rim} stopOpacity="1" />
@@ -510,7 +513,7 @@ function PetHero({
           const gap = circumference * 0.45;
           return (
             <circle
-              key={`${s.r}-${i}`}
+              key={`spiral-${s.r}-${s.offset}-${s.dir}`}
               cx="50"
               cy="50"
               r={s.r}
