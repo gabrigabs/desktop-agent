@@ -367,7 +367,7 @@ export class WorkflowRunner {
       startedAt: nowIso(),
       input: resolveVariables(step.config ?? {}, ctx.context),
     });
-    const runningStep = listWorkflowSteps(db, step.id).find((s) => s.id === step.id) as WorkflowStep;
+    const runningStep = listWorkflowSteps(db, step.runId).find((s) => s.id === step.id) as WorkflowStep;
     ctx.emitter.stepUpdated(runningStep);
 
     let output: unknown = {};
@@ -405,7 +405,7 @@ export class WorkflowRunner {
       completedAt: nowIso(),
     });
 
-    const finalStep = listWorkflowSteps(db, step.id).find((s) => s.id === step.id) as WorkflowStep;
+    const finalStep = listWorkflowSteps(db, step.runId).find((s) => s.id === step.id) as WorkflowStep;
     ctx.emitter.stepUpdated(finalStep);
     return finalStep;
   }

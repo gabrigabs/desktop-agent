@@ -295,6 +295,7 @@ export const useAgentStore = create<State>((set) => ({
   setWorkflowRun: (workflowRun) => set({ workflowRun }),
   upsertWorkflowStep: (step) =>
     set((s) => {
+      if (!step) return s;
       const current = s.workflowRun;
       if (!current || current.id !== step.runId) {
         return s;
