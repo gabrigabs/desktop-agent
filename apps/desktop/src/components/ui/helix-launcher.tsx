@@ -1,4 +1,6 @@
-import { Clipboard, Globe, MessageSquarePlus, Scan, Search } from "lucide-react";
+import { HELIX_ACTIONS, type HelixAction } from "@desktop-agent/shared";
+import { Clipboard, Globe, MessageCircle, Orbit, Scan, Workflow } from "lucide-react";
+import type { ComponentType } from "react";
 import { useEffect, useRef, useState } from "react";
 import { setLauncherMenuOpen, startWindowDrag } from "../../lib/window";
 import { Pet } from "./pet";
@@ -6,10 +8,7 @@ import { Pet } from "./pet";
 interface HelixLauncherProps {
   petSize: number;
   onOpenNormal: () => void;
-  onNewTask: () => void;
-  onFreeAsk: () => void;
-  onSearchWeb: () => void;
-  onReadScreen: () => void;
+  onAction: (action: HelixAction) => void;
 }
 
 const MENU_SIZE = 420;
@@ -18,60 +17,23 @@ const START_ANGLE = -72;
 const RAY_OFFSET = 28;
 const HIT_SIZE = 48;
 
-const actions = [
-  {
-    id: "new",
-    label: "Nova",
-    icon: MessageSquarePlus,
-    accent: "#c499f4",
-    bg: "rgba(196, 153, 244, 0.18)",
-    onClick: (callbacks: HelixLauncherProps) => {
-      callbacks.onNewTask();
-      callbacks.onOpenNormal();
-    },
-  },
-  {
-    id: "ask",
-    label: "Perguntar",
-    icon: Search,
-    accent: "#22d3ee",
-    bg: "rgba(34, 211, 238, 0.18)",
-    onClick: (callbacks: HelixLauncherProps) => {
-      callbacks.onFreeAsk();
-      callbacks.onOpenNormal();
-    },
-  },
-  {
-    id: "web",
-    label: "Web",
-    icon: Globe,
-    accent: "#4ade80",
-    bg: "rgba(74, 222, 128, 0.18)",
-    onClick: (callbacks: HelixLauncherProps) => {
-      callbacks.onSearchWeb();
-      callbacks.onOpenNormal();
-    },
-  },
-  {
-    id: "screen",
-    label: "Ler tela",
-    icon: Scan,
-    accent: "#facc15",
-    bg: "rgba(250, 204, 21, 0.18)",
-    onClick: (callbacks: HelixLauncherProps) => {
-      callbacks.onReadScreen();
-      callbacks.onOpenNormal();
-    },
-  },
-  {
-    id: "open",
-    label: "Abrir",
-    icon: Clipboard,
-    accent: "#a78bfa",
-    bg: "rgba(167, 139, 250, 0.18)",
-    onClick: (callbacks: HelixLauncherProps) => callbacks.onOpenNormal(),
-  },
-];
+const ACTION_ICONS: Record<string, ComponentType<{ className?: string }>> = {
+  "message-circle": MessageCircle,
+  clipboard: Clipboard,
+  scan: Scan,
+  globe: Globe,
+  workflow: Workflow,
+  orbit: Orbit,
+};
+
+const actions = HELIX_ACTIONS.map((action) => ({
+  ...action,
+  source: action,
+  label: action.title,
+  icon: ACTION_ICONS[action.icon] ?? Orbit,
+  accent: action.color,
+  bg: `${action.color}2e`,
+}));
 
 export function HelixLauncher(props: HelixLauncherProps) {
   const { petSize, onOpenNormal } = props;
@@ -168,6 +130,9 @@ export function HelixLauncher(props: HelixLauncherProps) {
     } else if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       executeAction(selectedIndex);
+    } else if (/^[1-6]$/.test(e.key)) {
+      e.preventDefault();
+      executeAction(Number(e.key) - 1);
     } else if (e.key === "Escape") {
       e.preventDefault();
       setMenuOpen(false);
@@ -181,7 +146,7 @@ export function HelixLauncher(props: HelixLauncherProps) {
     setClickingIndex(index);
     setTimeout(() => {
       setClickingIndex(null);
-      action.onClick(props);
+      props.onAction(action.source);
       setMenuOpen(false);
     }, 300);
   };
@@ -199,19 +164,19 @@ export function HelixLauncher(props: HelixLauncherProps) {
         }`}
         style={{
           background:
-            "radial-gradient(circle, rgba(26, 22, 46, 0.96) 0%, rgba(18, 16, 36, 0.9) 55%, rgba(10, 8, 22, 0.78) 100%)",
-          backdropFilter: "blur(12px) saturate(120%)",
-          WebkitBackdropFilter: "blur(12px) saturate(120%)",
+            "radial-gradient(circle at 48% 44%, rgba(31, 26, 44, 0.97) 0%, rgba(14, 12, 22, 0.94) 58%, rgba(8, 7, 13, 0.88) 100%)",
+          backdropFilter: "blur(18px) saturate(115%)",
+          WebkitBackdropFilter: "blur(18px) saturate(115%)",
           boxShadow:
-            "inset 0 0 0 1px rgba(255,255,255,0.08), 0 20px 44px rgba(0,0,0,0.4), 0 0 40px rgba(196,153,244,0.12)",
+            "inset 0 0 0 1px rgba(255,255,255,0.09), inset 0 0 0 7px rgba(255,255,255,0.012), 0 26px 70px rgba(0,0,0,0.48)",
         }}
       />
 
       {menuOpen && (
         <>
-          {/* Decorative orbital rings */}
+          {/* Functional orbit guides */}
           <svg
-            className="absolute inset-0 w-full h-full pointer-events-none animate-spin-slow"
+            className="absolute inset-0 w-full h-full pointer-events-none"
             viewBox={`0 0 ${MENU_SIZE} ${MENU_SIZE}`}
             aria-hidden="true"
           >
@@ -220,49 +185,20 @@ export function HelixLauncher(props: HelixLauncherProps) {
               cy={MENU_SIZE / 2}
               r={ORBIT_RADIUS}
               fill="none"
-              stroke="rgba(255,255,255,0.12)"
+              stroke="rgba(255,255,255,0.1)"
               strokeWidth="1"
-              strokeDasharray="6 10"
+              strokeDasharray="3 9"
             />
             <circle
               cx={MENU_SIZE / 2}
               cy={MENU_SIZE / 2}
               r={ORBIT_RADIUS - 28}
               fill="none"
-              stroke="rgba(196,153,244,0.18)"
+              stroke="rgba(185,130,255,0.14)"
               strokeWidth="1"
               strokeDasharray="4 14"
             />
           </svg>
-
-          {/* Subtle distant stars */}
-          <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-full">
-            {[
-              { id: "a", size: 2, left: 22, top: 18, delay: 0, opacity: 0.5 },
-              { id: "b", size: 1, left: 72, top: 24, delay: 0.4, opacity: 0.4 },
-              { id: "c", size: 2, left: 55, top: 12, delay: 0.8, opacity: 0.55 },
-              { id: "d", size: 1, left: 34, top: 68, delay: 1.2, opacity: 0.45 },
-              { id: "e", size: 1, left: 80, top: 58, delay: 1.6, opacity: 0.38 },
-              { id: "f", size: 2, left: 15, top: 52, delay: 2, opacity: 0.55 },
-              { id: "g", size: 1, left: 62, top: 78, delay: 2.4, opacity: 0.42 },
-              { id: "h", size: 1, left: 44, top: 86, delay: 2.8, opacity: 0.48 },
-              { id: "i", size: 1, left: 26, top: 88, delay: 3.2, opacity: 0.4 },
-              { id: "j", size: 2, left: 85, top: 30, delay: 3.6, opacity: 0.52 },
-            ].map((star) => (
-              <div
-                key={star.id}
-                className="absolute rounded-full bg-white/70 animate-twinkle"
-                style={{
-                  width: star.size,
-                  height: star.size,
-                  left: `${star.left}%`,
-                  top: `${star.top}%`,
-                  animationDelay: `${star.delay}s`,
-                  opacity: star.opacity,
-                }}
-              />
-            ))}
-          </div>
 
           {/* Orbital selection ray */}
           {activeAction && (
@@ -271,13 +207,12 @@ export function HelixLauncher(props: HelixLauncherProps) {
               style={{
                 ["--accent-color" as string]: activeAction.accent,
                 width: ORBIT_RADIUS - RAY_OFFSET,
-                height: 2.5,
+                height: 1,
                 borderRadius: 9999,
                 background: `linear-gradient(90deg, var(--accent-color), transparent)`,
                 transform: `translate(0, -50%) rotate(${activeAngle}deg)`,
                 transformOrigin: "0 50%",
-                opacity: 0.9,
-                filter: "drop-shadow(0 0 3px var(--accent-color))",
+                opacity: 0.52,
               }}
             />
           )}
@@ -300,7 +235,8 @@ export function HelixLauncher(props: HelixLauncherProps) {
                 onMouseEnter={() => setSelectedIndex(index)}
                 onFocus={() => setSelectedIndex(index)}
                 className="radial-item-enter absolute focus:outline-none"
-                aria-label={action.label}
+                aria-label={`${action.label}: ${action.description}. Atalho ${index + 1}`}
+                title={`${action.label} — ${action.description}`}
                 style={{
                   ["--accent-color" as string]: action.accent,
                   animationDelay: `${index * 0.04}s`,
@@ -311,7 +247,7 @@ export function HelixLauncher(props: HelixLauncherProps) {
                 }}
               >
                 <div
-                  className={`radial-item flex flex-col items-center gap-3 ${
+                  className={`radial-item flex flex-col items-center gap-2 ${
                     isClicking ? "radial-click" : ""
                   }`}
                   style={{
@@ -322,45 +258,38 @@ export function HelixLauncher(props: HelixLauncherProps) {
                   }}
                 >
                   <div
-                    className="relative flex items-center justify-center rounded-full transition-all duration-300"
+                    className="relative flex items-center justify-center rounded-2xl transition-all duration-200"
                     style={{
-                      width: 58,
-                      height: 58,
-                      background: action.bg,
+                      width: 52,
+                      height: 52,
+                      background: isSelected ? action.bg : "rgba(255,255,255,0.035)",
                       border: isSelected
-                        ? "2px solid var(--accent-color)"
-                        : "1.5px solid color-mix(in srgb, var(--accent-color) 33%, transparent)",
+                        ? "1px solid var(--accent-color)"
+                        : "1px solid rgba(255,255,255,0.1)",
                       boxShadow: isSelected
-                        ? `0 0 26px var(--accent-color), inset 0 0 12px color-mix(in srgb, var(--accent-color) 35%, transparent)`
-                        : `0 10px 28px rgba(0,0,0,0.35), 0 0 14px color-mix(in srgb, var(--accent-color) 15%, transparent)`,
+                        ? "0 10px 28px rgba(0,0,0,0.42), inset 0 0 18px color-mix(in srgb, var(--accent-color) 12%, transparent)"
+                        : "0 8px 20px rgba(0,0,0,0.26)",
                     }}
                   >
-                    {isSelected && (
-                      <div
-                        className="radial-halo absolute -inset-1.5 rounded-full"
-                        style={{
-                          border: "2px solid var(--accent-color)",
-                          opacity: 0.9,
-                        }}
-                      />
-                    )}
+                    <span className="absolute right-1.5 top-1 text-[7px] font-mono text-faint">
+                      {index + 1}
+                    </span>
                     <action.icon
                       className="transition-transform duration-300"
                       size={22}
                       style={{
                         color: "var(--accent-color)",
                         transform: isSelected ? "scale(1.08)" : "scale(1)",
-                        filter: isSelected ? "drop-shadow(0 0 6px var(--accent-color))" : "none",
+                        filter: "none",
                       }}
                     />
                   </div>
                   <span
-                    className="text-[13px] font-semibold tracking-wide text-center"
+                    className="text-center text-[11px] font-semibold tracking-tight"
                     style={{
-                      color: "var(--accent-color)",
+                      color: isSelected ? "#f4f0ff" : "#a8a0ba",
                       lineHeight: 1.2,
                       maxWidth: 92,
-                      textShadow: isSelected ? "0 0 12px var(--accent-color)" : "none",
                       textAlign: "center",
                       whiteSpace: "nowrap",
                     }}
@@ -372,7 +301,7 @@ export function HelixLauncher(props: HelixLauncherProps) {
             );
           })}
 
-          {/* Selection halo and ray are the only selection indicators */}
+          <div className="pointer-events-none absolute left-1/2 top-1/2 h-[112px] w-[112px] -translate-x-1/2 -translate-y-1/2 rounded-[38%] border border-white/[0.055]" />
         </>
       )}
 
@@ -385,8 +314,8 @@ export function HelixLauncher(props: HelixLauncherProps) {
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         onKeyDown={handleKeyDown}
-        className={`relative z-30 flex items-center justify-center rounded-full cursor-pointer transition-transform duration-300 bg-transparent border-0 p-0 focus:outline-none hover:scale-110 ${
-          menuOpen ? "scale-110" : ""
+        className={`relative z-30 flex items-center justify-center rounded-[38%] cursor-pointer transition-transform duration-300 bg-transparent border-0 p-0 focus:outline-none hover:scale-105 ${
+          menuOpen ? "scale-105" : ""
         }`}
         style={{
           width: menuOpen ? 96 : "100%",
@@ -397,7 +326,7 @@ export function HelixLauncher(props: HelixLauncherProps) {
         title={menuOpen ? "Clique para fechar menu" : "Clique para abrir menu, arraste para mover"}
       >
         <div className="relative">
-          <Pet size={menuOpen ? 84 : petSize} glow={menuOpen} />
+          <Pet size={menuOpen ? 78 : petSize} glow={menuOpen} />
         </div>
       </button>
     </div>

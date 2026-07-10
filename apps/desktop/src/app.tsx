@@ -122,17 +122,9 @@ export function App() {
             <HelixLauncher
               petSize={settings.petSize ?? 72}
               onOpenNormal={() => applyWindowMode("normal")}
-              onNewTask={() => {
-                applyWindowMode("normal");
-              }}
-              onFreeAsk={() => {
-                applyWindowMode("normal");
-              }}
-              onSearchWeb={() => {
-                applyWindowMode("normal");
-              }}
-              onReadScreen={() => {
-                applyWindowMode("normal");
+              onAction={(action) => {
+                sessionStorage.setItem("helix.pending-action", action.id);
+                void applyWindowMode("normal");
               }}
             />
           )}

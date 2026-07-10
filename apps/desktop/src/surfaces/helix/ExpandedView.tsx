@@ -16,6 +16,7 @@ import { AgentIdentity } from "../../components/ui/agent-identity";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { HeroHome } from "../../components/ui/hero-home";
+import { ArtifactsPanel } from "./ArtifactsPanel";
 import { ChatView } from "./ChatView";
 import { Composer } from "./Composer";
 import { ConnectorsPanel } from "./ConnectorsPanel";
@@ -23,10 +24,8 @@ import { HistoryList } from "./history-list";
 import type { SaveConnectorInput } from "./hooks/useCapabilities";
 import type { ContextChipItem } from "./hooks/useContextChips";
 import { PromptsPanel } from "./PromptsPanel";
-import { SkillSelector } from "./SkillSelector";
 import { SkillsPanel } from "./SkillsPanel";
 import type { HelixMode } from "./types";
-import { WorkflowSelector } from "./WorkflowSelector";
 import { WorkflowsPanel } from "./WorkflowsPanel";
 
 type Props = {
@@ -143,13 +142,28 @@ type Props = {
 };
 
 export function ExpandedView(p: Props) {
+  const showInspector = p.mode === "command" && (p.taskActive || p.messages.length > 0);
+
   return (
-    <div className="h-full w-full overflow-hidden grid grid-cols-[1fr_260px] text-fg">
+    <div
+      className={`h-full w-full overflow-hidden grid text-fg ${
+        showInspector ? "grid-cols-[1fr_260px]" : "grid-cols-1"
+      }`}
+    >
       <main className="min-w-0 min-h-0 overflow-y-auto p-5">
         {p.mode === "history" ? (
           <div className="max-w-2xl">
             <h2 className="text-sm font-semibold text-fg mb-3">Histórico</h2>
             <HistoryList onSelectConversation={() => p.setMode("command")} />
+          </div>
+        ) : p.mode === "artifacts" ? (
+          <div className="max-w-5xl">
+            <ArtifactsPanel
+              onUseAction={(_artifact, action) => {
+                p.onStarterAction(action.prompt);
+                p.setMode("command");
+              }}
+            />
           </div>
         ) : p.mode === "prompts" ? (
           <div className="max-w-3xl">
@@ -208,81 +222,83 @@ export function ExpandedView(p: Props) {
         )}
       </main>
 
-      <aside className="min-w-0 border-l border-line p-4 flex flex-col gap-4 overflow-y-auto bg-white/[0.01]">
-        <section className="rounded-xl border border-line p-3 bg-white/[0.02]">
-          <div className="text-[10px] text-mute font-medium tracking-tight mb-2">Estado</div>
-          <div className="flex items-center gap-2">
-            <span
-              className={`w-2 h-2 rounded-full ${
-                p.error
-                  ? "bg-bad"
-                  : p.streaming
-                    ? "bg-warn animate-pulse"
-                    : p.result
-                      ? "bg-good"
-                      : "bg-signal"
-              }`}
-            />
-            <span className="text-xs font-semibold text-fg">{p.taskStatus}</span>
-          </div>
-          {p.latestLogText && <p className="mt-2 text-[11px] text-mute line-clamp-3">{p.latestLogText}</p>}
-        </section>
-
-        {p.workflowSteps.length > 0 && (
-          <section className="rounded-xl border border-line p-3 flex flex-col gap-2.5 bg-white/[0.02]">
-            <div className="text-[10px] text-mute font-medium tracking-tight flex items-center gap-1.5">
-              <Workflow className="w-3.5 h-3.5 text-signal" /> Passos
+      {showInspector && (
+        <aside className="min-w-0 border-l border-line p-4 flex flex-col gap-4 overflow-y-auto bg-white/[0.01]">
+          <section className="rounded-xl border border-line p-3 bg-white/[0.02]">
+            <div className="text-[10px] text-mute font-medium tracking-tight mb-2">Estado</div>
+            <div className="flex items-center gap-2">
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  p.error
+                    ? "bg-bad"
+                    : p.streaming
+                      ? "bg-warn animate-pulse"
+                      : p.result
+                        ? "bg-good"
+                        : "bg-signal"
+                }`}
+              />
+              <span className="text-xs font-semibold text-fg">{p.taskStatus}</span>
             </div>
-            {p.workflowSteps.map((step) => (
-              <div
-                key={step.id}
-                className="grid grid-cols-[14px_1fr] gap-2 rounded-lg bg-white/[0.03] px-2.5 py-2"
-              >
-                <span
-                  className={`mt-1.5 w-2 h-2 rounded-full ${
-                    step.status === "completed"
-                      ? "bg-good"
-                      : step.status === "running"
-                        ? "bg-warn animate-pulse"
-                        : step.status === "waiting_approval"
-                          ? "bg-signal animate-pulse"
-                          : step.status === "failed"
-                            ? "bg-bad"
-                            : "bg-faint"
-                  }`}
-                />
-                <div className="min-w-0">
-                  <div className="text-xs font-semibold text-fg truncate">{step.title}</div>
-                  <div className="text-[10px] text-mute leading-relaxed line-clamp-2">
-                    {step.detail || step.kind}
+            {p.latestLogText && <p className="mt-2 text-[11px] text-mute line-clamp-3">{p.latestLogText}</p>}
+          </section>
+
+          {p.workflowSteps.length > 0 && (
+            <section className="rounded-xl border border-line p-3 flex flex-col gap-2.5 bg-white/[0.02]">
+              <div className="text-[10px] text-mute font-medium tracking-tight flex items-center gap-1.5">
+                <Workflow className="w-3.5 h-3.5 text-signal" /> Passos
+              </div>
+              {p.workflowSteps.map((step) => (
+                <div
+                  key={step.id}
+                  className="grid grid-cols-[14px_1fr] gap-2 rounded-lg bg-white/[0.03] px-2.5 py-2"
+                >
+                  <span
+                    className={`mt-1.5 w-2 h-2 rounded-full ${
+                      step.status === "completed"
+                        ? "bg-good"
+                        : step.status === "running"
+                          ? "bg-warn animate-pulse"
+                          : step.status === "waiting_approval"
+                            ? "bg-signal animate-pulse"
+                            : step.status === "failed"
+                              ? "bg-bad"
+                              : "bg-faint"
+                    }`}
+                  />
+                  <div className="min-w-0">
+                    <div className="text-xs font-semibold text-fg truncate">{step.title}</div>
+                    <div className="text-[10px] text-mute leading-relaxed line-clamp-2">
+                      {step.detail || step.kind}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </section>
+          )}
+
+          <section className="rounded-xl border border-line p-3 flex flex-col gap-2 bg-white/[0.02]">
+            <div className="text-[10px] text-mute font-medium tracking-tight">Clipboard</div>
+            <p className="min-h-16 rounded-lg bg-white/[0.03] border border-line p-2.5 text-[11px] text-mute leading-relaxed line-clamp-4 select-text">
+              {p.hasClipboard
+                ? `"${p.clipboardText.slice(0, 260)}${p.clipboardText.length > 260 ? "..." : ""}"`
+                : "Nenhum texto detectado."}
+            </p>
           </section>
-        )}
 
-        <section className="rounded-xl border border-line p-3 flex flex-col gap-2 bg-white/[0.02]">
-          <div className="text-[10px] text-mute font-medium tracking-tight">Clipboard</div>
-          <p className="min-h-16 rounded-lg bg-white/[0.03] border border-line p-2.5 text-[11px] text-mute leading-relaxed line-clamp-4 select-text">
-            {p.hasClipboard
-              ? `"${p.clipboardText.slice(0, 260)}${p.clipboardText.length > 260 ? "..." : ""}"`
-              : "Nenhum texto detectado."}
-          </p>
-        </section>
-
-        <section className="rounded-xl border border-line p-3 bg-white/[0.02]">
-          <div className="text-[10px] text-mute font-medium tracking-tight mb-2">Conectores</div>
-          <div className="grid gap-2">
-            {p.connectors.slice(0, 5).map((c) => (
-              <div key={c.id} className="flex items-center justify-between gap-2">
-                <span className="text-[11px] text-mute truncate">{c.name}</span>
-                <span className={`w-2 h-2 rounded-full ${c.enabled ? "bg-good" : "bg-faint"}`} />
-              </div>
-            ))}
-          </div>
-        </section>
-      </aside>
+          <section className="rounded-xl border border-line p-3 bg-white/[0.02]">
+            <div className="text-[10px] text-mute font-medium tracking-tight mb-2">Conectores</div>
+            <div className="grid gap-2">
+              {p.connectors.slice(0, 5).map((c) => (
+                <div key={c.id} className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-mute truncate">{c.name}</span>
+                  <span className={`w-2 h-2 rounded-full ${c.enabled ? "bg-good" : "bg-faint"}`} />
+                </div>
+              ))}
+            </div>
+          </section>
+        </aside>
+      )}
     </div>
   );
 }
@@ -293,49 +309,6 @@ function CommandHome(p: Props) {
       <HeroHome expanded />
 
       <div className="w-full max-w-xl flex flex-col gap-3 px-6">
-        <div className="flex items-center justify-center gap-2">
-          <button
-            type="button"
-            onClick={() => p.setExecutionMode("simple")}
-            className={`h-8 px-4 rounded-full text-xs font-semibold transition-colors ${
-              p.executionMode === "simple"
-                ? "bg-white/8 text-fg border border-line-strong"
-                : "text-mute hover:text-fg border border-transparent"
-            }`}
-          >
-            Simples
-          </button>
-          <button
-            type="button"
-            onClick={() => p.setExecutionMode("workflow")}
-            className={`h-8 px-4 rounded-full text-xs font-semibold transition-colors flex items-center gap-1.5 ${
-              p.executionMode === "workflow"
-                ? "bg-signal/10 text-signal border border-signal/30"
-                : "text-mute hover:text-fg border border-transparent"
-            }`}
-          >
-            <Workflow className="w-3.5 h-3.5" /> Workflow
-          </button>
-        </div>
-
-        {p.executionMode === "workflow" && (
-          <WorkflowSelector
-            templates={p.workflowTemplates}
-            selectedWorkflowId={p.selectedWorkflowId}
-            onSelect={p.setSelectedWorkflowId}
-            selectId="expanded-workflow-select"
-          />
-        )}
-
-        {p.executionMode === "simple" && (
-          <SkillSelector
-            skills={p.skills}
-            selectedSkillId={p.selectedSkillId}
-            onSelect={p.setSelectedSkillId}
-            selectId="expanded-skill-select"
-          />
-        )}
-
         <Composer
           query={p.query}
           setQuery={p.setQuery}

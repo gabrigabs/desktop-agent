@@ -15,6 +15,20 @@ export {
   detectContextType,
   getContextSuggestions,
 } from "./context-detector";
+export {
+  type ArtifactAction,
+  type ArtifactContextPolicy,
+  type ArtifactMemoryPolicy,
+  type ArtifactUiConfig,
+  getHelixAction,
+  getHelixArtifact,
+  HELIX_ACTIONS,
+  HELIX_ARTIFACTS,
+  type HelixAction,
+  type HelixActionCategory,
+  type HelixArtifact,
+  type HelixContextSource,
+} from "./helix";
 export type {
   AgentEvent,
   AgentProfile,

@@ -199,6 +199,99 @@ select:focus-visible {
   cursor: inherit;
 }
 
+.helix-seed {
+  transform-origin: center;
+  color: var(--color-signal);
+}
+
+.helix-seed-glow {
+  border-radius: 42% 58% 52% 48%;
+  background: radial-gradient(ellipse, var(--seed-glow) 0%, transparent 68%);
+  filter: blur(8px);
+  opacity: 0.72;
+  animation: helix-seed-glow 4.8s ease-in-out infinite;
+}
+
+.helix-seed-ribbon,
+.helix-seed-void {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1), opacity 180ms ease;
+}
+
+.helix-seed-orbits,
+.helix-seed-satellites {
+  transform-origin: center;
+  transform-box: view-box;
+}
+
+.helix-seed[data-state="idle"] .helix-seed-ribbons {
+  transform-origin: center;
+  animation: helix-seed-breathe 4.2s ease-in-out infinite;
+}
+
+.helix-seed[data-state="connecting"] .helix-seed-orbits {
+  animation: helix-seed-orbit 5s linear infinite;
+}
+
+.helix-seed[data-state="connecting"] .helix-seed-ribbon,
+.helix-seed[data-state="thinking"] .helix-seed-ribbon {
+  stroke-dasharray: 18 7;
+  animation: helix-seed-flow 1.4s linear infinite;
+}
+
+.helix-seed[data-state="thinking"] .helix-seed-ribbon-b {
+  animation-direction: reverse;
+}
+
+.helix-seed[data-state="error"] {
+  animation: helix-seed-alert 420ms ease-in-out 2;
+}
+
+.helix-seed-success {
+  transform-origin: center;
+  animation: helix-seed-success 1.4s ease-out infinite;
+}
+
+.helix-seed:hover .helix-seed-ribbon-a {
+  transform: translateX(-2px) rotate(-1deg);
+}
+
+.helix-seed:hover .helix-seed-ribbon-b {
+  transform: translateX(2px) rotate(1deg);
+}
+
+@keyframes helix-seed-breathe {
+  0%, 100% { transform: scale(0.98) rotate(-1deg); }
+  50% { transform: scale(1.025) rotate(1deg); }
+}
+
+@keyframes helix-seed-glow {
+  0%, 100% { opacity: 0.48; transform: scale(0.94) rotate(-4deg); }
+  50% { opacity: 0.78; transform: scale(1.04) rotate(4deg); }
+}
+
+@keyframes helix-seed-orbit {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes helix-seed-flow {
+  to { stroke-dashoffset: -50; }
+}
+
+@keyframes helix-seed-alert {
+  0%, 100% { transform: translateX(0); }
+  35% { transform: translateX(-2px) rotate(-2deg); }
+  70% { transform: translateX(2px) rotate(2deg); }
+}
+
+@keyframes helix-seed-success {
+  0% { opacity: 0; transform: scale(0.45) rotate(-20deg); }
+  35% { opacity: 1; transform: scale(1) rotate(0deg); }
+  100% { opacity: 0; transform: scale(1.35) rotate(12deg); }
+}
+
 .pet-spiral-ring {
   animation: pet-spiral-flow 6s linear infinite;
   transition: opacity 0.25s ease, stroke-width 0.25s ease;
@@ -402,6 +495,12 @@ select:focus-visible {
   .pet-hero,
   .pet-status-dot,
   .pet-spiral-ring,
+  .helix-seed,
+  .helix-seed-glow,
+  .helix-seed-ribbon,
+  .helix-seed-orbits,
+  .helix-seed-ribbons,
+  .helix-seed-success,
   .animate-pulse-fast,
   .animate-thinking-1,
   .animate-thinking-2,

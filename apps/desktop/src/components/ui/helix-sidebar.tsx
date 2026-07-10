@@ -1,61 +1,82 @@
-import { Bot, Clock, Layers, MessageSquarePlus, Settings, Sparkles, Square, Workflow } from "lucide-react";
-import { Button } from "./button";
-import { Separator } from "./separator";
-
-type NavMode = "command" | "history" | "prompts" | "connectors" | "workflows" | "skills" | "settings";
+import { PanelLeftClose } from "lucide-react";
+import { HELIX_NAV_GROUPS, type HelixNavMode, NEW_TASK_ITEM, SETTINGS_ITEM } from "./helix-navigation";
 
 interface HelixSidebarProps {
-  mode: NavMode;
-  onChangeMode: (mode: NavMode) => void;
+  mode: HelixNavMode;
+  onChangeMode: (mode: HelixNavMode) => void;
   onNewTask: () => void;
   onToggleExpand: () => void;
 }
 
-const items: { id: NavMode; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { id: "command", label: "Nova conversa", icon: MessageSquarePlus },
-  { id: "history", label: "Histórico", icon: Clock },
-  { id: "prompts", label: "Perfis", icon: Sparkles },
-  { id: "connectors", label: "Conectores", icon: Layers },
-  { id: "workflows", label: "Workflows", icon: Workflow },
-  { id: "skills", label: "Skills", icon: Bot },
-  { id: "settings", label: "Config", icon: Settings },
-];
-
 export function HelixSidebar({ mode, onChangeMode, onNewTask, onToggleExpand }: HelixSidebarProps) {
-  return (
-    <aside className="w-[200px] h-full border-r border-line bg-white/[0.01] p-4 flex flex-col gap-2 shrink-0">
-      <div className="text-[10px] text-faint font-mono uppercase tracking-wider mb-2">Menu</div>
-      {items.map((item) => {
-        const Icon = item.icon;
-        const active = mode === item.id;
-        return (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => {
-              if (item.id === "command") {
-                onNewTask();
-              }
-              onChangeMode(item.id);
-            }}
-            className={`h-9 w-full rounded-lg px-3 text-left text-xs font-semibold flex items-center gap-2.5 transition-colors ${
-              active
-                ? "bg-white/8 text-fg border border-line-strong"
-                : "text-mute hover:text-fg hover:bg-white/[0.04] border border-transparent"
-            }`}
-          >
-            <Icon className="w-4 h-4" />
-            {item.label}
-          </button>
-        );
-      })}
+  const NewTaskIcon = NEW_TASK_ITEM.icon;
+  const SettingsIcon = SETTINGS_ITEM.icon;
 
-      <div className="mt-auto flex flex-col gap-2">
-        <Separator />
-        <Button variant="secondary" size="sm" onClick={onToggleExpand}>
-          <Square className="w-3.5 h-3.5" />
-          Modo normal
-        </Button>
+  return (
+    <aside className="flex h-full w-[184px] shrink-0 flex-col border-r border-line bg-ink/20 px-3 py-3">
+      <button
+        type="button"
+        onClick={() => {
+          onNewTask();
+          onChangeMode("command");
+        }}
+        className="flex min-h-10 w-full items-center gap-2.5 rounded-xl border border-signal/20 bg-signal/[0.08] px-3 text-left text-xs font-semibold text-fg transition-colors hover:border-signal/35 hover:bg-signal/[0.12]"
+      >
+        <NewTaskIcon className="h-4 w-4 text-signal" />
+        <span>Nova conversa</span>
+      </button>
+
+      <nav className="mt-4 grid gap-4" aria-label="Navegação principal">
+        {HELIX_NAV_GROUPS.map((group) => (
+          <section key={group.label}>
+            <h2 className="mb-1.5 px-2 text-[8px] font-mono uppercase tracking-[0.16em] text-faint">
+              {group.label}
+            </h2>
+            <div className="grid gap-0.5">
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const active = mode === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => onChangeMode(item.id)}
+                    className={`group flex h-9 w-full items-center gap-2.5 rounded-lg border px-2.5 text-left text-xs font-medium transition-colors ${
+                      active
+                        ? "border-line-strong bg-white/[0.065] text-fg"
+                        : "border-transparent text-mute hover:bg-white/[0.035] hover:text-fg"
+                    }`}
+                    title={item.description}
+                  >
+                    <Icon
+                      className={`h-4 w-4 ${active ? "text-signal" : "text-faint group-hover:text-mute"}`}
+                    />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        ))}
+      </nav>
+
+      <div className="mt-auto grid gap-1 border-t border-line pt-2">
+        <button
+          type="button"
+          onClick={() => onChangeMode("settings")}
+          className="flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-xs font-medium text-mute transition-colors hover:bg-white/[0.035] hover:text-fg"
+        >
+          <SettingsIcon className="h-4 w-4 text-faint" />
+          Configurações
+        </button>
+        <button
+          type="button"
+          onClick={onToggleExpand}
+          className="flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-[10px] text-faint transition-colors hover:bg-white/[0.03] hover:text-mute"
+        >
+          <PanelLeftClose className="h-3.5 w-3.5" />
+          Voltar ao painel rápido
+        </button>
       </div>
     </aside>
   );

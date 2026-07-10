@@ -2,60 +2,53 @@ import { useId } from "react";
 import { useAgentStore } from "../../stores/agent";
 
 type PetState = "connecting" | "error" | "thinking" | "success" | "idle";
+type PetVariant = "full" | "dot" | "hero" | "compact";
 
 interface PetProps {
   className?: string;
   size?: number;
-  variant?: "full" | "dot" | "hero" | "compact";
+  variant?: PetVariant;
   glow?: boolean;
 }
 
-const STATE_CONFIG: Record<
-  PetState,
-  {
-    core: string;
-    rim: string;
-    glow: string;
-    label: string;
-  }
-> = {
+const STATE_CONFIG: Record<PetState, { primary: string; secondary: string; glow: string; label: string }> = {
   connecting: {
-    core: "#f0a040",
-    rim: "#f7d6a0",
-    glow: "rgba(240, 160, 64, 0.32)",
+    primary: "#35d6ff",
+    secondary: "#b9f3ff",
+    glow: "rgba(53, 214, 255, 0.28)",
     label: "Conectando",
   },
   error: {
-    core: "#f0607c",
-    rim: "#f7a7b8",
-    glow: "rgba(240, 96, 124, 0.34)",
+    primary: "#ff5f7a",
+    secondary: "#ffc0cb",
+    glow: "rgba(255, 95, 122, 0.3)",
     label: "Erro",
   },
   thinking: {
-    core: "#f0c840",
-    rim: "#f8e9a6",
-    glow: "rgba(240, 200, 64, 0.36)",
+    primary: "#f4c542",
+    secondary: "#fff0a8",
+    glow: "rgba(244, 197, 66, 0.3)",
     label: "Pensando",
   },
   success: {
-    core: "#5fd0a0",
-    rim: "#b8f0d8",
-    glow: "rgba(95, 208, 160, 0.34)",
+    primary: "#52e6a7",
+    secondary: "#c1f8df",
+    glow: "rgba(82, 230, 167, 0.28)",
     label: "Concluído",
   },
   idle: {
-    core: "#c084fc",
-    rim: "#f5e6ff",
-    glow: "rgba(196, 153, 244, 0.45)",
+    primary: "#b982ff",
+    secondary: "#e9d2ff",
+    glow: "rgba(185, 130, 255, 0.32)",
     label: "Pronto",
   },
 };
 
 function usePetState(): PetState {
-  const connected = useAgentStore((s) => s.connected);
-  const streaming = useAgentStore((s) => s.streaming);
-  const error = useAgentStore((s) => s.error);
-  const result = useAgentStore((s) => s.result);
+  const connected = useAgentStore((state) => state.connected);
+  const streaming = useAgentStore((state) => state.streaming);
+  const error = useAgentStore((state) => state.error);
+  const result = useAgentStore((state) => state.result);
 
   if (!connected) return "connecting";
   if (error) return "error";
@@ -67,94 +60,24 @@ function usePetState(): PetState {
 export function Pet({ className = "", size = 64, variant = "full", glow = true }: PetProps) {
   const state = usePetState();
   const config = STATE_CONFIG[state];
-
-  if (variant === "dot") {
-    return <PetDot size={size} state={state} config={config} className={className} />;
-  }
-
-  if (variant === "compact") {
-    return <PetCompact size={size} state={state} config={config} className={className} glow={glow} />;
-  }
-
-  if (variant === "hero") {
-    return <PetHero size={size} state={state} config={config} className={className} glow={glow} />;
-  }
-
-  return <PetFull size={size} state={state} config={config} className={className} glow={glow} />;
-}
-
-function PetDot({
-  size,
-  state,
-  config,
-  className,
-}: {
-  size: number;
-  state: PetState;
-  config: (typeof STATE_CONFIG)[PetState];
-  className: string;
-}) {
-  const isActive = state === "thinking" || state === "connecting";
-  const animationClass = isActive ? "animate-pulse-fast" : "";
-
-  return (
-    <div
-      className={`relative flex items-center justify-center select-none ${className}`}
-      style={{ width: size, height: size }}
-      role="img"
-      title={config.label}
-      aria-label={config.label}
-    >
-      <div
-        className={`rounded-full ${animationClass}`}
-        style={{
-          width: size,
-          height: size,
-          background: config.core,
-          opacity: 0.85,
-        }}
-      />
-    </div>
-  );
-}
-
-function PetCompact({
-  size,
-  state,
-  config,
-  className,
-  glow = true,
-}: {
-  size: number;
-  state: PetState;
-  config: (typeof STATE_CONFIG)[PetState];
-  className: string;
-  glow?: boolean;
-}) {
   const gradientId = useId().replace(/:/g, "");
-  const coreGradientId = `${gradientId}-core`;
-  const ringGradientId = `${gradientId}-ring`;
-  const isActive = state === "thinking" || state === "connecting";
-  const coreAnimation = isActive ? "animate-pulse-fast" : state === "idle" ? "animate-pulse-gentle" : "";
+  const primaryGradientId = `${gradientId}-primary`;
+  const secondaryGradientId = `${gradientId}-secondary`;
+  const detailed = variant === "full" || variant === "hero";
+  const hero = variant === "hero";
+  const dot = variant === "dot";
+  const ribbonWidth = dot ? 8 : hero ? 5.2 : detailed ? 5.8 : 7;
 
   return (
     <div
-      className={`pet-compact relative flex items-center justify-center select-none ${className}`}
-      style={{ width: size, height: size }}
+      className={`helix-seed helix-seed-${variant} relative flex items-center justify-center select-none ${className}`}
+      style={{ width: size, height: size, ["--seed-glow" as string]: config.glow }}
+      data-state={state}
       role="img"
       aria-label={config.label}
       title={config.label}
     >
-      {glow && (
-        <div
-          className="absolute inset-[-12%] rounded-full pointer-events-none animate-pulse-soft"
-          style={{
-            background: `radial-gradient(circle, ${config.glow} 0%, transparent 55%)`,
-            filter: "blur(4px)",
-            opacity: 0.85,
-          }}
-        />
-      )}
+      {glow && !dot && <span className="helix-seed-glow absolute inset-[8%] pointer-events-none" />}
 
       <svg
         width={size}
@@ -162,395 +85,98 @@ function PetCompact({
         viewBox="0 0 100 100"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className="relative z-10"
-        role="img"
-        aria-label={config.label}
+        className="relative z-10 overflow-visible"
+        aria-hidden="true"
       >
-        <title>{config.label}</title>
         <defs>
-          <radialGradient id={coreGradientId} cx="35%" cy="30%" r="60%">
-            <stop offset="0%" stopColor={config.rim} stopOpacity="1" />
-            <stop offset="40%" stopColor={config.core} stopOpacity="1" />
-            <stop offset="85%" stopColor={config.core} stopOpacity="1" />
-            <stop offset="100%" stopColor={config.core} stopOpacity="1" />
-          </radialGradient>
-          <linearGradient id={ringGradientId} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor={config.rim} stopOpacity="0.9" />
-            <stop offset="50%" stopColor={config.core} stopOpacity="0.5" />
-            <stop offset="100%" stopColor={config.core} stopOpacity="0.25" />
+          <linearGradient id={primaryGradientId} x1="20" y1="14" x2="78" y2="86">
+            <stop offset="0" stopColor={config.secondary} />
+            <stop offset="0.42" stopColor={config.primary} />
+            <stop offset="1" stopColor={config.primary} stopOpacity="0.42" />
+          </linearGradient>
+          <linearGradient id={secondaryGradientId} x1="80" y1="16" x2="22" y2="84">
+            <stop offset="0" stopColor={config.primary} stopOpacity="0.38" />
+            <stop offset="0.58" stopColor={config.primary} />
+            <stop offset="1" stopColor={config.secondary} />
           </linearGradient>
         </defs>
 
-        {/* Outer orbital rings */}
-        <circle
-          cx="50"
-          cy="50"
-          r="46"
-          fill="none"
-          stroke="url(#ringGradientId)"
-          strokeWidth="1.8"
-          strokeOpacity="0.45"
-          className="pet-compact-orbit"
-        />
-        <circle
-          cx="50"
-          cy="50"
-          r="40"
-          fill="none"
-          stroke={config.rim}
-          strokeWidth="1"
-          strokeOpacity="0.28"
-          strokeDasharray="6 10"
-          className="pet-compact-orbit"
-          style={{ animationDirection: "reverse" }}
-        />
-        <circle
-          cx="50"
-          cy="50"
-          r="34"
-          fill="none"
-          stroke={config.core}
-          strokeWidth="0.8"
-          strokeOpacity="0.22"
-          strokeDasharray="4 8"
-          className="pet-compact-orbit"
-        />
-
-        {/* Main outer ring */}
-        <circle cx="50" cy="50" r="22" fill="none" stroke={`url(#${ringGradientId})`} strokeWidth="2.4" />
-
-        {/* Core */}
-        <circle className={coreAnimation} cx="50" cy="50" r="18" fill={`url(#${coreGradientId})`} />
-      </svg>
-    </div>
-  );
-}
-
-function PetFull({
-  size,
-  state,
-  config,
-  className,
-  glow = true,
-}: {
-  size: number;
-  state: PetState;
-  config: (typeof STATE_CONFIG)[PetState];
-  className: string;
-  glow?: boolean;
-}) {
-  const gradientId = useId().replace(/:/g, "");
-  const coreGradientId = `${gradientId}-core`;
-  const ringGradientId = `${gradientId}-ring`;
-  const isActive = state === "thinking" || state === "connecting";
-  const coreAnimation = isActive ? "animate-pulse-fast" : state === "idle" ? "animate-pulse-gentle" : "";
-  const orbitSpeed = state === "connecting" ? "4s" : state === "thinking" ? "5s" : "8s";
-
-  const spirals = [
-    { r: 46, opacity: 0.35, speed: "14s", width: 1.2, dir: 1 },
-    { r: 38, opacity: 0.45, speed: "18s", width: 1, dir: -1 },
-    { r: 30, opacity: 0.55, speed: "11s", width: 1, dir: 1 },
-  ];
-
-  const particles = [
-    { r: 42, size: 1.4, delay: "0s", duration: "6s" },
-    { r: 34, size: 1, delay: "2s", duration: "8s" },
-    { r: 50, size: 1.2, delay: "4s", duration: "10s" },
-  ];
-
-  return (
-    <div
-      className={`pet-companion relative flex items-center justify-center select-none ${className}`}
-      style={{ width: size, height: size }}
-    >
-      {glow && (
-        <div
-          className="absolute inset-[-8%] rounded-full pointer-events-none animate-pulse-soft"
-          style={{
-            background: `radial-gradient(circle, ${config.glow} 0%, transparent 55%)`,
-            filter: "blur(5px)",
-            opacity: 0.85,
-          }}
-        />
-      )}
-
-      <svg
-        width={size}
-        height={size}
-        viewBox="0 0 100 100"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        className="relative z-10"
-        role="img"
-        aria-label={config.label}
-      >
-        <title>{config.label}</title>
-        <defs>
-          <radialGradient id={coreGradientId} cx="35%" cy="30%" r="60%">
-            <stop offset="0%" stopColor={config.rim} stopOpacity="1" />
-            <stop offset="40%" stopColor={config.core} stopOpacity="1" />
-            <stop offset="85%" stopColor={config.core} stopOpacity="1" />
-            <stop offset="100%" stopColor={config.core} stopOpacity="1" />
-          </radialGradient>
-          <linearGradient id={ringGradientId} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor={config.rim} stopOpacity="0.9" />
-            <stop offset="50%" stopColor={config.core} stopOpacity="0.5" />
-            <stop offset="100%" stopColor={config.core} stopOpacity="0.25" />
-          </linearGradient>
-        </defs>
-
-        {/* Orbiting particles */}
-        <g className="pet-particle" style={{ animationDuration: orbitSpeed }}>
-          {particles.map((p, i) => (
-            <circle
-              key={`orbit-${p.r}`}
+        {detailed && (
+          <g className="helix-seed-orbits">
+            <ellipse
               cx="50"
               cy="50"
-              r={p.r}
-              fill="none"
-              stroke="transparent"
-              className={i % 2 === 1 ? "pet-particle-alt" : ""}
-              style={{ animationDuration: p.duration }}
+              rx="45"
+              ry="27"
+              transform="rotate(-24 50 50)"
+              stroke={config.primary}
+              strokeWidth="0.9"
+              strokeOpacity="0.28"
+              strokeDasharray="18 9 3 12"
             />
-          ))}
+            <ellipse
+              cx="50"
+              cy="50"
+              rx="42"
+              ry="24"
+              transform="rotate(32 50 50)"
+              stroke={config.secondary}
+              strokeWidth="0.7"
+              strokeOpacity="0.2"
+              strokeDasharray="4 13"
+            />
+          </g>
+        )}
+
+        <g className="helix-seed-ribbons">
+          <path
+            className="helix-seed-ribbon helix-seed-ribbon-a"
+            d="M31 17 C72 20 74 39 52 49 C29 60 29 79 69 83"
+            stroke={`url(#${primaryGradientId})`}
+            strokeWidth={ribbonWidth}
+            strokeLinecap="round"
+          />
+          <path
+            className="helix-seed-ribbon helix-seed-ribbon-b"
+            d="M69 17 C28 20 26 39 48 49 C71 60 71 79 31 83"
+            stroke={`url(#${secondaryGradientId})`}
+            strokeWidth={ribbonWidth}
+            strokeLinecap="round"
+          />
         </g>
 
-        {particles.map((p, i) => {
-          const angle = i * 120 * (Math.PI / 180);
-          return (
-            <circle
-              key={`particle-${p.r}-${p.delay}`}
-              cx={50 + p.r * Math.cos(angle)}
-              cy={50 + p.r * Math.sin(angle)}
-              r={p.size}
-              fill={config.rim}
-              fillOpacity={0.85 - i * 0.12}
-              className={i % 2 === 1 ? "pet-particle-alt" : "pet-particle"}
-              style={{ animationDuration: p.duration, animationDelay: p.delay }}
-            />
-          );
-        })}
-
-        {/* Spiral rings */}
-        {spirals.map((s, i) => {
-          const circumference = 2 * Math.PI * s.r;
-          const dash = circumference * 0.55;
-          const gap = circumference * 0.45;
-          return (
-            <circle
-              key={s.r}
-              cx="50"
-              cy="50"
-              r={s.r}
-              fill="none"
-              stroke={config.core}
-              strokeOpacity={s.opacity}
-              strokeWidth={s.width}
-              className="pet-spiral-ring"
-              style={{
-                strokeDasharray: `${dash} ${gap}`,
-                ["--circ" as string]: `${-circumference * s.dir}`,
-                animationDuration: s.speed,
-                animationDelay: `${i * 0.4}s`,
-              }}
-            />
-          );
-        })}
-
-        {/* Main outer ring */}
-        <circle cx="50" cy="50" r="20.5" fill="none" stroke={`url(#${ringGradientId})`} strokeWidth="2.4" />
-
-        {/* Shockwave ring */}
-        <circle
-          cx="50"
-          cy="50"
-          r="18"
-          fill="none"
-          stroke={config.core}
-          strokeWidth="1"
-          strokeOpacity="0.45"
-          className="pet-shockwave"
+        <path
+          className="helix-seed-void"
+          d="M50 39 L61 50 L50 61 L39 50 Z"
+          fill="#090810"
+          stroke={config.secondary}
+          strokeWidth={dot ? 2.2 : 1.4}
+          strokeOpacity="0.78"
+        />
+        <path
+          d="M50 44 L56 50 L50 56 L44 50 Z"
+          fill={config.primary}
+          fillOpacity="0.18"
+          stroke={config.primary}
+          strokeWidth="0.8"
+          strokeOpacity="0.7"
         />
 
-        {/* Planet core */}
-        <circle className={coreAnimation} cx="50" cy="50" r="17" fill={`url(#${coreGradientId})`} />
-      </svg>
-    </div>
-  );
-}
+        {detailed && (
+          <g className="helix-seed-satellites" fill={config.secondary}>
+            <circle cx="12" cy="38" r={hero ? 1.6 : 1.3} opacity="0.78" />
+            <circle cx="84" cy="25" r={hero ? 1.25 : 1} opacity="0.56" />
+            <circle cx="82" cy="78" r={hero ? 1.8 : 1.35} opacity="0.72" />
+          </g>
+        )}
 
-function PetHero({
-  size,
-  state,
-  config,
-  className,
-  glow = true,
-}: {
-  size: number;
-  state: PetState;
-  config: (typeof STATE_CONFIG)[PetState];
-  className: string;
-  glow?: boolean;
-}) {
-  const gradientId = useId().replace(/:/g, "");
-  const coreGradientId = `${gradientId}-core`;
-  const ringGradientId = `${gradientId}-ring`;
-  const isActive = state === "thinking" || state === "connecting";
-  const coreAnimation = isActive ? "animate-pulse-fast" : state === "idle" ? "animate-pulse-gentle" : "";
-
-  const spirals = [
-    { r: 46, opacity: 0.35, speed: "14s", width: 1.2, dir: 1, offset: 0 },
-    { r: 46, opacity: 0.28, speed: "17s", width: 1, dir: -1, offset: 180 },
-    { r: 38, opacity: 0.45, speed: "18s", width: 1, dir: -1, offset: 0 },
-    { r: 38, opacity: 0.38, speed: "21s", width: 0.9, dir: 1, offset: 180 },
-    { r: 30, opacity: 0.55, speed: "11s", width: 1, dir: 1, offset: 0 },
-    { r: 30, opacity: 0.42, speed: "13s", width: 0.9, dir: -1, offset: 180 },
-  ];
-
-  const particles = [
-    { r: 52, size: 1.6, delay: "0s", duration: "5s" },
-    { r: 44, size: 1.2, delay: "1.2s", duration: "7s" },
-    { r: 36, size: 1, delay: "2.4s", duration: "9s" },
-    { r: 58, size: 1.3, delay: "3.6s", duration: "11s" },
-    { r: 28, size: 0.9, delay: "4.8s", duration: "13s" },
-  ];
-
-  return (
-    <div
-      className={`pet-companion pet-hero relative flex items-center justify-center select-none ${className}`}
-      style={{ width: size, height: size }}
-    >
-      {glow && (
-        <>
-          <div
-            className="absolute inset-[-20%] rounded-full pointer-events-none animate-pulse-soft"
-            style={{
-              background: `radial-gradient(circle, ${config.glow} 0%, transparent 55%)`,
-              filter: "blur(8px)",
-              opacity: 0.9,
-            }}
+        {state === "success" && (
+          <path
+            className="helix-seed-success"
+            d="M76 15 L77.5 19 L82 20.5 L77.5 22 L76 26 L74.5 22 L70 20.5 L74.5 19 Z"
+            fill={config.secondary}
           />
-          <div
-            className="absolute inset-[-40%] rounded-full pointer-events-none"
-            style={{
-              background: `radial-gradient(circle, ${config.glow} 0%, transparent 50%)`,
-              filter: "blur(18px)",
-              opacity: 0.35,
-            }}
-          />
-        </>
-      )}
-
-      <svg
-        width={size}
-        height={size}
-        viewBox="0 0 100 100"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        className="relative z-10"
-        role="img"
-        aria-label={config.label}
-      >
-        <title>{config.label}</title>
-        <defs>
-          <radialGradient id={coreGradientId} cx="50%" cy="35%" r="60%">
-            <stop offset="0%" stopColor={config.rim} stopOpacity="1" />
-            <stop offset="40%" stopColor={config.core} stopOpacity="1" />
-            <stop offset="85%" stopColor={config.core} stopOpacity="1" />
-            <stop offset="100%" stopColor={config.core} stopOpacity="1" />
-          </radialGradient>
-          <linearGradient id={ringGradientId} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor={config.rim} stopOpacity="0.9" />
-            <stop offset="50%" stopColor={config.core} stopOpacity="0.5" />
-            <stop offset="100%" stopColor={config.core} stopOpacity="0.25" />
-          </linearGradient>
-        </defs>
-
-        {/* Outer orbital rings */}
-        <circle
-          cx="50"
-          cy="50"
-          r="20"
-          fill="none"
-          stroke="url(#ringGradientId)"
-          strokeWidth="1.2"
-          strokeOpacity="0.35"
-          className="pet-hero-orbit"
-        />
-        <circle
-          cx="50"
-          cy="50"
-          r="26"
-          fill="none"
-          stroke={config.rim}
-          strokeWidth="0.6"
-          strokeOpacity="0.18"
-          strokeDasharray="4 10"
-          className="pet-hero-outer-orbit"
-        />
-
-        {/* Orbiting particles */}
-        {particles.map((p, i) => {
-          const angle = i * 72 * (Math.PI / 180);
-          return (
-            <circle
-              key={`particle-${p.r}-${p.delay}`}
-              cx={50 + p.r * Math.cos(angle)}
-              cy={50 + p.r * Math.sin(angle)}
-              r={p.size}
-              fill={config.rim}
-              fillOpacity={0.85 - i * 0.08}
-              className={i % 2 === 1 ? "pet-hero-particle-alt" : "pet-hero-particle"}
-              style={{ animationDuration: p.duration, animationDelay: p.delay }}
-            />
-          );
-        })}
-
-        {/* Dual helix spiral rings */}
-        {spirals.map((s, i) => {
-          const circumference = 2 * Math.PI * s.r;
-          const dash = circumference * 0.55;
-          const gap = circumference * 0.45;
-          return (
-            <circle
-              key={`spiral-${s.r}-${s.offset}-${s.dir}`}
-              cx="50"
-              cy="50"
-              r={s.r}
-              fill="none"
-              stroke={config.core}
-              strokeOpacity={s.opacity}
-              strokeWidth={s.width}
-              className="pet-hero-spiral"
-              style={{
-                strokeDasharray: `${dash} ${gap}`,
-                ["--circ" as string]: `${-circumference * s.dir}`,
-                animationDuration: s.speed,
-                animationDelay: `${i * 0.25}s`,
-                transform: `rotate(${s.offset}deg)`,
-                transformOrigin: "center",
-              }}
-            />
-          );
-        })}
-
-        {/* Main outer ring */}
-        <circle cx="50" cy="50" r="20.5" fill="none" stroke={`url(#${ringGradientId})`} strokeWidth="2.4" />
-
-        {/* Shockwave ring */}
-        <circle
-          cx="50"
-          cy="50"
-          r="18"
-          fill="none"
-          stroke={config.core}
-          strokeWidth="1"
-          strokeOpacity="0.45"
-          className="pet-shockwave"
-        />
-
-        {/* Planet core */}
-        <circle className={coreAnimation} cx="50" cy="50" r="17" fill={`url(#${coreGradientId})`} />
+        )}
       </svg>
     </div>
   );

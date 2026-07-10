@@ -2,7 +2,6 @@ import type { AgentProfile } from "@desktop-agent/shared";
 import type { ReactNode } from "react";
 import { Pet } from "./pet";
 import { ProfileSwitch } from "./profile-switch";
-import { Starfield } from "./starfield";
 
 interface HeroHomeProps {
   expanded?: boolean;
@@ -19,14 +18,10 @@ export function HeroHome({ expanded, footer, profiles, activeProfileId, onSetAct
         expanded ? "py-3" : "py-2"
       }`}
     >
-      {/* Background layer: starfield, nebula and orbital rings */}
-      <Starfield density={expanded ? 42 : 28} className="-z-10" />
-
       <div
-        className="absolute inset-0 -z-10 pointer-events-none opacity-60"
+        className="absolute inset-0 -z-10 pointer-events-none opacity-55"
         style={{
-          background:
-            "radial-gradient(circle at 50% 55%, rgba(196, 153, 244, 0.14) 0%, transparent 38%), radial-gradient(circle at 40% 45%, rgba(95, 208, 160, 0.08) 0%, transparent 30%)",
+          background: "radial-gradient(ellipse at 50% 55%, rgba(185, 130, 255, 0.12) 0%, transparent 42%)",
         }}
       />
 
@@ -34,37 +29,39 @@ export function HeroHome({ expanded, footer, profiles, activeProfileId, onSetAct
       <div className="relative flex items-center justify-center">
         <svg
           className="-z-10 pointer-events-none"
-          width={expanded ? 260 : 200}
-          height={expanded ? 260 : 200}
-          viewBox="0 0 200 200"
+          width={expanded ? 250 : 210}
+          height={expanded ? 190 : 164}
+          viewBox="0 0 220 170"
           aria-hidden="true"
         >
-          <circle
-            cx="100"
-            cy="100"
-            r={expanded ? 72 : 60}
+          <ellipse
+            cx="110"
+            cy="85"
+            rx={expanded ? 94 : 78}
+            ry={expanded ? 44 : 38}
+            transform="rotate(-14 110 85)"
             fill="none"
-            stroke="rgba(196, 153, 244, 0.10)"
+            stroke="rgba(185, 130, 255, 0.12)"
             strokeWidth="1"
-            strokeDasharray="6 10"
+            strokeDasharray="18 12 3 15"
             className="animate-spin-slow"
           />
-          <circle
-            cx="100"
-            cy="100"
-            r={expanded ? 56 : 48}
+          <ellipse
+            cx="110"
+            cy="85"
+            rx={expanded ? 76 : 66}
+            ry={expanded ? 56 : 48}
+            transform="rotate(28 110 85)"
             fill="none"
-            stroke="rgba(95, 208, 160, 0.08)"
+            stroke="rgba(53, 214, 255, 0.07)"
             strokeWidth="1"
-            strokeDasharray="4 14"
-            className="animate-spin-slow"
-            style={{ animationDirection: "reverse", animationDuration: "32s" }}
+            strokeDasharray="4 17"
           />
         </svg>
 
         {/* Hero pet with entrance animation */}
         <div className="hero-enter absolute z-10 p-4 flex items-center justify-center">
-          <Pet size={expanded ? 92 : 72} variant="hero" glow />
+          <Pet size={expanded ? 124 : 104} variant="hero" glow />
         </div>
       </div>
 

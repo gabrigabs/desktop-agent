@@ -1,3 +1,4 @@
+import { getHelixAction } from "@desktop-agent/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { HelixDrawer } from "../../components/ui/helix-drawer";
 import { HelixHeader } from "../../components/ui/helix-header";
@@ -154,6 +155,29 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     return () => window.removeEventListener("open-settings", handler);
   }, []);
 
+  useEffect(() => {
+    const actionId = sessionStorage.getItem("helix.pending-action");
+    if (!actionId) return;
+
+    sessionStorage.removeItem("helix.pending-action");
+    if (actionId === "artifacts") {
+      setMode("artifacts");
+      return;
+    }
+    if (actionId === "workflow") {
+      setMode("workflows");
+      return;
+    }
+
+    const action = getHelixAction(actionId);
+    if (!action) return;
+    setMode("command");
+    setExecutionMode(action.executionMode ?? "simple");
+    setIgnoreClipboard(!action.requiredContext?.includes("clipboard"));
+    setQuery(action.prompt);
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }, [setExecutionMode, setIgnoreClipboard, setQuery]);
+
   const onStarterAction = useCallback(
     (prompt: string, modeOverride?: "simple" | "workflow") => {
       exec.handleStarterAction(prompt, modeOverride, textareaRef);
@@ -308,66 +332,65 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     onDeleteSkill: skills.handleDelete,
   };
 
+  const settingsPanelProps = {
+    onClose: () => setShowSettings(false),
+    settings,
+    formProvider: settingsForm.formProvider,
+    setFormProvider: settingsForm.setFormProvider,
+    formApiKey: settingsForm.formApiKey,
+    setFormApiKey: settingsForm.setFormApiKey,
+    formBaseUrl: settingsForm.formBaseUrl,
+    setFormBaseUrl: settingsForm.setFormBaseUrl,
+    formModel: settingsForm.formModel,
+    setFormModel: settingsForm.setFormModel,
+    formHidePet: settingsForm.formHidePet,
+    setFormHidePet: settingsForm.setFormHidePet,
+    formTimeout: settingsForm.formTimeout,
+    setFormTimeout: settingsForm.setFormTimeout,
+    formWindowOpacity: settingsForm.formWindowOpacity,
+    setFormWindowOpacity: settingsForm.setFormWindowOpacity,
+    formPetSize: settingsForm.formPetSize,
+    setFormPetSize: settingsForm.setFormPetSize,
+    showKey: settingsForm.showKey,
+    setShowKey: settingsForm.setShowKey,
+    fetchedModels: settingsForm.fetchedModels,
+    loadingModels: settingsForm.loadingModels,
+    savingSettings: settingsForm.savingSettings,
+    handleSaveSettings: settingsForm.handleSaveSettings,
+  };
+
   if (uiMode === "expanded") {
     return (
-      <>
-        <div className="h-full w-full flex flex-col">
-          <HelixHeader
-            expanded
-            alwaysOnTop={settings.alwaysOnTop}
-            onToggleAlwaysOnTop={onToggleAlwaysOnTop}
+      <div className="h-full w-full flex flex-col">
+        <HelixHeader
+          expanded
+          alwaysOnTop={settings.alwaysOnTop}
+          onToggleAlwaysOnTop={onToggleAlwaysOnTop}
+          onToggleExpand={handleToggleExpand}
+          onMinimize={handleMinimize}
+          onClose={handleClose}
+        />
+        <div className="flex-1 min-h-0 flex">
+          <HelixSidebar
+            mode={showSettings ? "settings" : mode}
+            onChangeMode={handleChangeMode}
+            onNewTask={handleNewTask}
             onToggleExpand={handleToggleExpand}
-            onMinimize={handleMinimize}
-            onClose={handleClose}
           />
-          <div className="flex-1 min-h-0 flex">
-            <HelixSidebar
-              mode={mode}
-              onChangeMode={handleChangeMode}
-              onNewTask={handleNewTask}
-              onToggleExpand={handleToggleExpand}
-            />
-            <main className="flex-1 min-h-0 overflow-hidden">
+          <main className="relative flex-1 min-h-0 overflow-hidden">
+            {showSettings ? (
+              <SettingsPanel variant="expanded" {...settingsPanelProps} />
+            ) : (
               <ExpandedView {...commonProps} />
-            </main>
-          </div>
+            )}
+          </main>
         </div>
-        {showSettings && (
-          <SettingsPanel
-            variant="expanded"
-            onClose={() => setShowSettings(false)}
-            settings={settings}
-            formProvider={settingsForm.formProvider}
-            setFormProvider={settingsForm.setFormProvider}
-            formApiKey={settingsForm.formApiKey}
-            setFormApiKey={settingsForm.setFormApiKey}
-            formBaseUrl={settingsForm.formBaseUrl}
-            setFormBaseUrl={settingsForm.setFormBaseUrl}
-            formModel={settingsForm.formModel}
-            setFormModel={settingsForm.setFormModel}
-            formHidePet={settingsForm.formHidePet}
-            setFormHidePet={settingsForm.setFormHidePet}
-            formTimeout={settingsForm.formTimeout}
-            setFormTimeout={settingsForm.setFormTimeout}
-            formWindowOpacity={settingsForm.formWindowOpacity}
-            setFormWindowOpacity={settingsForm.setFormWindowOpacity}
-            formPetSize={settingsForm.formPetSize}
-            setFormPetSize={settingsForm.setFormPetSize}
-            showKey={settingsForm.showKey}
-            setShowKey={settingsForm.setShowKey}
-            fetchedModels={settingsForm.fetchedModels}
-            loadingModels={settingsForm.loadingModels}
-            savingSettings={settingsForm.savingSettings}
-            handleSaveSettings={settingsForm.handleSaveSettings}
-          />
-        )}
-      </>
+      </div>
     );
   }
 
   return (
-    <>
-      <div className="h-full w-full flex flex-col">
+    <div className="h-full w-full flex flex-col">
         <HelixHeader
           expanded={false}
           alwaysOnTop={settings.alwaysOnTop}
@@ -375,7 +398,8 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
           onToggleExpand={handleToggleExpand}
           onMinimize={handleMinimize}
           onClose={handleClose}
-          onOpenMenu={() => setDrawerOpen(true)}
+          onOpenMenu={() => setDrawerOpen((open) => !open)}
+          menuOpen={drawerOpen}
         />
         <HelixDrawer
           open={drawerOpen}
@@ -385,37 +409,12 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
           onNewTask={handleNewTask}
         />
         <main className="flex-1 min-h-0 overflow-hidden relative">
-          <NormalCommandView {...commonProps} onExpandedMode={handleToggleExpand} />
+          {showSettings ? (
+            <SettingsPanel {...settingsPanelProps} />
+          ) : (
+            <NormalCommandView {...commonProps} onExpandedMode={handleToggleExpand} />
+          )}
         </main>
-      </div>
-      {showSettings && (
-        <SettingsPanel
-          onClose={() => setShowSettings(false)}
-          settings={settings}
-          formProvider={settingsForm.formProvider}
-          setFormProvider={settingsForm.setFormProvider}
-          formApiKey={settingsForm.formApiKey}
-          setFormApiKey={settingsForm.setFormApiKey}
-          formBaseUrl={settingsForm.formBaseUrl}
-          setFormBaseUrl={settingsForm.setFormBaseUrl}
-          formModel={settingsForm.formModel}
-          setFormModel={settingsForm.setFormModel}
-          formHidePet={settingsForm.formHidePet}
-          setFormHidePet={settingsForm.setFormHidePet}
-          formTimeout={settingsForm.formTimeout}
-          setFormTimeout={settingsForm.setFormTimeout}
-          formWindowOpacity={settingsForm.formWindowOpacity}
-          setFormWindowOpacity={settingsForm.setFormWindowOpacity}
-          formPetSize={settingsForm.formPetSize}
-          setFormPetSize={settingsForm.setFormPetSize}
-          showKey={settingsForm.showKey}
-          setShowKey={settingsForm.setShowKey}
-          fetchedModels={settingsForm.fetchedModels}
-          loadingModels={settingsForm.loadingModels}
-          savingSettings={settingsForm.savingSettings}
-          handleSaveSettings={settingsForm.handleSaveSettings}
-        />
-      )}
-    </>
+    </div>
   );
 }

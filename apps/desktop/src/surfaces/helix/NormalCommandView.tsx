@@ -29,6 +29,7 @@ import { HeroHome } from "../../components/ui/hero-home";
 import { IconButton } from "../../components/ui/icon-button";
 import { MarkdownRenderer } from "../../components/ui/markdown-renderer";
 import { Separator } from "../../components/ui/separator";
+import { ArtifactsPanel } from "./ArtifactsPanel";
 import { ChatView } from "./ChatView";
 import { Composer } from "./Composer";
 import { ConnectorsPanel } from "./ConnectorsPanel";
@@ -36,10 +37,8 @@ import { HistoryList } from "./history-list";
 import type { SaveConnectorInput } from "./hooks/useCapabilities";
 import type { ContextChipItem } from "./hooks/useContextChips";
 import { PromptsPanel } from "./PromptsPanel";
-import { SkillSelector } from "./SkillSelector";
 import { SkillsPanel } from "./SkillsPanel";
 import type { HelixMode } from "./types";
-import { WorkflowSelector } from "./WorkflowSelector";
 import { WorkflowsPanel } from "./WorkflowsPanel";
 
 type Props = {
@@ -172,6 +171,15 @@ export function NormalCommandView(p: Props) {
         <PanelWrapper title="Histórico" onBack={() => p.setMode("command")}>
           <HistoryList onSelectConversation={() => p.setMode("command")} />
         </PanelWrapper>
+      ) : p.mode === "artifacts" ? (
+        <PanelWrapper title="Artefatos" onBack={() => p.setMode("command")}>
+          <ArtifactsPanel
+            onUseAction={(_artifact, action) => {
+              p.onStarterAction(action.prompt);
+              p.setMode("command");
+            }}
+          />
+        </PanelWrapper>
       ) : p.mode === "prompts" ? (
         <PanelWrapper title="Perfis" onBack={() => p.setMode("command")}>
           <PromptsPanel
@@ -255,49 +263,6 @@ function CommandHome(p: Props) {
       <HeroHome />
 
       <div className="w-full max-w-md flex flex-col gap-3 px-5">
-        <div className="flex items-center justify-center gap-2">
-          <button
-            type="button"
-            onClick={() => p.setExecutionMode("simple")}
-            className={`h-7 px-3 rounded-full text-[11px] font-semibold transition-colors ${
-              p.executionMode === "simple"
-                ? "bg-white/8 text-fg border border-line-strong"
-                : "text-mute hover:text-fg border border-transparent"
-            }`}
-          >
-            Simples
-          </button>
-          <button
-            type="button"
-            onClick={() => p.setExecutionMode("workflow")}
-            className={`h-7 px-3 rounded-full text-[11px] font-semibold transition-colors flex items-center gap-1.5 ${
-              p.executionMode === "workflow"
-                ? "bg-signal/10 text-signal border border-signal/30"
-                : "text-mute hover:text-fg border border-transparent"
-            }`}
-          >
-            <Workflow className="w-3.5 h-3.5" /> Workflow
-          </button>
-        </div>
-
-        {p.executionMode === "workflow" && (
-          <WorkflowSelector
-            templates={p.workflowTemplates}
-            selectedWorkflowId={p.selectedWorkflowId}
-            onSelect={p.setSelectedWorkflowId}
-            selectId="normal-workflow-select"
-          />
-        )}
-
-        {p.executionMode === "simple" && (
-          <SkillSelector
-            skills={p.skills}
-            selectedSkillId={p.selectedSkillId}
-            onSelect={p.setSelectedSkillId}
-            selectId="normal-skill-select"
-          />
-        )}
-
         <Composer
           query={p.query}
           setQuery={p.setQuery}

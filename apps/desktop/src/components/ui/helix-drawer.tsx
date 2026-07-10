@@ -1,72 +1,112 @@
-import { Bot, Clock, Layers, MessageSquarePlus, Settings, Sparkles, Workflow, X } from "lucide-react";
-
-type NavMode = "command" | "history" | "prompts" | "connectors" | "workflows" | "skills" | "settings";
+import { Command } from "lucide-react";
+import { useEffect } from "react";
+import { HELIX_NAV_GROUPS, type HelixNavMode, NEW_TASK_ITEM, SETTINGS_ITEM } from "./helix-navigation";
 
 interface HelixDrawerProps {
   open: boolean;
-  mode: NavMode;
+  mode: HelixNavMode;
   onClose: () => void;
-  onChangeMode: (mode: NavMode) => void;
+  onChangeMode: (mode: HelixNavMode) => void;
   onNewTask: () => void;
 }
 
-const items: { id: NavMode; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { id: "command", label: "Nova conversa", icon: MessageSquarePlus },
-  { id: "history", label: "Histórico", icon: Clock },
-  { id: "prompts", label: "Perfis", icon: Sparkles },
-  { id: "connectors", label: "Conectores", icon: Layers },
-  { id: "workflows", label: "Workflows", icon: Workflow },
-  { id: "skills", label: "Skills", icon: Bot },
-  { id: "settings", label: "Config", icon: Settings },
-];
-
 export function HelixDrawer({ open, mode, onClose, onChangeMode, onNewTask }: HelixDrawerProps) {
+  useEffect(() => {
+    if (!open) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [open, onClose]);
+
   if (!open) return null;
+  const NewTaskIcon = NEW_TASK_ITEM.icon;
+  const SettingsIcon = SETTINGS_ITEM.icon;
+
+  const selectMode = (nextMode: HelixNavMode) => {
+    if (nextMode === "command") onNewTask();
+    onChangeMode(nextMode);
+    onClose();
+  };
 
   return (
-    <>
+    <div className="absolute inset-x-0 bottom-0 top-11 z-30">
       <button
         type="button"
-        className="absolute inset-0 bg-ink/40 z-30"
+        className="absolute inset-0 bg-ink/55 backdrop-blur-[2px]"
         onClick={onClose}
-        aria-label="Fechar menu"
+        aria-label="Fechar navegação"
       />
-      <div className="absolute top-11 left-0 bottom-0 w-[220px] z-40 agent-shell border-r border-line p-4 flex flex-col gap-2 animate-in slide-in-from-left duration-200">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-[10px] text-faint font-mono uppercase tracking-wider">Menu</span>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 rounded-md text-faint hover:text-fg hover:bg-white/5 transition-colors"
-            aria-label="Fechar"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
+      <aside className="absolute left-2.5 top-2.5 z-40 flex max-h-[calc(100%-20px)] w-[252px] flex-col overflow-hidden rounded-2xl border border-line-strong bg-[#100e18]/96 p-2.5 shadow-[0_24px_70px_rgba(0,0,0,0.55)] backdrop-blur-2xl animate-in slide-in-from-left-2 fade-in duration-150">
+        <div className="flex items-center justify-between px-2 pb-2 pt-1">
+          <div>
+            <div className="text-[9px] font-mono uppercase tracking-[0.18em] text-faint">Navegação</div>
+            <div className="mt-0.5 text-xs font-semibold text-fg">Onde você quer trabalhar?</div>
+          </div>
+          <kbd className="rounded border border-line bg-white/[0.03] px-1.5 py-0.5 text-[8px] font-mono text-faint">
+            ESC
+          </kbd>
         </div>
-        {items.map((item) => {
-          const Icon = item.icon;
-          const active = mode === item.id;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => {
-                if (item.id === "command") onNewTask();
-                onChangeMode(item.id);
-                onClose();
-              }}
-              className={`h-9 w-full rounded-lg px-3 text-left text-xs font-semibold flex items-center gap-2.5 transition-colors ${
-                active
-                  ? "bg-white/8 text-fg border border-line-strong"
-                  : "text-mute hover:text-fg hover:bg-white/[0.04] border border-transparent"
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              {item.label}
-            </button>
-          );
-        })}
-      </div>
-    </>
+
+        <button
+          type="button"
+          onClick={() => selectMode("command")}
+          className="flex min-h-11 items-center gap-3 rounded-xl border border-signal/25 bg-signal/[0.09] px-3 text-left transition-colors hover:bg-signal/[0.14]"
+        >
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-signal/15 text-signal">
+            <NewTaskIcon className="h-4 w-4" />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-xs font-semibold text-fg">Nova conversa</span>
+            <span className="block text-[9px] text-faint">Começar sem contexto anterior</span>
+          </span>
+        </button>
+
+        <nav className="mt-3 overflow-y-auto pr-0.5" aria-label="Navegação principal">
+          {HELIX_NAV_GROUPS.map((group) => (
+            <section key={group.label} className="mb-3 last:mb-0">
+              <h2 className="mb-1 px-2 text-[8px] font-mono uppercase tracking-[0.16em] text-faint">
+                {group.label}
+              </h2>
+              <div className="grid gap-0.5">
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const active = mode === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => selectMode(item.id)}
+                      className={`group flex min-h-10 items-center gap-3 rounded-lg border px-2.5 text-left transition-colors ${
+                        active
+                          ? "border-line-strong bg-white/[0.065]"
+                          : "border-transparent hover:bg-white/[0.035]"
+                      }`}
+                    >
+                      <Icon className={`h-4 w-4 shrink-0 ${active ? "text-signal" : "text-faint"}`} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-xs font-medium text-fg">{item.label}</span>
+                        <span className="block truncate text-[9px] text-faint">{item.description}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+        </nav>
+
+        <button
+          type="button"
+          onClick={() => selectMode("settings")}
+          className="mt-2 flex min-h-10 items-center gap-3 border-t border-line px-2.5 pt-2 text-left text-mute transition-colors hover:text-fg"
+        >
+          <SettingsIcon className="h-4 w-4 text-faint" />
+          <span className="flex-1 text-xs font-medium">Configurações</span>
+          <Command className="h-3 w-3 text-faint" />
+        </button>
+      </aside>
+    </div>
   );
 }

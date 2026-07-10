@@ -1,8 +1,6 @@
-import type { AgentProfile } from "@desktop-agent/shared";
-import { Maximize2, Menu, Minimize2, Pin, X } from "lucide-react";
+import { Menu, Orbit, PanelsTopLeft, Pin, X } from "lucide-react";
 import { IconButton } from "./icon-button";
 import { Pet } from "./pet";
-import { ProfileSwitch } from "./profile-switch";
 
 interface HelixHeaderProps {
   expanded: boolean;
@@ -12,9 +10,7 @@ interface HelixHeaderProps {
   onMinimize: () => void;
   onClose: () => void;
   onOpenMenu?: () => void;
-  profiles?: AgentProfile[];
-  activeProfileId?: string | null;
-  onSetActiveProfile?: (profileId: string | null) => void;
+  menuOpen?: boolean;
 }
 
 export function HelixHeader({
@@ -25,58 +21,58 @@ export function HelixHeader({
   onMinimize,
   onClose,
   onOpenMenu,
-  profiles = [],
-  activeProfileId = null,
-  onSetActiveProfile,
+  menuOpen = false,
 }: HelixHeaderProps) {
   return (
     <header
-      className="h-11 flex items-center justify-between px-3 border-b border-line bg-white/[0.02] relative z-20 shrink-0"
+      className="relative z-20 flex h-11 shrink-0 items-center justify-between border-b border-line bg-ink/30 px-2.5"
       data-tauri-drag-region
     >
-      <div className="flex items-center gap-2.5" data-tauri-drag-region>
+      <div className="flex min-w-0 items-center gap-2" data-tauri-drag-region>
         {onOpenMenu && (
-          <IconButton title="Abrir menu" onClick={onOpenMenu} className="md:hidden">
-            <Menu className="w-3.5 h-3.5" />
+          <IconButton
+            title={menuOpen ? "Fechar navegação" : "Abrir navegação"}
+            active={menuOpen}
+            onClick={onOpenMenu}
+            className="h-7 w-7 rounded-md"
+          >
+            <Menu className="h-3.5 w-3.5" />
           </IconButton>
         )}
-        <Pet size={28} variant="compact" className="shrink-0" />
-        {onSetActiveProfile ? (
-          <ProfileSwitch
-            profiles={profiles}
-            activeProfileId={activeProfileId}
-            onSetActiveProfile={onSetActiveProfile}
-          />
-        ) : (
-          <span
-            className="text-[15px] font-semibold tracking-tight text-fg leading-none"
-            data-tauri-drag-region
-          >
-            Helix
+        <Pet size={24} variant="compact" glow={false} className="shrink-0" />
+        <span className="truncate text-xs font-bold tracking-[0.16em] text-fg" data-tauri-drag-region>
+          HELIX
+        </span>
+        {expanded && (
+          <span className="ml-1 rounded border border-line bg-white/[0.025] px-1.5 py-0.5 text-[8px] font-mono uppercase tracking-wider text-faint">
+            workspace
           </span>
         )}
       </div>
 
       <div className="flex items-center gap-0.5">
         <IconButton
-          title={alwaysOnTop ? "Fixado no topo" : "Fixar no topo"}
+          title={alwaysOnTop ? "Desafixar do topo" : "Fixar no topo"}
           active={alwaysOnTop}
           onClick={onToggleAlwaysOnTop}
+          className="h-7 w-7 rounded-md"
         >
-          <Pin className="w-3.5 h-3.5" />
+          <Pin className="h-3.5 w-3.5" strokeWidth={1.8} />
         </IconButton>
+        <span className="mx-1 h-4 w-px bg-line" aria-hidden="true" />
         <IconButton
-          title={expanded ? "Voltar ao modo normal" : "Abrir modo expandido"}
+          title={expanded ? "Voltar ao painel rápido" : "Abrir workspace"}
           active={expanded}
           onClick={onToggleExpand}
+          className="h-7 w-7 rounded-md"
         >
-          {expanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+          <PanelsTopLeft className="h-3.5 w-3.5" strokeWidth={1.8} />
         </IconButton>
-        <IconButton title="Minimizar janela" onClick={onMinimize}>
-          <Minimize2 className="w-3.5 h-3.5" />
+        <IconButton title="Recolher para o pet" onClick={onMinimize} className="h-7 w-7 rounded-md">
+          <Orbit className="h-3.5 w-3.5" strokeWidth={1.8} />
         </IconButton>
-        <IconButton title="Fechar janela" onClick={onClose} className="hover:text-bad">
-          <X className="w-3.5 h-3.5" />
+        <IconButton title="Encerrar Helix" onClick={onClose} className="h-7 w-7 rounded-md hover:text-bad">
+          <X className="h-3.5 w-3.5" strokeWidth={1.8} />
         </IconButton>
       </div>
     </header>

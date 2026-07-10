@@ -9,7 +9,7 @@ interface BadgeProps {
 }
 
 const variantClasses: Record<BadgeVariant, string> = {
-  default: "bg-white/5 text-faint border-line",
+  default: "bg-white/[0.07] text-mute border-line-strong",
   success: "bg-good/10 text-good border-good/20",
   warning: "bg-warn/10 text-warn border-warn/20",
   error: "bg-bad/10 text-bad border-bad/20",
