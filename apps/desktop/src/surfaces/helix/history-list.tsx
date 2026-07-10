@@ -1,5 +1,6 @@
 import { MessageSquare, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { getAgent } from "../../lib/rpc";
 import { useAgentStore } from "../../stores/agent";
 
@@ -8,6 +9,7 @@ type HistoryListProps = {
 };
 
 export function HistoryList({ onSelectConversation }: HistoryListProps) {
+  const { t } = useTranslation("helix");
   const [conversations, setConversations] = useState<{ id: string; title: string; updatedAt: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectingId, setSelectingId] = useState<string | null>(null);
@@ -23,13 +25,13 @@ export function HistoryList({ onSelectConversation }: HistoryListProps) {
         setConversations(data);
       } catch (err) {
         console.error("Failed to load conversations:", err);
-        setError("Não foi possível carregar o histórico.");
+        setError(t("helix:historyList.loadError"));
       } finally {
         setLoading(false);
       }
     }
     load();
-  }, []);
+  }, [t]);
 
   const handleSelect = async (id: string) => {
     setSelectingId(id);
@@ -53,7 +55,7 @@ export function HistoryList({ onSelectConversation }: HistoryListProps) {
       onSelectConversation?.();
     } catch (err) {
       console.error("Failed to load conversation turns:", err);
-      setError("Não foi possível abrir esta conversa.");
+      setError(t("helix:historyList.openError"));
     } finally {
       setSelectingId(null);
     }
@@ -63,7 +65,7 @@ export function HistoryList({ onSelectConversation }: HistoryListProps) {
     return (
       <div className="flex items-center justify-center py-8">
         <RefreshCw className="w-4 h-4 text-signal animate-spin" />
-        <span className="text-mute text-xs ml-2">Carregando histórico...</span>
+        <span className="text-mute text-xs ml-2">{t("helix:historyList.loading")}</span>
       </div>
     );
   }
@@ -72,17 +74,17 @@ export function HistoryList({ onSelectConversation }: HistoryListProps) {
     return (
       <div className="text-center py-8 border border-dashed border-line rounded-xl bg-white/[0.015]">
         <MessageSquare className="w-5 h-5 text-faint mx-auto mb-2" />
-        <p className="text-mute text-xs font-semibold">Nenhuma conversa ainda</p>
-        <p className="text-faint text-[11px] mt-1">
-          Os resultados salvos aparecem aqui depois da primeira execução.
-        </p>
+        <p className="text-mute text-xs font-semibold">{t("helix:historyList.empty")}</p>
+        <p className="text-faint text-[11px] mt-1">{t("helix:historyList.emptyHint")}</p>
       </div>
     );
   }
 
   return (
     <div className="flex flex-col gap-2.5">
-      <div className="text-[10px] tracking-wide text-mute font-medium mb-1">Conversas recentes</div>
+      <div className="text-[10px] tracking-wide text-mute font-medium mb-1">
+        {t("helix:historyList.recentConversations")}
+      </div>
       {error && (
         <div className="rounded-lg border border-bad/20 bg-bad/8 px-3 py-2 text-xs text-bad">{error}</div>
       )}

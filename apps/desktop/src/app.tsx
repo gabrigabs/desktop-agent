@@ -6,6 +6,7 @@ import { HelixLauncher } from "./components/ui/helix-launcher";
 import { Starfield } from "./components/ui/starfield";
 import { ToastContainer } from "./components/ui/toast";
 import { useToast } from "./hooks/use-toast";
+import i18n, { normalizeLanguage } from "./i18n";
 import { getAgent } from "./lib/rpc";
 import {
   setAlwaysOnTop as apiSetAlwaysOnTop,
@@ -28,9 +29,27 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    // Detect system language on first boot and persist if no saved language exists
+    if (settings.language) return;
+    const detected = normalizeLanguage(navigator.language);
+    const nextSettings = { ...settings, language: detected };
+    setSettings(nextSettings);
+    void getAgent()
+      .then((api) => api.saveSettings(nextSettings))
+      .catch(() => undefined);
+  }, [settings, setSettings]);
+
+  useEffect(() => {
+    // Keep i18n language in sync with persisted settings
+    if (settings.language && i18n.language !== settings.language) {
+      void i18n.changeLanguage(settings.language);
+    }
+  }, [settings.language]);
+
+  useEffect(() => {
     const handler = (e: Event) => {
-      const message = (e as CustomEvent).detail || "Falha na conexão com o agente";
-      error(`Problema no sidecar: ${message}`);
+      const message = (e as CustomEvent).detail || i18n.t("helix:status.connectionError", { message: "" });
+      error(i18n.t("helix:status.connectionError", { message }));
     };
     window.addEventListener("agent-connection-error", handler);
     return () => window.removeEventListener("agent-connection-error", handler);

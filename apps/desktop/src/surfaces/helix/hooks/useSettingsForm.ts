@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { getAgent } from "../../../lib/rpc";
 import { useAgentStore } from "../../../stores/agent";
 
@@ -7,6 +8,7 @@ export function useSettingsForm(
   onToastSuccess?: (message: string, duration?: number) => void,
   onToastError?: (message: string, duration?: number) => void,
 ) {
+  const { t } = useTranslation("helix");
   const settings = useAgentStore((s) => s.settings);
   const setSettings = useAgentStore((s) => s.setSettings);
 
@@ -18,6 +20,7 @@ export function useSettingsForm(
   const [formTimeout, setFormTimeout] = useState(settings.timeout || 120);
   const [formWindowOpacity, setFormWindowOpacity] = useState(settings.windowOpacity ?? 0.72);
   const [formPetSize, setFormPetSize] = useState(settings.petSize ?? 58);
+  const [formLanguage, setFormLanguage] = useState(settings.language ?? "pt-BR");
   const [showKey, setShowKey] = useState(false);
   const [fetchedModels, setFetchedModels] = useState<string[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
@@ -33,6 +36,7 @@ export function useSettingsForm(
       setFormTimeout(settings.timeout || 120);
       setFormWindowOpacity(settings.windowOpacity ?? 0.72);
       setFormPetSize(settings.petSize ?? 58);
+      setFormLanguage(settings.language ?? "pt-BR");
     }
   }, [showSettings, settings]);
 
@@ -88,14 +92,15 @@ export function useSettingsForm(
           timeout: Number(formTimeout),
           windowOpacity: Number(formWindowOpacity),
           petSize: Number(formPetSize),
+          language: formLanguage,
         };
         await api.saveSettings(newSettings);
         setSettings(newSettings);
-        onToastSuccess?.("Configurações salvas");
+        onToastSuccess?.(t("helix:errors.settingsSaved"));
         return true;
       } catch (err) {
         console.error("Failed to save settings:", err);
-        onToastError?.("Erro ao salvar configurações");
+        onToastError?.(t("helix:errors.settingsSaveError"));
         return false;
       } finally {
         setSavingSettings(false);
@@ -111,9 +116,11 @@ export function useSettingsForm(
       formTimeout,
       formWindowOpacity,
       formPetSize,
+      formLanguage,
       setSettings,
       onToastSuccess,
       onToastError,
+      t,
     ],
   );
 
@@ -134,6 +141,8 @@ export function useSettingsForm(
     setFormWindowOpacity,
     formPetSize,
     setFormPetSize,
+    formLanguage,
+    setFormLanguage,
     showKey,
     setShowKey,
     fetchedModels,

@@ -6,43 +6,42 @@ export type HelixNavMode = HelixMode | "settings";
 
 export type HelixNavItem = {
   id: HelixNavMode;
-  label: string;
-  description: string;
   icon: ComponentType<{ className?: string }>;
 };
 
-export const HELIX_NAV_GROUPS: { label: string; items: HelixNavItem[] }[] = [
+export type HelixNavGroup = {
+  labelKey: "work" | "build" | "sources";
+  items: HelixNavItem[];
+};
+
+export const HELIX_NAV_GROUPS: HelixNavGroup[] = [
   {
-    label: "Trabalho",
+    labelKey: "work",
     items: [
-      { id: "history", label: "Histórico", description: "Conversas e resultados", icon: Clock3 },
-      { id: "artifacts", label: "Artefatos", description: "Assistentes especializados", icon: Orbit },
+      { id: "history", icon: Clock3 },
+      { id: "artifacts", icon: Orbit },
     ],
   },
   {
-    label: "Construir",
+    labelKey: "build",
     items: [
-      { id: "prompts", label: "Perfis", description: "Estilos de resposta", icon: Sparkles },
-      { id: "workflows", label: "Workflows", description: "Sequências de ações", icon: Workflow },
-      { id: "skills", label: "Skills", description: "Capacidades isoladas", icon: Bot },
+      { id: "prompts", icon: Sparkles },
+      { id: "workflows", icon: Workflow },
+      { id: "skills", icon: Bot },
     ],
   },
   {
-    label: "Fontes",
-    items: [{ id: "connectors", label: "Conectores", description: "Serviços e permissões", icon: Layers3 }],
+    labelKey: "sources",
+    items: [{ id: "connectors", icon: Layers3 }],
   },
 ];
 
 export const NEW_TASK_ITEM: HelixNavItem = {
   id: "command",
-  label: "Nova conversa",
-  description: "Começar sem contexto anterior",
   icon: MessageSquarePlus,
 };
 
 export const SETTINGS_ITEM: HelixNavItem = {
   id: "settings",
-  label: "Configurações",
-  description: "Modelo, pet e privacidade",
   icon: Settings2,
 };

@@ -1,5 +1,6 @@
 import { getHelixAction } from "@desktop-agent/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { HelixDrawer } from "../../components/ui/helix-drawer";
 import { HelixHeader } from "../../components/ui/helix-header";
 import { HelixSidebar } from "../../components/ui/helix-sidebar";
@@ -28,6 +29,7 @@ type HelixProps = {
 import type { HelixMode } from "./types";
 
 export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: HelixProps) {
+  const { t } = useTranslation("helix");
   const {
     query,
     result,
@@ -198,13 +200,13 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     async (text: string) => {
       try {
         await navigator.clipboard?.writeText(text);
-        onToastSuccess?.("Resposta copiada");
+        onToastSuccess?.(t("helix:helixIndex.responseCopied"));
       } catch (err) {
         console.error("Failed to copy response:", err);
-        onToastError?.("Erro ao copiar resposta");
+        onToastError?.(t("helix:helixIndex.copyError"));
       }
     },
-    [onToastSuccess, onToastError],
+    [onToastSuccess, onToastError, t],
   );
 
   const onRegenerate = useCallback(() => {
@@ -226,30 +228,35 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     store.setMessages(newMessages);
     store.setResult(null);
     store.setError(null);
-    onToastSuccess?.("Regenerando resposta");
+    onToastSuccess?.(t("helix:helixIndex.regenerating"));
     void exec.handleExecute(promptText.content);
-  }, [exec, onToastSuccess]);
+  }, [exec, onToastSuccess, t]);
+
+  const onAbort = useCallback(() => {
+    exec.handleAbort();
+    onToastSuccess?.(t("helix:helixIndex.responseCancelled"));
+  }, [exec, onToastSuccess, t]);
 
   const taskActive =
     streaming || result !== null || Boolean(error) || agentLogs.length > 0 || Boolean(workflowRun);
   const taskStatus =
     workflowRun?.status === "waiting_approval"
-      ? "Aguardando aprovação"
+      ? t("helix:helixIndex.waitingApproval")
       : error
-        ? "Algo falhou"
+        ? t("helix:helixIndex.somethingFailed")
         : streaming
           ? agentLogs[agentLogs.length - 1]?.type === "tool_start"
-            ? "Usando ferramenta"
-            : "Pensando"
+            ? t("helix:helixIndex.usingTool")
+            : t("helix:helixIndex.thinking")
           : result
-            ? "Resultado pronto"
-            : "Preparando";
+            ? t("helix:helixIndex.resultReady")
+            : t("helix:helixIndex.preparing");
   const latestLog = agentLogs.length > 0 ? agentLogs[agentLogs.length - 1] : undefined;
   const visibleLogs = agentLogs.slice(-4).reverse();
   const workflowSteps = workflowRun?.steps ?? [];
   const approval = workflowRun?.approval;
   const visibleConnectors = connectors.slice(0, 7);
-  const composerPlaceholder = "Pergunte algo, peça um rascunho ou comece por uma ação abaixo.";
+  const composerPlaceholder = t("helix:helixIndex.composerPlaceholder");
 
   const commonProps = {
     error,
@@ -287,10 +294,7 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     clipboardActions: contextChips.clipboardChips,
     onChipClick: handleChipClick,
     onExecute: exec.handleExecute,
-    onAbort: () => {
-      exec.handleAbort();
-      onToastSuccess?.("Resposta cancelada");
-    },
+    onAbort: onAbort,
     onCopy: exec.handleCopyResult,
     onNewTask: handleNewTask,
     onStarterAction,
@@ -351,6 +355,8 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     setFormWindowOpacity: settingsForm.setFormWindowOpacity,
     formPetSize: settingsForm.formPetSize,
     setFormPetSize: settingsForm.setFormPetSize,
+    formLanguage: settingsForm.formLanguage,
+    setFormLanguage: settingsForm.setFormLanguage,
     showKey: settingsForm.showKey,
     setShowKey: settingsForm.setShowKey,
     fetchedModels: settingsForm.fetchedModels,
@@ -391,30 +397,30 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
 
   return (
     <div className="h-full w-full flex flex-col">
-        <HelixHeader
-          expanded={false}
-          alwaysOnTop={settings.alwaysOnTop}
-          onToggleAlwaysOnTop={onToggleAlwaysOnTop}
-          onToggleExpand={handleToggleExpand}
-          onMinimize={handleMinimize}
-          onClose={handleClose}
-          onOpenMenu={() => setDrawerOpen((open) => !open)}
-          menuOpen={drawerOpen}
-        />
-        <HelixDrawer
-          open={drawerOpen}
-          mode={mode}
-          onClose={() => setDrawerOpen(false)}
-          onChangeMode={handleChangeMode}
-          onNewTask={handleNewTask}
-        />
-        <main className="flex-1 min-h-0 overflow-hidden relative">
-          {showSettings ? (
-            <SettingsPanel {...settingsPanelProps} />
-          ) : (
-            <NormalCommandView {...commonProps} onExpandedMode={handleToggleExpand} />
-          )}
-        </main>
+      <HelixHeader
+        expanded={false}
+        alwaysOnTop={settings.alwaysOnTop}
+        onToggleAlwaysOnTop={onToggleAlwaysOnTop}
+        onToggleExpand={handleToggleExpand}
+        onMinimize={handleMinimize}
+        onClose={handleClose}
+        onOpenMenu={() => setDrawerOpen((open) => !open)}
+        menuOpen={drawerOpen}
+      />
+      <HelixDrawer
+        open={drawerOpen}
+        mode={mode}
+        onClose={() => setDrawerOpen(false)}
+        onChangeMode={handleChangeMode}
+        onNewTask={handleNewTask}
+      />
+      <main className="flex-1 min-h-0 overflow-hidden relative">
+        {showSettings ? (
+          <SettingsPanel {...settingsPanelProps} />
+        ) : (
+          <NormalCommandView {...commonProps} onExpandedMode={handleToggleExpand} />
+        )}
+      </main>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { ArrowUp } from "lucide-react";
 import { type RefObject, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { ContextBar } from "../../components/ui/context-bar";
 import { ContextChipBar } from "./ContextChipBar";
 import type { ContextChipItem } from "./hooks/useContextChips";
@@ -43,6 +44,7 @@ export function Composer({
   onReloadClipboard,
   onExecute,
 }: ComposerProps) {
+  const { t } = useTranslation("helix");
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
@@ -52,7 +54,7 @@ export function Composer({
   }, [textareaRef, query]);
 
   const canSend = !streaming && query.trim().length > 0;
-  const activePlaceholder = streaming ? "Aguardando resposta..." : placeholder;
+  const activePlaceholder = streaming ? t("helix:composer.waiting") : placeholder;
   const clipboardEnabled = hasClipboard && !ignoreClipboard;
 
   const insertClipboardMarker = () => {
@@ -129,22 +131,24 @@ export function Composer({
           style={{ minHeight: "56px", maxHeight: "120px", overflow: "hidden" }}
           disabled={disabled}
           rows={1}
-          aria-label="Mensagem"
+          aria-label={t("helix:composer.message")}
         />
         <button
           type="button"
           onClick={onExecute}
           disabled={!canSend}
           className={`composer-send shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer disabled:cursor-default ${canSend ? "bg-signal text-ink hover:brightness-110 active:scale-90" : "bg-white/[0.06] text-faint"}`}
-          title="Enviar"
-          aria-label="Enviar"
+          title={t("helix:composer.send")}
+          aria-label={t("helix:composer.send")}
         >
           <ArrowUp className="w-5 h-5 stroke-[2.5]" />
         </button>
       </div>
       {visibleStarterChips && visibleStarterChips.length > 0 && onChipClick && (
         <div className="flex flex-col items-center gap-1.5">
-          <span className="text-[10px] text-faint uppercase tracking-wider font-medium">Começar assim</span>
+          <span className="text-[10px] text-faint uppercase tracking-wider font-medium">
+            {t("helix:composer.startLikeThis")}
+          </span>
           <ContextChipBar chips={visibleStarterChips} disabled={disabled} onChipClick={onChipClick} />
         </div>
       )}

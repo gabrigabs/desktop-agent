@@ -12,6 +12,7 @@ import type {
 } from "@desktop-agent/shared";
 import { AlertCircle, ArrowLeft, Check, Clipboard, RefreshCw, Sparkles, Workflow, X } from "lucide-react";
 import type { RefObject } from "react";
+import { useTranslation } from "react-i18next";
 import { AgentIdentity } from "../../components/ui/agent-identity";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
@@ -142,6 +143,7 @@ type Props = {
 };
 
 export function ExpandedView(p: Props) {
+  const { t } = useTranslation("helix");
   const showInspector = p.mode === "command" && (p.taskActive || p.messages.length > 0);
 
   return (
@@ -153,7 +155,9 @@ export function ExpandedView(p: Props) {
       <main className="min-w-0 min-h-0 overflow-y-auto p-5">
         {p.mode === "history" ? (
           <div className="max-w-2xl">
-            <h2 className="text-sm font-semibold text-fg mb-3">Histórico</h2>
+            <h2 className="text-sm font-semibold text-fg mb-3">
+              {t("helix:normalCommandView.historyTitle")}
+            </h2>
             <HistoryList onSelectConversation={() => p.setMode("command")} />
           </div>
         ) : p.mode === "artifacts" ? (
@@ -225,7 +229,9 @@ export function ExpandedView(p: Props) {
       {showInspector && (
         <aside className="min-w-0 border-l border-line p-4 flex flex-col gap-4 overflow-y-auto bg-white/[0.01]">
           <section className="rounded-xl border border-line p-3 bg-white/[0.02]">
-            <div className="text-[10px] text-mute font-medium tracking-tight mb-2">Estado</div>
+            <div className="text-[10px] text-mute font-medium tracking-tight mb-2">
+              {t("helix:normalCommandView.state")}
+            </div>
             <div className="flex items-center gap-2">
               <span
                 className={`w-2 h-2 rounded-full ${
@@ -246,7 +252,7 @@ export function ExpandedView(p: Props) {
           {p.workflowSteps.length > 0 && (
             <section className="rounded-xl border border-line p-3 flex flex-col gap-2.5 bg-white/[0.02]">
               <div className="text-[10px] text-mute font-medium tracking-tight flex items-center gap-1.5">
-                <Workflow className="w-3.5 h-3.5 text-signal" /> Passos
+                <Workflow className="w-3.5 h-3.5 text-signal" /> {t("helix:normalCommandView.steps")}
               </div>
               {p.workflowSteps.map((step) => (
                 <div
@@ -282,12 +288,14 @@ export function ExpandedView(p: Props) {
             <p className="min-h-16 rounded-lg bg-white/[0.03] border border-line p-2.5 text-[11px] text-mute leading-relaxed line-clamp-4 select-text">
               {p.hasClipboard
                 ? `"${p.clipboardText.slice(0, 260)}${p.clipboardText.length > 260 ? "..." : ""}"`
-                : "Nenhum texto detectado."}
+                : t("helix:normalCommandView.noClipboardText")}
             </p>
           </section>
 
           <section className="rounded-xl border border-line p-3 bg-white/[0.02]">
-            <div className="text-[10px] text-mute font-medium tracking-tight mb-2">Conectores</div>
+            <div className="text-[10px] text-mute font-medium tracking-tight mb-2">
+              {t("helix:normalCommandView.connectorsTitle")}
+            </div>
             <div className="grid gap-2">
               {p.connectors.slice(0, 5).map((c) => (
                 <div key={c.id} className="flex items-center justify-between gap-2">
@@ -332,6 +340,7 @@ function CommandHome(p: Props) {
 }
 
 function ChatActive(p: Props) {
+  const { t } = useTranslation("helix");
   const selectedWorkflow = p.workflowTemplates.find((t) => t.id === p.selectedWorkflowId);
 
   return (
@@ -339,7 +348,7 @@ function ChatActive(p: Props) {
       <div className="flex items-center justify-between gap-2 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <Button variant="ghost" size="sm" onClick={p.onNewTask} disabled={p.streaming}>
-            <ArrowLeft className="w-3.5 h-3.5" /> Nova conversa
+            <ArrowLeft className="w-3.5 h-3.5" /> {t("helix:normalCommandView.newConversation")}
           </Button>
           <AgentIdentity
             profiles={p.profiles}
@@ -356,7 +365,7 @@ function ChatActive(p: Props) {
           <Badge variant={p.error ? "error" : p.streaming ? "warning" : "success"}>{p.taskStatus}</Badge>
           {p.streaming && (
             <Button variant="danger" size="sm" onClick={p.onAbort} disabled={!p.activeRequestId}>
-              <X className="w-3.5 h-3.5" /> Parar
+              <X className="w-3.5 h-3.5" /> {t("helix:normalCommandView.stop")}
             </Button>
           )}
         </div>
@@ -396,17 +405,18 @@ function ChatActive(p: Props) {
 }
 
 function TaskActive(p: Props) {
+  const { t } = useTranslation("helix");
   return (
     <div className="h-full flex flex-col gap-4">
       <div className="flex items-center justify-between gap-2 shrink-0">
         <Button variant="ghost" size="sm" onClick={p.onNewTask} disabled={p.streaming}>
-          <ArrowLeft className="w-3.5 h-3.5" /> Nova conversa
+          <ArrowLeft className="w-3.5 h-3.5" /> {t("helix:normalCommandView.newConversation")}
         </Button>
         <div className="flex items-center gap-2">
           <Badge variant={p.error ? "error" : p.streaming ? "warning" : "success"}>{p.taskStatus}</Badge>
           {p.streaming && (
             <Button variant="danger" size="sm" onClick={p.onAbort} disabled={!p.activeRequestId}>
-              <X className="w-3.5 h-3.5" /> Parar
+              <X className="w-3.5 h-3.5" /> {t("helix:normalCommandView.stop")}
             </Button>
           )}
         </div>
@@ -415,7 +425,9 @@ function TaskActive(p: Props) {
       <section className="rounded-xl bg-white/[0.03] border border-line p-4 flex flex-col gap-3">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <div className="text-[10px] text-mute font-medium tracking-tight mb-1">Pedido</div>
+            <div className="text-[10px] text-mute font-medium tracking-tight mb-1">
+              {t("helix:normalCommandView.request")}
+            </div>
             <p className="text-sm leading-relaxed text-fg select-text whitespace-pre-wrap">{p.query}</p>
           </div>
           <div
@@ -439,17 +451,19 @@ function TaskActive(p: Props) {
           <div className="flex items-start gap-2.5">
             <Sparkles className="w-4 h-4 text-signal mt-0.5 shrink-0" />
             <div className="min-w-0">
-              <div className="text-xs font-semibold text-signal">Aprovação necessária</div>
+              <div className="text-xs font-semibold text-signal">
+                {t("helix:normalCommandView.approvalRequired")}
+              </div>
               <p className="text-[11px] text-signal/80 leading-relaxed mt-1">{p.approval.reason}</p>
               <p className="text-[10px] text-faint mt-1 truncate">{p.approval.inputPreview}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="primary" size="sm" onClick={() => p.onApproval(true)} disabled={p.streaming}>
-              Aprovar
+              {t("helix:normalCommandView.approve")}
             </Button>
             <Button variant="secondary" size="sm" onClick={() => p.onApproval(false)} disabled={p.streaming}>
-              Recusar
+              {t("helix:normalCommandView.deny")}
             </Button>
           </div>
         </section>
@@ -457,7 +471,9 @@ function TaskActive(p: Props) {
 
       {p.visibleLogs.length > 0 && (
         <section className="rounded-xl bg-white/[0.02] p-3 flex flex-col gap-2 border border-line">
-          <div className="text-[10px] text-mute font-medium tracking-tight">Atividade</div>
+          <div className="text-[10px] text-mute font-medium tracking-tight">
+            {t("helix:normalCommandView.activity")}
+          </div>
           {p.visibleLogs.map((log) => (
             <div key={log.id} className="flex items-start gap-2.5 min-w-0">
               <span
@@ -486,11 +502,13 @@ function TaskActive(p: Props) {
 
       <section className="flex-1 min-h-[200px] rounded-2xl bg-white/[0.03] overflow-hidden flex flex-col border border-line">
         <div className="px-4 py-3 flex items-center justify-between bg-white/[0.03]">
-          <span className="text-[10px] text-mute font-medium tracking-tight">Resultado</span>
+          <span className="text-[10px] text-mute font-medium tracking-tight">
+            {t("helix:normalCommandView.result")}
+          </span>
           {p.result && (
             <Button variant="ghost" size="sm" onClick={p.onCopy}>
               {p.copied ? <Check className="w-3.5 h-3.5" /> : <Clipboard className="w-3.5 h-3.5" />}
-              {p.copied ? "Copiado" : "Copiar"}
+              {p.copied ? t("helix:normalCommandView.copied") : t("helix:normalCommandView.copy")}
             </Button>
           )}
         </div>
@@ -503,7 +521,7 @@ function TaskActive(p: Props) {
               )}
             </>
           ) : (
-            <span className="text-faint">A resposta aparece aqui assim que o agente começar a escrever.</span>
+            <span className="text-faint">{t("helix:normalCommandView.resultPlaceholder")}</span>
           )}
         </div>
       </section>

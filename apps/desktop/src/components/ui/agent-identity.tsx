@@ -1,6 +1,7 @@
 import type { AgentProfile } from "@desktop-agent/shared";
 import { Bot, Check, ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface AgentIdentityProps {
   profiles: AgentProfile[];
@@ -11,6 +12,7 @@ interface AgentIdentityProps {
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {};
 
 export function AgentIdentity({ profiles, activeProfileId, onSetActiveProfile }: AgentIdentityProps) {
+  const { t } = useTranslation("helix");
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const active = profiles.find((p) => p.id === activeProfileId);
@@ -27,7 +29,7 @@ export function AgentIdentity({ profiles, activeProfileId, onSetActiveProfile }:
     return () => window.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
 
-  const label = active ? active.name : "Padrão";
+  const label = active ? active.name : t("helix:agentIdentity.default");
   const Icon = active?.icon ? (ICON_MAP[active.icon] ?? Bot) : Bot;
 
   return (
@@ -38,7 +40,7 @@ export function AgentIdentity({ profiles, activeProfileId, onSetActiveProfile }:
         className="group flex items-center gap-1.5 h-7 pl-2 pr-1.5 rounded-full border border-line bg-white/[0.03] text-xs text-fg hover:bg-white/[0.06] hover:border-line-strong transition-colors"
         aria-haspopup="listbox"
         aria-expanded={open}
-        title="Trocar perfil do agente"
+        title={t("helix:agentIdentity.switchProfile")}
       >
         <span className="relative flex items-center justify-center">
           <Icon className="w-3.5 h-3.5" />
@@ -66,7 +68,7 @@ export function AgentIdentity({ profiles, activeProfileId, onSetActiveProfile }:
             aria-selected={activeProfileId === null}
           >
             <Bot className="w-3.5 h-3.5 shrink-0" />
-            <span className="flex-1 text-left font-medium">Padrão</span>
+            <span className="flex-1 text-left font-medium">{t("helix:agentIdentity.default")}</span>
             {activeProfileId === null && <Check className="w-3.5 h-3.5 shrink-0" />}
           </button>
           {profiles.map((profile) => {

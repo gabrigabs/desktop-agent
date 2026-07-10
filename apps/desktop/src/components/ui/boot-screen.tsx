@@ -1,4 +1,5 @@
 import { RefreshCw, Settings } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { restartRpc } from "../../lib/rpc";
 import { useAgentStore } from "../../stores/agent";
 import { Button } from "./button";
@@ -8,9 +9,8 @@ interface BootScreenProps {
   compact?: boolean;
 }
 
-const BOOT_LABELS = ["Inicializando agente...", "Carregando perfis...", "Conectando ao modelo..."];
-
 export function BootScreen({ compact }: BootScreenProps) {
+  const { t } = useTranslation("common");
   const bootState = useAgentStore((s) => s.bootState);
   const bootError = useAgentStore((s) => s.bootError);
 
@@ -22,6 +22,12 @@ export function BootScreen({ compact }: BootScreenProps) {
     window.dispatchEvent(new CustomEvent("open-settings"));
   };
 
+  const bootLabels = [
+    t("common:boot.initializing"),
+    t("common:boot.loadingProfiles"),
+    t("common:boot.connectingModel"),
+  ];
+
   if (compact) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 p-2">
@@ -29,11 +35,11 @@ export function BootScreen({ compact }: BootScreenProps) {
         {bootState === "error" && bootError ? (
           <span className="text-[10px] text-bad text-center leading-relaxed max-w-[160px]">{bootError}</span>
         ) : (
-          <span className="text-[10px] text-mute animate-pulse">Conectando...</span>
+          <span className="text-[10px] text-mute animate-pulse">{t("common:boot.connecting")}</span>
         )}
         {bootState === "error" && (
           <Button variant="secondary" size="sm" onClick={handleRetry} className="h-6 px-2 text-[10px]">
-            <RefreshCw className="w-3 h-3" /> Retry
+            <RefreshCw className="w-3 h-3" /> {t("common:retry")}
           </Button>
         )}
       </div>
@@ -68,10 +74,10 @@ export function BootScreen({ compact }: BootScreenProps) {
           <span className="text-xl font-semibold tracking-tight">Helix</span>
           {bootState === "error" ? (
             <span className="text-xs text-bad max-w-xs text-center leading-relaxed">
-              {bootError || "Falha ao conectar com o agente."}
+              {bootError || t("common:boot.connectionError")}
             </span>
           ) : (
-            <span className="text-xs text-mute min-h-[1.25rem] animate-pulse">{BOOT_LABELS[0]}</span>
+            <span className="text-xs text-mute min-h-[1.25rem] animate-pulse">{bootLabels[0]}</span>
           )}
         </div>
       </div>
@@ -79,10 +85,10 @@ export function BootScreen({ compact }: BootScreenProps) {
       {bootState === "error" ? (
         <div className="flex items-center gap-2 z-10">
           <Button variant="primary" size="md" onClick={handleRetry}>
-            <RefreshCw className="w-3.5 h-3.5" /> Retry
+            <RefreshCw className="w-3.5 h-3.5" /> {t("common:retry")}
           </Button>
           <Button variant="secondary" size="md" onClick={handleOpenSettings}>
-            <Settings className="w-3.5 h-3.5" /> Abrir configurações
+            <Settings className="w-3.5 h-3.5" /> {t("common:boot.openSettings")}
           </Button>
         </div>
       ) : (

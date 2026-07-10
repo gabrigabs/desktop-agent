@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { useId, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { IconButton } from "../../components/ui/icon-button";
@@ -44,16 +45,19 @@ const ALL_PERMISSIONS: PermissionLevel[] = [
   "external",
 ];
 
-function timeAgo(iso?: string): string {
-  if (!iso) return "Não testado";
-  const diff = Date.now() - new Date(iso).getTime();
-  const sec = Math.floor(diff / 1000);
-  if (sec < 60) return `Testado há ${sec}s`;
-  const min = Math.floor(sec / 60);
-  if (min < 60) return `Testado há ${min}min`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `Testado há ${hr}h`;
-  return `Testado há ${Math.floor(hr / 24)}d`;
+function useTimeAgo(): (iso?: string) => string {
+  const { t } = useTranslation("helix");
+  return (iso?: string): string => {
+    if (!iso) return t("helix:connectorsPanel.notTested");
+    const diff = Date.now() - new Date(iso).getTime();
+    const sec = Math.floor(diff / 1000);
+    if (sec < 60) return t("helix:connectorsPanel.testedSeconds", { sec });
+    const min = Math.floor(sec / 60);
+    if (min < 60) return t("helix:connectorsPanel.testedMinutes", { min });
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return t("helix:connectorsPanel.testedHours", { hr });
+    return t("helix:connectorsPanel.testedDays", { days: Math.floor(hr / 24) });
+  };
 }
 
 function ConnectorEditor({
@@ -65,6 +69,7 @@ function ConnectorEditor({
   onSave: (input: SaveConnectorInput) => void;
   onCancel: () => void;
 }) {
+  const { t } = useTranslation("helix");
   const isPreset = connector?.preset ?? false;
   const [name, setName] = useState(connector?.name ?? "");
   const [command, setCommand] = useState(connector?.command ?? "npx");
@@ -103,7 +108,7 @@ function ConnectorEditor({
     }
     onSave({
       id: connector?.id,
-      name: name.trim() || "Sem nome",
+      name: name.trim() || t("helix:connectorsPanel.unnamed"),
       command: command.trim(),
       args,
       env,
@@ -119,50 +124,52 @@ function ConnectorEditor({
       className="mt-3 rounded-lg border border-signal/20 bg-signal/[0.03] p-3 flex flex-col gap-2.5"
     >
       <label htmlFor={nameId} className="flex flex-col gap-1">
-        <span className="text-[9px] text-mute uppercase font-bold">Nome</span>
+        <span className="text-[9px] text-mute uppercase font-bold">{t("helix:connectorsPanel.name")}</span>
         <Input
           id={nameId}
           value={name}
           onChange={(e) => setName(e.target.value)}
           disabled={isPreset}
-          placeholder="Meu MCP"
+          placeholder={t("helix:connectorsPanel.namePlaceholder")}
         />
       </label>
       <label htmlFor={commandId} className="flex flex-col gap-1">
-        <span className="text-[9px] text-mute uppercase font-bold">Comando</span>
+        <span className="text-[9px] text-mute uppercase font-bold">{t("helix:connectorsPanel.command")}</span>
         <Input
           id={commandId}
           value={command}
           onChange={(e) => setCommand(e.target.value)}
           disabled={isPreset}
-          placeholder="npx"
+          placeholder={t("helix:connectorsPanel.commandPlaceholder")}
           className="font-mono"
         />
       </label>
       <label htmlFor={argsId} className="flex flex-col gap-1">
-        <span className="text-[9px] text-mute uppercase font-bold">Args (um por linha)</span>
+        <span className="text-[9px] text-mute uppercase font-bold">{t("helix:connectorsPanel.args")}</span>
         <Textarea
           id={argsId}
           value={argsText}
           onChange={(e) => setArgsText(e.target.value)}
           rows={3}
-          placeholder={"-y\n@modelcontextprotocol/server-filesystem\n$HOME/Desktop"}
+          placeholder={t("helix:connectorsPanel.argsPlaceholder")}
           className="font-mono resize-y"
         />
       </label>
       <label htmlFor={envId} className="flex flex-col gap-1">
-        <span className="text-[9px] text-mute uppercase font-bold">Env vars (KEY=value, uma por linha)</span>
+        <span className="text-[9px] text-mute uppercase font-bold">{t("helix:connectorsPanel.env")}</span>
         <Textarea
           id={envId}
           value={envText}
           onChange={(e) => setEnvText(e.target.value)}
           rows={2}
-          placeholder="API_KEY=sua-chave-aqui"
+          placeholder={t("helix:connectorsPanel.envPlaceholder")}
           className="font-mono resize-y"
         />
       </label>
       <div className="flex flex-col gap-1">
-        <span className="text-[9px] text-mute uppercase font-bold">Permissões</span>
+        <span className="text-[9px] text-mute uppercase font-bold">
+          {t("helix:connectorsPanel.permissions")}
+        </span>
         <div className="flex flex-wrap gap-1">
           {ALL_PERMISSIONS.map((perm) => (
             <button
@@ -182,10 +189,10 @@ function ConnectorEditor({
       </div>
       <div className="flex items-center gap-2 pt-1">
         <Button type="submit" variant="primary" size="sm">
-          Salvar
+          {t("helix:connectorsPanel.save")}
         </Button>
         <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
-          Cancelar
+          {t("helix:connectorsPanel.cancel")}
         </Button>
       </div>
     </form>
@@ -217,6 +224,8 @@ function ConnectorCard({
   onStartEditing?: (id: string) => void;
   onCancelEditing?: () => void;
 }) {
+  const { t } = useTranslation("helix");
+  const timeAgo = useTimeAgo();
   const [showTools, setShowTools] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -241,7 +250,7 @@ function ConnectorCard({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-fg truncate">{c.name}</span>
-          {c.preset && <Badge variant="default">preset</Badge>}
+          {c.preset && <Badge variant="default">{t("helix:connectorsPanel.preset")}</Badge>}
         </div>
         <div className="text-[10px] text-faint mt-0.5 truncate font-mono">
           {c.command || c.kind}
@@ -250,7 +259,9 @@ function ConnectorCard({
 
         {/* Status feedback */}
         <div className="flex items-center gap-2 mt-1.5">
-          <Badge variant={c.enabled ? "success" : "default"}>{c.enabled ? "Ativo" : "Off"}</Badge>
+          <Badge variant={c.enabled ? "success" : "default"}>
+            {c.enabled ? t("helix:connectorsPanel.active") : t("helix:connectorsPanel.off")}
+          </Badge>
           <span className="text-[9px] text-faint">{timeAgo(c.lastCheckedAt)}</span>
         </div>
 
@@ -271,16 +282,16 @@ function ConnectorCard({
               className="flex items-center gap-1 text-[10px] text-good font-semibold hover:text-good/80 transition-colors cursor-pointer"
             >
               {showTools ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-              {tools.length} tools detectadas
+              {t("helix:connectorsPanel.toolsDetected", { count: tools.length })}
             </button>
             {showTools && (
               <div className="mt-1.5 flex flex-col gap-1 animate-in fade-in duration-200">
-                {tools.map((t) => (
-                  <div key={t.name} className="rounded-md bg-white/[0.03] border border-line px-2 py-1">
-                    <div className="text-[10px] font-mono text-fg">{t.name}</div>
-                    {t.description && (
+                {tools.map((tool) => (
+                  <div key={tool.name} className="rounded-md bg-white/[0.03] border border-line px-2 py-1">
+                    <div className="text-[10px] font-mono text-fg">{tool.name}</div>
+                    {tool.description && (
                       <div className="text-[9px] text-faint mt-0.5 leading-relaxed line-clamp-2">
-                        {t.description}
+                        {tool.description}
                       </div>
                     )}
                   </div>
@@ -293,7 +304,7 @@ function ConnectorCard({
         {testOk && tools.length === 0 && (
           <div className="mt-2 flex items-center gap-1 text-[10px] text-good">
             <Check className="w-3 h-3" />
-            <span>Conectou sem tools expostas</span>
+            <span>{t("helix:connectorsPanel.connectedNoTools")}</span>
           </div>
         )}
 
@@ -311,7 +322,8 @@ function ConnectorCard({
           <div className="flex flex-wrap gap-1 mt-1.5">
             {Object.entries(c.env).map(([key, value]) => (
               <span key={key} className="px-1.5 py-0.5 rounded bg-white/5 text-[9px] font-mono text-faint">
-                {key}={value ? "••••••••" : "vazio"}
+                {key}=
+                {value ? t("helix:connectorsPanel.maskedEnvValue") : t("helix:connectorsPanel.emptyEnvValue")}
               </span>
             ))}
           </div>
@@ -325,12 +337,12 @@ function ConnectorCard({
         {/* Delete confirmation */}
         {confirmDelete && onDeleteConnector && (
           <div className="mt-2 flex items-center gap-2 rounded-md bg-bad/5 border border-bad/20 px-2.5 py-2">
-            <span className="text-[10px] text-bad">Remover este conector?</span>
+            <span className="text-[10px] text-bad">{t("helix:connectorsPanel.removeConfirm")}</span>
             <Button variant="danger" size="sm" onClick={() => onDeleteConnector(c.id)}>
-              Remover
+              {t("helix:connectorsPanel.remove")}
             </Button>
             <Button variant="secondary" size="sm" onClick={() => setConfirmDelete(false)}>
-              Não
+              {t("helix:connectorsPanel.no")}
             </Button>
           </div>
         )}
@@ -341,10 +353,10 @@ function ConnectorCard({
         <div className="flex items-center gap-1.5">
           <Button variant="secondary" size="sm" onClick={() => onTest(c.id)} disabled={isTesting}>
             {isTesting ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
-            {isTesting ? "Testando" : "Testar"}
+            {isTesting ? t("helix:connectorsPanel.testing") : t("helix:connectorsPanel.test")}
           </Button>
           <Button variant="secondary" size="sm" onClick={() => onToggle(c.id)}>
-            {c.enabled ? "Desligar" : "Ligar"}
+            {c.enabled ? t("helix:connectorsPanel.disable") : t("helix:connectorsPanel.enable")}
           </Button>
         </div>
         <div className="flex items-center gap-1.5">
@@ -355,12 +367,12 @@ function ConnectorCard({
               onClick={() => (isEditing ? onCancelEditing() : onStartEditing(c.id))}
             >
               <Pencil className="w-3 h-3" />
-              {isEditing ? "Fechar" : "Editar"}
+              {isEditing ? t("helix:connectorsPanel.close") : t("helix:connectorsPanel.edit")}
             </Button>
           )}
           {!c.preset && onDeleteConnector && (
             <IconButton
-              title="Deletar conector"
+              title={t("helix:connectorsPanel.deleteConnector")}
               onClick={() => setConfirmDelete(!confirmDelete)}
               className="hover:text-bad"
             >
@@ -389,13 +401,14 @@ export function ConnectorsPanel({
   onShowAddConnector,
   variant = "list",
 }: Props) {
+  const { t } = useTranslation("helix");
   if (connectors.length === 0 && !showAddConnector) {
     return (
       <div className="py-8 text-center flex flex-col gap-3">
-        <p className="text-xs text-faint">Nenhum conector carregado ainda.</p>
+        <p className="text-xs text-faint">{t("helix:connectorsPanel.noConnectors")}</p>
         {onShowAddConnector && (
           <Button variant="secondary" size="sm" onClick={() => onShowAddConnector(true)} className="mx-auto">
-            <Plus className="w-3.5 h-3.5" /> Adicionar conector
+            <Plus className="w-3.5 h-3.5" /> {t("helix:connectorsPanel.addConnector")}
           </Button>
         )}
       </div>
@@ -406,10 +419,8 @@ export function ConnectorsPanel({
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs font-semibold text-fg">Conectores e capacidades</p>
-          <p className="text-[10px] text-faint mt-0.5">
-            MCPs ficam desligados por padrão. Teste antes de ativar.
-          </p>
+          <p className="text-xs font-semibold text-fg">{t("helix:connectorsPanel.title")}</p>
+          <p className="text-[10px] text-faint mt-0.5">{t("helix:connectorsPanel.description")}</p>
         </div>
         <div className="flex items-center gap-2">
           {onShowAddConnector && (
@@ -418,12 +429,12 @@ export function ConnectorsPanel({
               size="sm"
               onClick={() => onShowAddConnector(!showAddConnector)}
             >
-              <Plus className="w-3.5 h-3.5" /> Adicionar
+              <Plus className="w-3.5 h-3.5" /> {t("helix:connectorsPanel.add")}
             </Button>
           )}
           {onRefresh && (
             <Button variant="secondary" size="sm" onClick={onRefresh}>
-              <RefreshCw className="w-3.5 h-3.5" /> Atualizar
+              <RefreshCw className="w-3.5 h-3.5" /> {t("helix:connectorsPanel.refresh")}
             </Button>
           )}
         </div>
@@ -433,8 +444,10 @@ export function ConnectorsPanel({
       {showAddConnector && onSaveConnector && onCancelEditing && (
         <div className="rounded-lg border border-signal/20 bg-signal/[0.02] p-3">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-bold text-signal uppercase">Novo conector MCP</span>
-            <IconButton title="Cancelar" onClick={onCancelEditing}>
+            <span className="text-[10px] font-bold text-signal uppercase">
+              {t("helix:connectorsPanel.newConnector")}
+            </span>
+            <IconButton title={t("helix:connectorsPanel.cancel")} onClick={onCancelEditing}>
               <X className="w-3.5 h-3.5" />
             </IconButton>
           </div>

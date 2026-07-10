@@ -2,6 +2,7 @@ import type { AgentApi, AgentEvent } from "@desktop-agent/shared";
 import { type Child, Command } from "@tauri-apps/plugin-shell";
 import { RPCChannel } from "kkrpc";
 import { tauriShellStdioTransport } from "kkrpc/tauri";
+import i18n from "../i18n";
 import { useAgentStore } from "../stores/agent";
 
 type FrontendApi = {
@@ -58,7 +59,7 @@ async function doInitializeRpc(attempt: number): Promise<AgentApi> {
   const spawnedChild = await cmd.spawn();
   if (attempt !== bootAttempt) {
     await spawnedChild.kill().catch(() => undefined);
-    throw new Error("Inicialização do agente substituída.");
+    throw new Error(i18n.t("helix:rpcLogs.bootSuperseded"));
   }
   child = spawnedChild;
 
@@ -89,7 +90,7 @@ async function doInitializeRpc(attempt: number): Promise<AgentApi> {
         switch (event.type) {
           case "agent.started":
             activeRequestId = event.requestId;
-            store.addAgentLog({ type: "info", text: "Preparando resposta" });
+            store.addAgentLog({ type: "info", text: i18n.t("helix:rpcLogs.preparingResponse") });
             break;
           case "agent.thought":
             store.addAgentLog({ type: "thought", text: event.thought });
@@ -102,7 +103,10 @@ async function doInitializeRpc(attempt: number): Promise<AgentApi> {
             activeRequestId = event.requestId;
             store.addAgentLog({
               type: "info",
-              text: event.mode === "workflow" ? "Workflow iniciado" : "Modo simples iniciado",
+              text:
+                event.mode === "workflow"
+                  ? i18n.t("helix:rpcLogs.workflowStarted")
+                  : i18n.t("helix:rpcLogs.simpleModeStarted"),
             });
             store.setWorkflowRun({
               id: event.runId,
@@ -128,7 +132,7 @@ async function doInitializeRpc(attempt: number): Promise<AgentApi> {
             break;
           case "workflow.approval_required":
             store.setWorkflowApproval(event.approval);
-            store.addAgentLog({ type: "info", text: "Aguardando aprovação para continuar" });
+            store.addAgentLog({ type: "info", text: i18n.t("helix:rpcLogs.waitingApprovalToContinue") });
             break;
           case "workflow.completed":
             store.setWorkflowStatus(event.status);
@@ -141,30 +145,39 @@ async function doInitializeRpc(attempt: number): Promise<AgentApi> {
                     : "tool_fail",
               text:
                 event.status === "completed"
-                  ? "Workflow concluído"
+                  ? i18n.t("helix:rpcLogs.workflowCompleted")
                   : event.status === "waiting_approval"
-                    ? "Workflow pausado"
-                    : "Workflow encerrado",
+                    ? i18n.t("helix:rpcLogs.workflowPaused")
+                    : i18n.t("helix:rpcLogs.workflowEnded"),
             });
             break;
           case "tool.started":
-            store.addAgentLog({ type: "tool_start", text: `Usando ${event.toolName}` });
+            store.addAgentLog({
+              type: "tool_start",
+              text: i18n.t("helix:rpcLogs.usingTool", { toolName: event.toolName }),
+            });
             break;
           case "tool.completed":
-            store.addAgentLog({ type: "tool_complete", text: `${event.toolName} concluído` });
+            store.addAgentLog({
+              type: "tool_complete",
+              text: i18n.t("helix:rpcLogs.toolCompleted", { toolName: event.toolName }),
+            });
             break;
           case "tool.failed":
-            store.addAgentLog({ type: "tool_fail", text: `Falha em ${event.toolName}: ${event.error}` });
+            store.addAgentLog({
+              type: "tool_fail",
+              text: i18n.t("helix:rpcLogs.toolFailed", { toolName: event.toolName, error: event.error }),
+            });
             break;
           case "agent.cancelled":
             if (event.requestId === activeRequestId) activeRequestId = null;
             store.finalizeAssistantTurn("cancelled");
-            store.addAgentLog({ type: "tool_fail", text: "Execução abortada pelo usuário" });
-            store.setError("Execução abortada pelo usuário.");
+            store.addAgentLog({ type: "tool_fail", text: i18n.t("helix:rpcLogs.executionAbortedByUser") });
+            store.setError(i18n.t("helix:rpcLogs.executionAbortedByUserWithPeriod"));
             break;
           case "agent.completed":
             store.finalizeAssistantTurn("complete");
-            store.addAgentLog({ type: "info", text: "Resposta pronta" });
+            store.addAgentLog({ type: "info", text: i18n.t("helix:rpcLogs.responseReady") });
             break;
         }
       },
@@ -176,13 +189,13 @@ async function doInitializeRpc(attempt: number): Promise<AgentApi> {
 
   try {
     const ping = await agent.ping();
-    if (attempt !== bootAttempt) throw new Error("Inicialização do agente substituída.");
+    if (attempt !== bootAttempt) throw new Error(i18n.t("helix:rpcLogs.bootSuperseded"));
 
     sidecarVersion = await agent.getVersion();
-    if (attempt !== bootAttempt) throw new Error("Inicialização do agente substituída.");
+    if (attempt !== bootAttempt) throw new Error(i18n.t("helix:rpcLogs.bootSuperseded"));
 
     const [tools, settings] = await Promise.all([agent.listTools(), agent.getSettings()]);
-    if (attempt !== bootAttempt) throw new Error("Inicialização do agente substituída.");
+    if (attempt !== bootAttempt) throw new Error(i18n.t("helix:rpcLogs.bootSuperseded"));
 
     store.setTools(tools);
     store.setSettings(settings);
@@ -214,7 +227,7 @@ export async function initializeRpc(): Promise<AgentApi> {
     timeoutId = setTimeout(() => {
       if (attempt !== bootAttempt) return;
 
-      const err = new Error("O agente demorou demais para iniciar. Tente novamente.");
+      const err = new Error(i18n.t("helix:rpcLogs.bootTimeout"));
       reportBootError(err);
       void destroyRpc();
       reject(err);

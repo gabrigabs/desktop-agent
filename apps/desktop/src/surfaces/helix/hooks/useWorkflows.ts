@@ -1,8 +1,10 @@
 import type { WorkflowStepKind, WorkflowTemplate, WorkflowTemplateSettings } from "@desktop-agent/shared";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { getAgent, isMissingRpcMethodError } from "../../../lib/rpc";
 
 export function useWorkflows() {
+  const { t } = useTranslation("helix");
   const [templates, setTemplates] = useState<WorkflowTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -15,13 +17,13 @@ export function useWorkflows() {
       setTemplates(list);
     } catch (err) {
       if (!isMissingRpcMethodError(err)) {
-        setError(err instanceof Error ? err.message : "Falha ao carregar workflows");
+        setError(err instanceof Error ? err.message : t("helix:useWorkflows.loadError"));
         console.error("Failed to load workflow templates:", err);
       }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     refresh();

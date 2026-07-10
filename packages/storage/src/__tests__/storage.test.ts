@@ -1,3 +1,4 @@
+import type { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { closeDb, getDb } from "../db";
 import { runMigrations } from "../migrations";
@@ -19,7 +20,7 @@ import {
 } from "../repositories/workflows";
 
 describe("Storage Package Tests", () => {
-  let db: any;
+  let db: Database;
 
   beforeEach(() => {
     // Use in-memory database for isolated unit tests

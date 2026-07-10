@@ -1,4 +1,5 @@
 import { useId } from "react";
+import { useTranslation } from "react-i18next";
 import { useAgentStore } from "../../stores/agent";
 
 type PetState = "connecting" | "error" | "thinking" | "success" | "idle";
@@ -11,38 +12,38 @@ interface PetProps {
   glow?: boolean;
 }
 
-const STATE_CONFIG: Record<PetState, { primary: string; secondary: string; glow: string; label: string }> = {
+const STATE_CONFIG: Record<PetState, { primary: string; secondary: string; glow: string }> = {
   connecting: {
     primary: "#35d6ff",
     secondary: "#b9f3ff",
     glow: "rgba(53, 214, 255, 0.28)",
-    label: "Conectando",
   },
   error: {
     primary: "#ff5f7a",
     secondary: "#ffc0cb",
     glow: "rgba(255, 95, 122, 0.3)",
-    label: "Erro",
   },
   thinking: {
     primary: "#f4c542",
     secondary: "#fff0a8",
     glow: "rgba(244, 197, 66, 0.3)",
-    label: "Pensando",
   },
   success: {
     primary: "#52e6a7",
     secondary: "#c1f8df",
     glow: "rgba(82, 230, 167, 0.28)",
-    label: "Concluído",
   },
   idle: {
     primary: "#b982ff",
     secondary: "#e9d2ff",
     glow: "rgba(185, 130, 255, 0.32)",
-    label: "Pronto",
   },
 };
+
+function usePetStateLabel(state: PetState): string {
+  const { t } = useTranslation("common");
+  return t(`common:petState.${state}`);
+}
 
 function usePetState(): PetState {
   const connected = useAgentStore((state) => state.connected);
@@ -60,6 +61,7 @@ function usePetState(): PetState {
 export function Pet({ className = "", size = 64, variant = "full", glow = true }: PetProps) {
   const state = usePetState();
   const config = STATE_CONFIG[state];
+  const label = usePetStateLabel(state);
   const gradientId = useId().replace(/:/g, "");
   const primaryGradientId = `${gradientId}-primary`;
   const secondaryGradientId = `${gradientId}-secondary`;
@@ -74,8 +76,8 @@ export function Pet({ className = "", size = 64, variant = "full", glow = true }
       style={{ width: size, height: size, ["--seed-glow" as string]: config.glow }}
       data-state={state}
       role="img"
-      aria-label={config.label}
-      title={config.label}
+      aria-label={label}
+      title={label}
     >
       {glow && !dot && <span className="helix-seed-glow absolute inset-[8%] pointer-events-none" />}
 

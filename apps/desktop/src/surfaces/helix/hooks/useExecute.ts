@@ -2,6 +2,7 @@ import type { Turn } from "@desktop-agent/shared";
 import { unwrapAgentResponse } from "@desktop-agent/shared";
 import { readText as readClipboard, writeText as writeClipboard } from "@tauri-apps/plugin-clipboard-manager";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   clearActiveRequestId as clearRpcActiveRequestId,
   getAgent,
@@ -9,7 +10,12 @@ import {
 } from "../../../lib/rpc";
 import { isTauriRuntime } from "../../../lib/window";
 import { useAgentStore } from "../../../stores/agent";
-import { callAgentWithRuntimeRefresh, isStaleRuntimeError, QUICK_ACTIONS } from "../constants";
+import {
+  callAgentWithRuntimeRefresh,
+  isStaleRuntimeError,
+  useQuickActions,
+  useStaleRuntimeMessage,
+} from "../constants";
 
 const CLIPBOARD_MARKER = /[ \t]*\\?\[CLIPBOARD\][ \t]*/g;
 
@@ -39,6 +45,9 @@ function cleanPrompt(text: string): string {
 }
 
 export function useExecute() {
+  const { t } = useTranslation("helix");
+  const quickActions = useQuickActions();
+  const staleMessage = useStaleRuntimeMessage();
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -109,10 +118,12 @@ export function useExecute() {
           history,
         };
 
-        const res = await callAgentWithRuntimeRefresh("startRun", (runtimeApi) =>
-          runtimeApi.startRun(runInput),
+        const res = await callAgentWithRuntimeRefresh(
+          "startRun",
+          (runtimeApi) => runtimeApi.startRun(runInput),
+          staleMessage,
         ).catch(async (err) => {
-          if (isStaleRuntimeError(err)) {
+          if (isStaleRuntimeError(err, staleMessage)) {
             const fallbackApi = await getAgent();
             const fallback = await fallbackApi.startRun(runInput);
             return fallback;
@@ -125,12 +136,12 @@ export function useExecute() {
         store.setWorkflowRun(res.run);
         store.setResult(res.run.result || "");
         if (res.run.status === "failed" || res.run.status === "cancelled") {
-          const msg = res.run.errorMessage || "Workflow encerrado sem resultado.";
+          const msg = res.run.errorMessage || t("helix:errors.workflowEndedNoResult");
           store.setError(msg);
           store.finalizeAssistantTurn(res.run.status === "failed" ? "error" : "cancelled", msg);
         }
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Erro ao executar comando";
+        const msg = err instanceof Error ? err.message : t("helix:errors.executeError");
         store.finalizeAssistantTurn("error", msg);
         store.setError(msg);
         store.addAgentLog({ type: "tool_fail", text: msg });
@@ -142,7 +153,7 @@ export function useExecute() {
         void saveConversationToStorage();
       }
     },
-    [saveConversationToStorage],
+    [saveConversationToStorage, t, staleMessage],
   );
 
   const handleCopyResult = useCallback(async () => {
@@ -165,65 +176,72 @@ export function useExecute() {
 
     try {
       if (runId) {
-        await callAgentWithRuntimeRefresh("cancelRun", (runtimeApi) => runtimeApi.cancelRun({ runId })).catch(
-          async (err) => {
-            if (isStaleRuntimeError(err)) {
-              const fallbackApi = await getAgent();
-              await fallbackApi.cancelRun({ runId });
-              return;
-            }
-            throw err;
-          },
-        );
+        await callAgentWithRuntimeRefresh(
+          "cancelRun",
+          (runtimeApi) => runtimeApi.cancelRun({ runId }),
+          staleMessage,
+        ).catch(async (err) => {
+          if (isStaleRuntimeError(err, staleMessage)) {
+            const fallbackApi = await getAgent();
+            await fallbackApi.cancelRun({ runId });
+            return;
+          }
+          throw err;
+        });
       }
     } catch (err) {
       console.error("Failed to cancel request:", err);
     } finally {
       store.finalizeAssistantTurn("cancelled");
       setRpcActiveRequestId(null);
-      store.setError("Execução abortada pelo usuário.");
+      store.setError(t("helix:errors.abortedByUser"));
       store.setStreaming(false);
-      store.addAgentLog({ type: "tool_fail", text: "Execução abortada pelo usuário" });
+      store.addAgentLog({ type: "tool_fail", text: t("helix:errors.abortedByUser") });
       setActiveRequestId(null);
       setActiveRunId(null);
     }
-  }, [activeRequestId, activeRunId]);
+  }, [activeRequestId, activeRunId, t, staleMessage]);
 
-  const handleApproval = useCallback(async (approved: boolean) => {
-    const store = useAgentStore.getState();
-    const workflowRun = store.workflowRun;
-    if (!workflowRun) return;
+  const handleApproval = useCallback(
+    async (approved: boolean) => {
+      const store = useAgentStore.getState();
+      const workflowRun = store.workflowRun;
+      if (!workflowRun) return;
 
-    const requestId = crypto.randomUUID();
-    setRpcActiveRequestId(requestId);
-    setActiveRequestId(requestId);
-    setActiveRunId(workflowRun.id);
-    store.setStreaming(approved);
-    store.setError(null);
+      const requestId = crypto.randomUUID();
+      setRpcActiveRequestId(requestId);
+      setActiveRequestId(requestId);
+      setActiveRunId(workflowRun.id);
+      store.setStreaming(approved);
+      store.setError(null);
 
-    try {
-      const res = await callAgentWithRuntimeRefresh("resumeRun", (api) =>
-        api.resumeRun({ requestId, runId: workflowRun.id, approved }),
-      );
-      store.setWorkflowRun(res.run);
-      store.setResult(res.run.result || "");
-      if (res.run.status === "failed" || res.run.status === "cancelled") {
-        store.setError(res.run.errorMessage || "Workflow encerrado.");
+      try {
+        const res = await callAgentWithRuntimeRefresh(
+          "resumeRun",
+          (api) => api.resumeRun({ requestId, runId: workflowRun.id, approved }),
+          staleMessage,
+        );
+        store.setWorkflowRun(res.run);
+        store.setResult(res.run.result || "");
+        if (res.run.status === "failed" || res.run.status === "cancelled") {
+          store.setError(res.run.errorMessage || t("helix:errors.workflowEnded"));
+        }
+      } catch (err) {
+        store.setError(err instanceof Error ? err.message : t("helix:errors.resumeError"));
+        store.addAgentLog({ type: "tool_fail", text: err instanceof Error ? err.message : String(err) });
+      } finally {
+        useAgentStore.getState().setStreaming(false);
+        clearRpcActiveRequestId(requestId);
+        setActiveRequestId((current) => (current === requestId ? null : current));
+        setActiveRunId((current) => (current === workflowRun.id ? null : current));
       }
-    } catch (err) {
-      store.setError(err instanceof Error ? err.message : "Erro ao retomar workflow");
-      store.addAgentLog({ type: "tool_fail", text: err instanceof Error ? err.message : String(err) });
-    } finally {
-      useAgentStore.getState().setStreaming(false);
-      clearRpcActiveRequestId(requestId);
-      setActiveRequestId((current) => (current === requestId ? null : current));
-      setActiveRunId((current) => (current === workflowRun.id ? null : current));
-    }
-  }, []);
+    },
+    [t, staleMessage],
+  );
 
   const handleQuickAction = useCallback(
     async (actionId: string) => {
-      const action = QUICK_ACTIONS.find((item) => item.id === actionId);
+      const action = quickActions.find((item) => item.id === actionId);
       if (!action) return;
       const store = useAgentStore.getState();
       if (isTauriRuntime()) {
@@ -238,7 +256,7 @@ export function useExecute() {
       store.setQuery(action.prompt);
       await handleExecute(action.prompt);
     },
-    [handleExecute],
+    [handleExecute, quickActions],
   );
 
   const handleStarterAction = useCallback(

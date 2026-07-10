@@ -1,0 +1,134 @@
+{
+  "title": "Settings",
+  "subtitle": "Helix control center",
+  "sectionLabel": "Settings section",
+  "navLabel": "Settings sections",
+  "closeSettings": "Close settings",
+  "localNotice": "Changes stay local. Features marked as planned do not yet create persistent state.",
+  "general": {
+    "title": "General behavior",
+    "description": "Summary of the current mode and existing preferences. New controls will be enabled once they have end-to-end persistence.",
+    "restoredMode": "Restored mode",
+    "restoredModeHint": "Last mode persisted by the window manager.",
+    "languageLabel": "Language",
+    "languageHint": "Current interface language.",
+    "autostart": "Open on system startup",
+    "autostartHint": "Native autostart integration is not yet implemented.",
+    "restoreSession": "Reopen last session",
+    "restoreSessionHint": "Requires explicit contract between window, conversation, and retention."
+  },
+  "model": {
+    "title": "Model and access",
+    "description": "Choose the inference path. The key stays masked and technical options live in Advanced.",
+    "provider": "Provider",
+    "model": "Default model",
+    "apiKey": "API key",
+    "apiKeyPlaceholder": "Enter or paste your secret key",
+    "showKey": "Show key",
+    "hideKey": "Hide key",
+    "apiKeyRequired": "Required for this provider.",
+    "strategy": {
+      "fast": "Fast",
+      "fastHint": "Warp and short replies",
+      "balanced": "Balanced",
+      "balancedHint": "Quality and latency",
+      "best": "Best response",
+      "bestHint": "Deliberate reasoning",
+      "future": "Future strategy"
+    }
+  },
+  "pet": {
+    "title": "Pet and window behavior",
+    "description": "Real adjustments for the floating presence. Click contracts are shown below to make the flow predictable.",
+    "windowOpacity": "Window opacity",
+    "petSize": "Pet size",
+    "hidePet": "Hide floating pet",
+    "hidePetHint": "The app keeps running in the background and reopens with {{shortcut}} or menu bar.",
+    "opacity": {
+      "veryTranslucent": "{{percentage}}% — very translucent",
+      "translucent": "{{percentage}}% — translucent",
+      "slightlyTranslucent": "{{percentage}}% — slightly translucent",
+      "solid": "{{percentage}}% — solid"
+    },
+    "size": {
+      "compact": "{{size}}px — compact",
+      "standard": "{{size}}px — standard",
+      "large": "{{size}}px — large"
+    },
+    "click": {
+      "singleClick": "Single click",
+      "singleClickHint": "Opens the radial with the six main intents.",
+      "doubleClick": "Double click",
+      "doubleClickHint": "Opens the composer in normal mode.",
+      "drag": "Drag",
+      "dragHint": "Repositions the pet window without triggering an action.",
+      "inspector": "Inspector in expanded",
+      "inspectorHint": "Persisted preference will enter the next migration."
+    }
+  },
+  "shortcuts": {
+    "title": "Shortcuts",
+    "description": "Current quick-access map. Shortcut editing depends on the Tauri host.",
+    "openRadial": "Open radial",
+    "openComposer": "Open composer",
+    "captureScreen": "Capture screen",
+    "toggleMode": "Toggle normal/expanded",
+    "undefined": "Not defined"
+  },
+  "privacy": {
+    "title": "Context and privacy",
+    "description": "Helix should make the used context visible and ask for confirmation for sensitive reads.",
+    "clipboard": "Clipboard when triggered",
+    "clipboardHint": "Used by the composer and shown in the Context Bar.",
+    "screenshot": "Screenshot with confirmation",
+    "screenshotHint": "The OCR workflow requires approval before reading.",
+    "continuous": "Continuous screen reading",
+    "continuousHint": "Out of scope until policy and persistent indicator exist.",
+    "secrets": "Hide detected secrets",
+    "secretsHint": "Requires redaction pipeline before sending to provider.",
+    "retention": "Context retention",
+    "retentionHint": "Will be integrated with data policy and Artifacts."
+  },
+  "connectors": {
+    "title": "Connectors",
+    "description": "Detailed management remains on the Connectors page; this hub will bring together status, permissions, and last usage.",
+    "permissionsHint": "Permissions, health check, and consumer Artifacts will be consolidated here."
+  },
+  "artifacts": {
+    "title": "Experimental artifacts",
+    "description": "The initial catalog is read-only. Persistence, editing, and pinning to the radial will come after the foundation."
+  },
+  "workflows": {
+    "title": "Workflows",
+    "description": "Templates and executions remain on the Workflows page. Global preferences enter after runtime validation.",
+    "pinRadial": "Pin to radial",
+    "pinRadialHint": "Will be fed by the same Action Registry used by the pet.",
+    "defaultApproval": "Default approval",
+    "defaultApprovalHint": "Must respect workflow and tool permission levels."
+  },
+  "data": {
+    "title": "Data and history",
+    "description": "Destructive actions will only be enabled with scope, confirmation, and read-back.",
+    "retention": "History retention",
+    "retentionHint": "Configurable policy not yet persisted.",
+    "export": "Export data",
+    "exportHint": "Format and contents of the package need to be defined.",
+    "clearCache": "Clear cache",
+    "clearCacheHint": "Requires separating reconstructable cache from user data.",
+    "reset": "Reset local state",
+    "resetHint": "Will remain protected by explicit confirmation."
+  },
+  "advanced": {
+    "title": "Advanced",
+    "description": "Real technical options and diagnostics for the Bun sidecar.",
+    "timeoutHint": "Between 5 and 600 seconds.",
+    "timeoutError": "Use a value between 5 and 600 seconds.",
+    "baseUrlHint": "Available for compatible providers.",
+    "storage": "Local storage",
+    "storageHint": "SQLite with versioned migrations.",
+    "runtimeLogs": "Runtime logs",
+    "runtimeLogsHint": "Visible during execution; export planned.",
+    "sidecar": "Bun sidecar",
+    "sidecarHint": "Health check and restart are already part of the shell."
+  }
+}

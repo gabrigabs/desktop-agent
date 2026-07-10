@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { IconButton } from "../../components/ui/icon-button";
@@ -54,6 +55,7 @@ type Props = {
 };
 
 export function PromptsPanel(p: Props) {
+  const { t } = useTranslation("helix");
   const [showAddPrompt, setShowAddPrompt] = useState(false);
   const [editingPromptId, setEditingPromptId] = useState<string | null>(null);
   const [promptTitle, setPromptTitle] = useState("");
@@ -147,7 +149,7 @@ export function PromptsPanel(p: Props) {
       <section className="flex flex-col gap-2.5">
         <div className="flex items-center justify-between">
           <span className="text-[10px] text-faint font-mono uppercase font-bold select-none">
-            Perfis de agente
+            {t("helix:promptsPanel.agentProfiles")}
           </span>
           <Button
             variant="secondary"
@@ -158,42 +160,42 @@ export function PromptsPanel(p: Props) {
             }}
           >
             {showAddProfile ? <X className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
-            {showAddProfile ? "Cancelar" : "Novo"}
+            {showAddProfile ? t("helix:promptsPanel.cancel") : t("helix:promptsPanel.new")}
           </Button>
         </div>
 
         {showAddProfile && (
           <div className="rounded-lg border border-signal/30 bg-signal/5 p-3 flex flex-col gap-2">
             <Input
-              placeholder="Nome do perfil"
+              placeholder={t("helix:promptsPanel.profileNamePlaceholder")}
               value={profileName}
               onChange={(e) => setProfileName(e.target.value)}
             />
             <Input
-              placeholder="Descrição curta"
+              placeholder={t("helix:promptsPanel.profileDescriptionPlaceholder")}
               value={profileDesc}
               onChange={(e) => setProfileDesc(e.target.value)}
             />
             <Textarea
-              placeholder="System prompt (instruções de comportamento)"
+              placeholder={t("helix:promptsPanel.profilePromptPlaceholder")}
               value={profilePrompt}
               onChange={(e) => setProfilePrompt(e.target.value)}
               rows={3}
             />
             <div className="grid grid-cols-2 gap-2">
               <Input
-                placeholder="Tom (ex: técnico, amigável)"
+                placeholder={t("helix:promptsPanel.profileTonePlaceholder")}
                 value={profileTone}
                 onChange={(e) => setProfileTone(e.target.value)}
               />
               <Input
-                placeholder="Estilo de resposta (ex: conciso, detalhado)"
+                placeholder={t("helix:promptsPanel.profileResponseStylePlaceholder")}
                 value={profileResponseStyle}
                 onChange={(e) => setProfileResponseStyle(e.target.value)}
               />
             </div>
             <Textarea
-              placeholder="Restrições (ex: máximo 3 parágrafos, sem jargão)"
+              placeholder={t("helix:promptsPanel.profileConstraintsPlaceholder")}
               value={profileConstraints}
               onChange={(e) => setProfileConstraints(e.target.value)}
               rows={2}
@@ -216,7 +218,7 @@ export function PromptsPanel(p: Props) {
             </div>
             <Button variant="primary" size="sm" onClick={handleSaveProfile} disabled={!profileName.trim()}>
               <Check className="w-3.5 h-3.5" />
-              {editingProfileId ? "Atualizar" : "Criar"}
+              {editingProfileId ? t("helix:promptsPanel.update") : t("helix:promptsPanel.create")}
             </Button>
           </div>
         )}
@@ -236,7 +238,7 @@ export function PromptsPanel(p: Props) {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <div className="text-xs font-semibold text-fg">{profile.name}</div>
-                    {isActive && <Badge variant="signal">Ativo</Badge>}
+                    {isActive && <Badge variant="signal">{t("helix:promptsPanel.active")}</Badge>}
                   </div>
                   {profile.description && (
                     <div className="text-[10px] text-faint leading-relaxed mt-0.5">{profile.description}</div>
@@ -262,14 +264,17 @@ export function PromptsPanel(p: Props) {
                     size="sm"
                     onClick={() => p.onSetActiveProfile(isActive ? null : profile.id)}
                   >
-                    {isActive ? "Ativo" : "Usar"}
+                    {isActive ? t("helix:promptsPanel.active") : t("helix:promptsPanel.use")}
                   </Button>
-                  <IconButton title="Editar perfil" onClick={() => startEditProfile(profile)}>
+                  <IconButton
+                    title={t("helix:promptsPanel.editProfile")}
+                    onClick={() => startEditProfile(profile)}
+                  >
                     <PenLine className="w-3 h-3" />
                   </IconButton>
                   {profile.id !== "profile-default" && (
                     <IconButton
-                      title="Excluir perfil"
+                      title={t("helix:promptsPanel.deleteProfile")}
                       onClick={() => p.onDeleteProfile(profile.id)}
                       className="hover:text-bad"
                     >
@@ -288,7 +293,7 @@ export function PromptsPanel(p: Props) {
       <section className="flex flex-col gap-2.5">
         <div className="flex items-center justify-between">
           <span className="text-[10px] text-faint font-mono uppercase font-bold select-none">
-            Biblioteca de prompts
+            {t("helix:promptsPanel.promptLibrary")}
           </span>
           <Button
             variant="secondary"
@@ -299,19 +304,19 @@ export function PromptsPanel(p: Props) {
             }}
           >
             {showAddPrompt ? <X className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
-            {showAddPrompt ? "Cancelar" : "Novo"}
+            {showAddPrompt ? t("helix:promptsPanel.cancel") : t("helix:promptsPanel.new")}
           </Button>
         </div>
 
         {showAddPrompt && (
           <div className="rounded-lg border border-signal/30 bg-signal/5 p-3 flex flex-col gap-2">
             <Input
-              placeholder="Título"
+              placeholder={t("helix:promptsPanel.promptTitlePlaceholder")}
               value={promptTitle}
               onChange={(e) => setPromptTitle(e.target.value)}
             />
             <Textarea
-              placeholder="Prompt (texto que será enviado ao agente)"
+              placeholder={t("helix:promptsPanel.promptTextPlaceholder")}
               value={promptText}
               onChange={(e) => setPromptText(e.target.value)}
               rows={3}
@@ -322,18 +327,18 @@ export function PromptsPanel(p: Props) {
                 onChange={(e) => setPromptCategory(e.target.value)}
                 className="h-8 rounded-md bg-white/[0.04] border border-line px-2 text-xs text-fg focus:outline-none focus:border-signal/40 cursor-pointer"
               >
-                <option value="general">Geral</option>
-                <option value="dev">Dev</option>
-                <option value="work">Trabalho</option>
-                <option value="learn">Aprender</option>
+                <option value="general">{t("helix:promptsPanel.categoryGeneral")}</option>
+                <option value="dev">{t("helix:promptsPanel.categoryDev")}</option>
+                <option value="work">{t("helix:promptsPanel.categoryWork")}</option>
+                <option value="learn">{t("helix:promptsPanel.categoryLearn")}</option>
               </select>
               <select
                 value={promptMode}
                 onChange={(e) => setPromptMode(e.target.value as "simple" | "workflow")}
                 className="h-8 rounded-md bg-white/[0.04] border border-line px-2 text-xs text-fg focus:outline-none focus:border-signal/40 cursor-pointer"
               >
-                <option value="simple">Simples</option>
-                <option value="workflow">Workflow</option>
+                <option value="simple">{t("helix:promptsPanel.modeSimple")}</option>
+                <option value="workflow">{t("helix:promptsPanel.modeWorkflow")}</option>
               </select>
               <Button
                 variant="primary"
@@ -343,7 +348,7 @@ export function PromptsPanel(p: Props) {
                 className="ml-auto"
               >
                 <Check className="w-3.5 h-3.5" />
-                {editingPromptId ? "Atualizar" : "Criar"}
+                {editingPromptId ? t("helix:promptsPanel.update") : t("helix:promptsPanel.create")}
               </Button>
             </div>
           </div>
@@ -380,13 +385,16 @@ export function PromptsPanel(p: Props) {
                         size="sm"
                         onClick={() => p.onUsePrompt(pr.prompt, pr.executionMode)}
                       >
-                        Usar
+                        {t("helix:promptsPanel.usePrompt")}
                       </Button>
-                      <IconButton title="Editar prompt" onClick={() => startEditPrompt(pr)}>
+                      <IconButton
+                        title={t("helix:promptsPanel.editPrompt")}
+                        onClick={() => startEditPrompt(pr)}
+                      >
                         <PenLine className="w-3 h-3" />
                       </IconButton>
                       <IconButton
-                        title="Excluir prompt"
+                        title={t("helix:promptsPanel.deletePrompt")}
                         onClick={() => p.onDeletePrompt(pr.id)}
                         className="hover:text-bad"
                       >

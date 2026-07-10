@@ -1,9 +1,11 @@
 import { readText as readClipboard } from "@tauri-apps/plugin-clipboard-manager";
 import { useCallback, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { isTauriRuntime } from "../../../lib/window";
 import { useAgentStore } from "../../../stores/agent";
 
 export function useClipboard() {
+  const { t } = useTranslation("helix");
   const clipboardText = useAgentStore((s) => s.clipboardText);
   const setClipboardText = useAgentStore((s) => s.setClipboardText);
 
@@ -16,9 +18,9 @@ export function useClipboard() {
       const text = await readClipboard();
       setClipboardText(text ?? "");
     } catch (err) {
-      console.error("Erro ao ler clipboard:", err);
+      console.error(t("helix:helixIndex.readClipboardError"), err);
     }
-  }, [setClipboardText]);
+  }, [setClipboardText, t]);
 
   useEffect(() => {
     checkClipboard();

@@ -2,6 +2,7 @@ import type { MessageBlock, Turn } from "@desktop-agent/shared";
 import { unwrapAgentResponse } from "@desktop-agent/shared";
 import { AlertCircle, Check, Clipboard, ExternalLink, RefreshCw, Sparkles, Wrench } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { MarkdownRenderer } from "../../components/ui/markdown-renderer";
 import { Pet } from "../../components/ui/pet";
 
@@ -34,14 +35,17 @@ function getResponseText(turn: Turn): string {
     .join("");
 }
 
-function relativeTime(timestamp: number): string {
-  const diff = Date.now() - timestamp;
-  if (diff < 30_000) return "agora";
-  if (diff < 120_000) return "há 1min";
-  const mins = Math.floor(diff / 60_000);
-  if (mins < 60) return `há ${mins}min`;
-  const hrs = Math.floor(mins / 60);
-  return `há ${hrs}h`;
+function useRelativeTime(): (timestamp: number) => string {
+  const { t } = useTranslation("helix");
+  return (timestamp: number): string => {
+    const diff = Date.now() - timestamp;
+    if (diff < 30_000) return t("helix:responseBubble.now");
+    if (diff < 120_000) return t("helix:responseBubble.oneMinute");
+    const mins = Math.floor(diff / 60_000);
+    if (mins < 60) return t("helix:responseBubble.minutes", { count: mins });
+    const hrs = Math.floor(mins / 60);
+    return t("helix:responseBubble.hours", { count: hrs });
+  };
 }
 
 export function ResponseBubble({
@@ -51,6 +55,8 @@ export function ResponseBubble({
   onToastSuccess,
   onToastError,
 }: ResponseBubbleProps) {
+  const { t } = useTranslation("helix");
+  const relativeTime = useRelativeTime();
   const [copied, setCopied] = useState(false);
   const isStreaming = turn.status === "streaming";
   const text = getResponseText(turn);
@@ -66,9 +72,9 @@ export function ResponseBubble({
       }
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-      onToastSuccess?.("Resposta copiada");
+      onToastSuccess?.(t("helix:responseBubble.responseCopied"));
     } catch {
-      onToastError?.("Erro ao copiar resposta");
+      onToastError?.(t("helix:responseBubble.copyError"));
     }
   };
 
@@ -82,10 +88,14 @@ export function ResponseBubble({
           <span className="text-[10px] text-mute font-medium tracking-tight">Helix</span>
           <span className="text-[10px] text-faint">{relativeTime(turn.timestamp)}</span>
           {turn.status === "error" && (
-            <span className="text-[10px] font-mono uppercase text-bad">falhou</span>
+            <span className="text-[10px] font-mono uppercase text-bad">
+              {t("helix:responseBubble.failed")}
+            </span>
           )}
           {turn.status === "cancelled" && (
-            <span className="text-[10px] font-mono uppercase text-faint">cancelado</span>
+            <span className="text-[10px] font-mono uppercase text-faint">
+              {t("helix:responseBubble.cancelled")}
+            </span>
           )}
         </div>
 
@@ -100,7 +110,7 @@ export function ResponseBubble({
 
           {isStreaming && text === "" && !hasThinkingBlock && (
             <div className="flex items-center gap-1.5 text-mute py-1">
-              <span className="text-xs">pensando</span>
+              <span className="text-xs">{t("helix:responseBubble.thinking")}</span>
               <span className="flex items-center gap-0.5">
                 <span className="w-1 h-1 rounded-full bg-current animate-thinking-1" />
                 <span className="w-1 h-1 rounded-full bg-current animate-thinking-2" />
@@ -119,7 +129,7 @@ export function ResponseBubble({
                 className="h-6 px-2 rounded-md text-[10px] font-semibold text-faint hover:text-fg hover:bg-white/[0.04] transition-colors cursor-pointer flex items-center gap-1"
               >
                 {copied ? <Check className="w-3 h-3" /> : <Clipboard className="w-3 h-3" />}
-                {copied ? "Copiado" : "Copiar"}
+                {copied ? t("helix:responseBubble.copied") : t("helix:responseBubble.copy")}
               </button>
             )}
             {onRegenerate && (
@@ -129,7 +139,7 @@ export function ResponseBubble({
                 className="h-6 px-2 rounded-md text-[10px] font-semibold text-faint hover:text-fg hover:bg-white/[0.04] transition-colors cursor-pointer flex items-center gap-1"
               >
                 <RefreshCw className="w-3 h-3" />
-                Regenerar
+                {t("helix:responseBubble.regenerate")}
               </button>
             )}
           </div>
@@ -140,6 +150,7 @@ export function ResponseBubble({
 }
 
 function WebSourceItem({ title, url, snippet }: { title?: string; url?: string; snippet?: string }) {
+  const { t } = useTranslation("helix");
   const [copied, setCopied] = useState(false);
   if (!url) return null;
 
@@ -169,7 +180,7 @@ function WebSourceItem({ title, url, snippet }: { title?: string; url?: string; 
           type="button"
           onClick={handleCopy}
           className="shrink-0 p-1 rounded text-faint hover:text-fg hover:bg-white/5 transition-colors cursor-pointer"
-          title="Copiar URL"
+          title={t("helix:responseBubble.copyUrl")}
         >
           {copied ? <Check className="w-3 h-3 text-good" /> : <Clipboard className="w-3 h-3" />}
         </button>
@@ -181,6 +192,7 @@ function WebSourceItem({ title, url, snippet }: { title?: string; url?: string; 
 }
 
 function BlockRenderer({ block, isStreaming }: { block: MessageBlock; isStreaming: boolean }) {
+  const { t } = useTranslation("helix");
   switch (block.type) {
     case "text":
       return (
@@ -218,28 +230,31 @@ function BlockRenderer({ block, isStreaming }: { block: MessageBlock; isStreamin
           </div>
           {isOcr && block.status === "done" && ocrText && !ocrEmpty && (
             <div className="mt-1.5 rounded-md bg-white/[0.03] border border-line px-2.5 py-2">
-              <div className="text-[9px] text-faint uppercase font-bold mb-1">Texto extraído</div>
+              <div className="text-[9px] text-faint uppercase font-bold mb-1">
+                {t("helix:responseBubble.extractedText")}
+              </div>
               <p className="text-[10px] text-mute leading-relaxed line-clamp-4 font-mono">{ocrText}</p>
             </div>
           )}
           {isOcr && block.status === "done" && ocrEmpty && (
             <div className="mt-1.5 flex items-center gap-1.5 rounded-md bg-white/[0.03] border border-line px-2.5 py-2">
               <AlertCircle className="w-3 h-3 text-faint shrink-0" />
-              <span className="text-[10px] text-faint">Nenhum texto detectado na imagem.</span>
+              <span className="text-[10px] text-faint">{t("helix:responseBubble.noTextDetected")}</span>
             </div>
           )}
           {isOcr && block.status === "failed" && (
             <div className="mt-1.5 flex items-start gap-1.5 rounded-md bg-bad/5 border border-bad/20 px-2.5 py-1.5">
               <AlertCircle className="w-3 h-3 text-bad shrink-0 mt-0.5" />
               <span className="text-[10px] text-bad leading-relaxed">
-                Falha no OCR. Verifique se o tesseract está instalado ou configure OCR_SPACE_API_KEY.
+                {t("helix:responseBubble.ocrFailed")}
               </span>
             </div>
           )}
           {webResults && webResults.length > 0 && (
             <div className="mt-1.5 flex flex-col gap-1">
               <div className="text-[9px] text-faint uppercase font-bold flex items-center gap-1">
-                <ExternalLink className="w-3 h-3" /> Fontes ({webResults.length})
+                <ExternalLink className="w-3 h-3" />{" "}
+                {t("helix:responseBubble.sources", { count: webResults.length })}
               </div>
               {webResults.map((src) => (
                 <WebSourceItem
@@ -255,7 +270,7 @@ function BlockRenderer({ block, isStreaming }: { block: MessageBlock; isStreamin
             <div className="mt-1.5 flex items-start gap-1.5 rounded-md bg-bad/5 border border-bad/20 px-2.5 py-1.5">
               <AlertCircle className="w-3 h-3 text-bad shrink-0 mt-0.5" />
               <span className="text-[10px] text-bad leading-relaxed">
-                Não foi possível pesquisar agora. Verifique sua conexão.
+                {t("helix:responseBubble.searchFailed")}
               </span>
             </div>
           )}
@@ -274,11 +289,14 @@ function BlockRenderer({ block, isStreaming }: { block: MessageBlock; isStreamin
 }
 
 function ThinkingBlock({ isStreaming }: { isStreaming: boolean }) {
+  const { t } = useTranslation("helix");
   return (
     <div className="my-2 flex items-center gap-2 rounded-md border border-line bg-white/[0.025] px-2.5 py-1.5">
       <Sparkles className={`w-3 h-3 ${isStreaming ? "text-signal animate-pulse" : "text-faint"}`} />
       <span className="text-[10px] text-mute">
-        {isStreaming ? "Analisando contexto..." : "Análise concluída"}
+        {isStreaming
+          ? t("helix:responseBubble.analyzingContext")
+          : t("helix:responseBubble.analysisComplete")}
       </span>
     </div>
   );

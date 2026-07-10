@@ -1,8 +1,10 @@
 import type { Skill } from "@desktop-agent/shared";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { getAgent, isMissingRpcMethodError } from "../../../lib/rpc";
 
 export function useSkills() {
+  const { t } = useTranslation("helix");
   const [skills, setSkills] = useState<Skill[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -15,13 +17,13 @@ export function useSkills() {
       setSkills(list);
     } catch (err) {
       if (!isMissingRpcMethodError(err)) {
-        setError(err instanceof Error ? err.message : "Falha ao carregar skills");
+        setError(err instanceof Error ? err.message : t("helix:useSkills.loadError"));
         console.error("Failed to load skills:", err);
       }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     refresh();

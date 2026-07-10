@@ -1,4 +1,5 @@
 import { PanelLeftClose } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { HELIX_NAV_GROUPS, type HelixNavMode, NEW_TASK_ITEM, SETTINGS_ITEM } from "./helix-navigation";
 
 interface HelixSidebarProps {
@@ -9,6 +10,7 @@ interface HelixSidebarProps {
 }
 
 export function HelixSidebar({ mode, onChangeMode, onNewTask, onToggleExpand }: HelixSidebarProps) {
+  const { t } = useTranslation("helix");
   const NewTaskIcon = NEW_TASK_ITEM.icon;
   const SettingsIcon = SETTINGS_ITEM.icon;
 
@@ -23,14 +25,14 @@ export function HelixSidebar({ mode, onChangeMode, onNewTask, onToggleExpand }: 
         className="flex min-h-10 w-full items-center gap-2.5 rounded-xl border border-signal/20 bg-signal/[0.08] px-3 text-left text-xs font-semibold text-fg transition-colors hover:border-signal/35 hover:bg-signal/[0.12]"
       >
         <NewTaskIcon className="h-4 w-4 text-signal" />
-        <span>Nova conversa</span>
+        <span>{t("helix:sidebar.newConversation")}</span>
       </button>
 
-      <nav className="mt-4 grid gap-4" aria-label="Navegação principal">
+      <nav className="mt-4 grid gap-4" aria-label={t("helix:sidebar.mainNavigation")}>
         {HELIX_NAV_GROUPS.map((group) => (
-          <section key={group.label}>
+          <section key={group.labelKey}>
             <h2 className="mb-1.5 px-2 text-[8px] font-mono uppercase tracking-[0.16em] text-faint">
-              {group.label}
+              {t(`helix:navigation.${group.labelKey}` as const)}
             </h2>
             <div className="grid gap-0.5">
               {group.items.map((item) => {
@@ -46,12 +48,12 @@ export function HelixSidebar({ mode, onChangeMode, onNewTask, onToggleExpand }: 
                         ? "border-line-strong bg-white/[0.065] text-fg"
                         : "border-transparent text-mute hover:bg-white/[0.035] hover:text-fg"
                     }`}
-                    title={item.description}
+                    title={t(`helix:navigation.${item.id}Description` as const)}
                   >
                     <Icon
                       className={`h-4 w-4 ${active ? "text-signal" : "text-faint group-hover:text-mute"}`}
                     />
-                    <span>{item.label}</span>
+                    <span>{t(`helix:navigation.${item.id}` as const)}</span>
                   </button>
                 );
               })}
@@ -67,7 +69,7 @@ export function HelixSidebar({ mode, onChangeMode, onNewTask, onToggleExpand }: 
           className="flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-xs font-medium text-mute transition-colors hover:bg-white/[0.035] hover:text-fg"
         >
           <SettingsIcon className="h-4 w-4 text-faint" />
-          Configurações
+          {t("helix:navigation.settings")}
         </button>
         <button
           type="button"
@@ -75,7 +77,7 @@ export function HelixSidebar({ mode, onChangeMode, onNewTask, onToggleExpand }: 
           className="flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-[10px] text-faint transition-colors hover:bg-white/[0.03] hover:text-mute"
         >
           <PanelLeftClose className="h-3.5 w-3.5" />
-          Voltar ao painel rápido
+          {t("helix:sidebar.backToQuickPanel")}
         </button>
       </div>
     </aside>

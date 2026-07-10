@@ -1,0 +1,134 @@
+{
+  "title": "Configurações",
+  "subtitle": "Centro de controle do Helix",
+  "sectionLabel": "Seção de configurações",
+  "navLabel": "Seções de configurações",
+  "closeSettings": "Fechar configurações",
+  "localNotice": "Mudanças ficam locais. Recursos marcados como planejados ainda não criam estado persistente.",
+  "general": {
+    "title": "Comportamento geral",
+    "description": "Resumo do modo atual e das preferências que já existem. Novos controles serão habilitados quando tiverem persistência ponta a ponta.",
+    "restoredMode": "Modo restaurado",
+    "restoredModeHint": "Último modo persistido pelo gerenciador de janela.",
+    "languageLabel": "Idioma",
+    "languageHint": "Idioma atual da interface.",
+    "autostart": "Abrir ao iniciar o sistema",
+    "autostartHint": "Integração nativa de autostart ainda não implementada.",
+    "restoreSession": "Reabrir última sessão",
+    "restoreSessionHint": "Exige contrato explícito entre janela, conversa e retenção."
+  },
+  "model": {
+    "title": "Modelo e acesso",
+    "description": "Escolha o caminho de inferência. A chave permanece mascarada e opções técnicas ficam em Avançado.",
+    "provider": "Provider",
+    "model": "Modelo padrão",
+    "apiKey": "Chave API",
+    "apiKeyPlaceholder": "Insira ou cole sua chave secreta",
+    "showKey": "Mostrar chave",
+    "hideKey": "Ocultar chave",
+    "apiKeyRequired": "Necessária para este provider.",
+    "strategy": {
+      "fast": "Rápido",
+      "fastHint": "Warp e respostas curtas",
+      "balanced": "Equilibrado",
+      "balancedHint": "Qualidade e latência",
+      "best": "Melhor resposta",
+      "bestHint": "Raciocínio deliberado",
+      "future": "Estratégia futura"
+    }
+  },
+  "pet": {
+    "title": "Pet e comportamento da janela",
+    "description": "Ajustes reais da presença flutuante. Os contratos de clique são exibidos abaixo para deixar o fluxo previsível.",
+    "windowOpacity": "Opacidade da janela",
+    "petSize": "Tamanho do pet",
+    "hidePet": "Ocultar pet flutuante",
+    "hidePetHint": "O app continua em segundo plano e reabre com {{shortcut}} ou menu bar.",
+    "opacity": {
+      "veryTranslucent": "{{percentage}}% — muito translúcido",
+      "translucent": "{{percentage}}% — translúcido",
+      "slightlyTranslucent": "{{percentage}}% — levemente translúcido",
+      "solid": "{{percentage}}% — sólido"
+    },
+    "size": {
+      "compact": "{{size}}px — compacto",
+      "standard": "{{size}}px — padrão",
+      "large": "{{size}}px — grande"
+    },
+    "click": {
+      "singleClick": "Clique simples",
+      "singleClickHint": "Abre o radial com as seis intenções principais.",
+      "doubleClick": "Duplo clique",
+      "doubleClickHint": "Abre o composer no modo normal.",
+      "drag": "Arrastar",
+      "dragHint": "Reposiciona a janela do pet sem disparar uma ação.",
+      "inspector": "Inspector no expandido",
+      "inspectorHint": "Preferência persistida entra na próxima migration."
+    }
+  },
+  "shortcuts": {
+    "title": "Atalhos",
+    "description": "Mapa atual de acesso rápido. Edição de atalhos depende do host Tauri.",
+    "openRadial": "Abrir radial",
+    "openComposer": "Abrir composer",
+    "captureScreen": "Capturar tela",
+    "toggleMode": "Alternar normal/expandido",
+    "undefined": "Não definido"
+  },
+  "privacy": {
+    "title": "Contexto e privacidade",
+    "description": "O Helix deve tornar visível o contexto usado e pedir confirmação para leituras sensíveis.",
+    "clipboard": "Clipboard quando acionado",
+    "clipboardHint": "Usado pelo composer e indicado na Context Bar.",
+    "screenshot": "Captura de tela com confirmação",
+    "screenshotHint": "O workflow de OCR exige aprovação antes da leitura.",
+    "continuous": "Leitura contínua da tela",
+    "continuousHint": "Fora de escopo até existir política e indicador persistente.",
+    "secrets": "Ocultar segredos detectados",
+    "secretsHint": "Exige pipeline de redaction antes do envio ao provider.",
+    "retention": "Retenção de contexto",
+    "retentionHint": "Será integrada à política de dados e Artifacts."
+  },
+  "connectors": {
+    "title": "Conectores",
+    "description": "A gestão detalhada continua na página Conectores; este centro reunirá status, permissões e último uso.",
+    "permissionsHint": "Permissões, teste de saúde e Artifacts consumidores serão consolidados aqui."
+  },
+  "artifacts": {
+    "title": "Artefatos experimentais",
+    "description": "O catálogo inicial é somente leitura. Persistência, edição e fixação no radial virão depois da fundação."
+  },
+  "workflows": {
+    "title": "Workflows",
+    "description": "Templates e execuções continuam na página Workflows. Preferências globais entram após validação do runtime.",
+    "pinRadial": "Fixar no radial",
+    "pinRadialHint": "Será alimentado pelo mesmo Action Registry usado pelo pet.",
+    "defaultApproval": "Aprovação padrão",
+    "defaultApprovalHint": "Precisa respeitar permission levels do workflow e da ferramenta."
+  },
+  "data": {
+    "title": "Dados e histórico",
+    "description": "Ações destrutivas só serão habilitadas com escopo, confirmação e leitura de volta.",
+    "retention": "Retenção do histórico",
+    "retentionHint": "Política configurável ainda não persistida.",
+    "export": "Exportar dados",
+    "exportHint": "Formato e conteúdo do pacote precisam ser definidos.",
+    "clearCache": "Limpar cache",
+    "clearCacheHint": "Exige separar cache reconstruível de dados do usuário.",
+    "reset": "Resetar estado local",
+    "resetHint": "Permanecerá protegido por confirmação explícita."
+  },
+  "advanced": {
+    "title": "Avançado",
+    "description": "Opções técnicas reais e pontos de diagnóstico do Bun sidecar.",
+    "timeoutHint": "Entre 5 e 600 segundos.",
+    "timeoutError": "Use um valor entre 5 e 600 segundos.",
+    "baseUrlHint": "Disponível para providers compatíveis.",
+    "storage": "Storage local",
+    "storageHint": "SQLite com migrations versionadas.",
+    "runtimeLogs": "Logs do runtime",
+    "runtimeLogsHint": "Visíveis durante execução; exportação planejada.",
+    "sidecar": "Bun sidecar",
+    "sidecarHint": "Health check e restart já fazem parte do shell."
+  }
+}

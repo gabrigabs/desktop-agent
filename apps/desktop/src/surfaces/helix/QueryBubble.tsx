@@ -1,6 +1,7 @@
 import type { Turn } from "@desktop-agent/shared";
 import { Check, Clipboard, Pencil } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface QueryBubbleProps {
   turn: Turn;
@@ -14,17 +15,22 @@ function getPromptText(turn: Turn): string {
   return textBlock?.type === "text" ? textBlock.content : "";
 }
 
-function relativeTime(timestamp: number): string {
-  const diff = Date.now() - timestamp;
-  if (diff < 30_000) return "agora";
-  if (diff < 120_000) return "há 1min";
-  const mins = Math.floor(diff / 60_000);
-  if (mins < 60) return `há ${mins}min`;
-  const hrs = Math.floor(mins / 60);
-  return `há ${hrs}h`;
+function useRelativeTime(): (timestamp: number) => string {
+  const { t } = useTranslation("helix");
+  return (timestamp: number): string => {
+    const diff = Date.now() - timestamp;
+    if (diff < 30_000) return t("helix:queryBubble.now");
+    if (diff < 120_000) return t("helix:queryBubble.oneMinute");
+    const mins = Math.floor(diff / 60_000);
+    if (mins < 60) return t("helix:queryBubble.minutes", { count: mins });
+    const hrs = Math.floor(mins / 60);
+    return t("helix:queryBubble.hours", { count: hrs });
+  };
 }
 
 export function QueryBubble({ turn, onEditPrompt, onToastSuccess, onToastError }: QueryBubbleProps) {
+  const { t } = useTranslation("helix");
+  const relativeTime = useRelativeTime();
   const [copied, setCopied] = useState(false);
   const text = getPromptText(turn);
 
@@ -33,9 +39,9 @@ export function QueryBubble({ turn, onEditPrompt, onToastSuccess, onToastError }
       await navigator.clipboard?.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-      onToastSuccess?.("Prompt copiado");
+      onToastSuccess?.(t("helix:queryBubble.promptCopied"));
     } catch {
-      onToastError?.("Erro ao copiar prompt");
+      onToastError?.(t("helix:queryBubble.copyError"));
     }
   };
 
@@ -44,7 +50,9 @@ export function QueryBubble({ turn, onEditPrompt, onToastSuccess, onToastError }
       <div className="max-w-[78%]">
         <div className="flex items-center justify-end gap-2 mb-1">
           <span className="text-[10px] text-faint">{relativeTime(turn.timestamp)}</span>
-          <span className="text-[10px] text-mute font-medium tracking-tight">Você</span>
+          <span className="text-[10px] text-mute font-medium tracking-tight">
+            {t("helix:queryBubble.you")}
+          </span>
         </div>
         <div className="bg-white/[0.05] rounded-2xl rounded-br-sm px-3.5 py-2.5 border border-line">
           <p className="text-sm leading-relaxed text-fg whitespace-pre-wrap select-text">{text}</p>
@@ -56,7 +64,7 @@ export function QueryBubble({ turn, onEditPrompt, onToastSuccess, onToastError }
             className="h-6 px-2 rounded-md text-[10px] font-semibold text-faint hover:text-fg hover:bg-white/[0.04] transition-colors cursor-pointer flex items-center gap-1"
           >
             {copied ? <Check className="w-3 h-3" /> : <Clipboard className="w-3 h-3" />}
-            {copied ? "Copiado" : "Copiar"}
+            {copied ? t("helix:queryBubble.copied") : t("helix:queryBubble.copy")}
           </button>
           {onEditPrompt && (
             <button
@@ -65,7 +73,7 @@ export function QueryBubble({ turn, onEditPrompt, onToastSuccess, onToastError }
               className="h-6 px-2 rounded-md text-[10px] font-semibold text-faint hover:text-fg hover:bg-white/[0.04] transition-colors cursor-pointer flex items-center gap-1"
             >
               <Pencil className="w-3 h-3" />
-              Editar
+              {t("helix:queryBubble.edit")}
             </button>
           )}
         </div>

@@ -60,6 +60,7 @@ import { createOcrImageTool, createScreenshotOcrTool } from "@desktop-agent/tool
 import { createRewriteTool, createSummarizeTool, createTranslateTool } from "@desktop-agent/tools-text";
 import { createWebCrawlTool, createWebExtractTool, createWebSearchTool } from "@desktop-agent/tools-web";
 import { conversationTitleFromTurns, sanitizeConversationTitle } from "./conversation-title";
+import { t } from "./i18n";
 import {
   expandMcpArgs,
   registerEnabledMcpTools,
@@ -121,6 +122,9 @@ function getActiveProviderConfig() {
   const windowOpacity = windowOpacityVal ? Number.parseFloat(windowOpacityVal) : 0.72;
   const petSizeVal = getSetting(db, "petSize");
   const petSize = petSizeVal ? Number.parseInt(petSizeVal, 10) : 58;
+  const languageVal = getSetting(db, "language");
+  const language: AppSettings["language"] =
+    languageVal === "en" || languageVal === "pt-BR" ? languageVal : "pt-BR";
 
   return {
     activeProvider,
@@ -133,6 +137,7 @@ function getActiveProviderConfig() {
     timeout,
     windowOpacity,
     petSize,
+    language,
   };
 }
 
@@ -358,6 +363,7 @@ export const agentApi: AgentApi = {
     const runner = new WorkflowRunner({
       getLlmProvider,
       getActiveModel: () => getActiveProviderConfig().model,
+      getLanguage: () => getActiveProviderConfig().language,
       emit(event) {
         events.push(event);
         emitToClient(event);
@@ -422,6 +428,7 @@ export const agentApi: AgentApi = {
     const runner = new WorkflowRunner({
       getLlmProvider,
       getActiveModel: () => getActiveProviderConfig().model,
+      getLanguage: () => getActiveProviderConfig().language,
       emit(event) {
         events.push(event);
         emitToClient(event);
@@ -504,10 +511,11 @@ export const agentApi: AgentApi = {
 
   async testMcpServer({ id }) {
     const db = getDb();
+    const lang = getActiveProviderConfig().language;
     const startTime = Date.now();
     const server = getStoredMcpServer(db, id, true);
     if (!server) {
-      const error = `MCP não encontrado: ${id}`;
+      const error = t("errors:mcp.notFound", lang, { id });
       updateMcpServerStatus(db, id, { lastCheckedAt: new Date().toISOString(), lastError: error });
       return { ok: false, error };
     }
@@ -524,13 +532,13 @@ export const agentApi: AgentApi = {
       .filter(([, value]) => !value)
       .map(([key]) => key);
     if (missingEnv.length > 0) {
-      const error = `Configure ${missingEnv.join(", ")} antes de habilitar este MCP.`;
+      const error = t("errors:mcp.configureEnv", lang, { env: missingEnv.join(", ") });
       updateMcpServerStatus(db, id, { lastCheckedAt: new Date().toISOString(), lastError: error });
       return { ok: false, error };
     }
 
     if (!server.command) {
-      const error = "Comando não definido para este MCP.";
+      const error = t("errors:mcp.commandMissing", lang);
       updateMcpServerStatus(db, id, { lastCheckedAt: new Date().toISOString(), lastError: error });
       return { ok: false, error };
     }
@@ -596,12 +604,12 @@ export const agentApi: AgentApi = {
 
       const initResult = await waitForResponse(10000);
       if (!initResult) {
-        const error = "MCP não respondeu em 10s.";
+        const error = t("errors:mcp.noResponseInitialize", lang);
         updateMcpServerStatus(db, id, { lastCheckedAt: new Date().toISOString(), lastError: error });
         return { ok: false, error, durationMs: Date.now() - startTime };
       }
       if (initResult.error) {
-        const error = initResult.error.message || "Erro no handshake initialize.";
+        const error = initResult.error.message || t("errors:mcp.handshakeError", lang);
         updateMcpServerStatus(db, id, { lastCheckedAt: new Date().toISOString(), lastError: error });
         return { ok: false, error, durationMs: Date.now() - startTime };
       }
@@ -613,12 +621,12 @@ export const agentApi: AgentApi = {
       sendRpc("tools/list", {});
       const toolsResult = await waitForResponse(10000);
       if (!toolsResult) {
-        const error = "MCP não respondeu ao tools/list em 10s.";
+        const error = t("errors:mcp.noResponseToolsList", lang);
         updateMcpServerStatus(db, id, { lastCheckedAt: new Date().toISOString(), lastError: error });
         return { ok: false, error, durationMs: Date.now() - startTime };
       }
       if (toolsResult.error) {
-        const error = toolsResult.error.message || "Erro ao listar tools.";
+        const error = toolsResult.error.message || t("errors:mcp.toolsListError", lang);
         updateMcpServerStatus(db, id, { lastCheckedAt: new Date().toISOString(), lastError: error });
         return { ok: false, error, durationMs: Date.now() - startTime };
       }
@@ -636,7 +644,7 @@ export const agentApi: AgentApi = {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
       const error = errorMessage.includes("ENOENT")
-        ? `Comando não encontrado: ${server.command}`
+        ? t("errors:mcp.commandNotFound", lang, { command: server.command })
         : errorMessage;
       updateMcpServerStatus(db, id, { lastCheckedAt: new Date().toISOString(), lastError: error });
       return { ok: false, error, durationMs: Date.now() - startTime };
@@ -672,6 +680,7 @@ export const agentApi: AgentApi = {
       timeout: config.timeout,
       windowOpacity: config.windowOpacity,
       petSize: config.petSize,
+      language: config.language,
     };
   },
 
@@ -687,6 +696,7 @@ export const agentApi: AgentApi = {
     setSetting(db, "timeout", String(settings.timeout));
     setSetting(db, "windowOpacity", String(settings.windowOpacity));
     setSetting(db, "petSize", String(settings.petSize));
+    setSetting(db, "language", settings.language);
   },
 
   async fetchModels(provider: string, apiKey: string, baseUrl?: string): Promise<string[]> {

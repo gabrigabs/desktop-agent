@@ -1,0 +1,65 @@
+{
+  "workflow": {
+    "aborted": "Workflow aborted by user.",
+    "runNotFound": "Workflow run not found: {{runId}}",
+    "approvalDenied": "Approval denied by user.",
+    "approved": "Approved by user.",
+    "resumed": "Execution resumed after approval.",
+    "simpleModeStarted": "Simple mode started.",
+    "simpleReady": "Simple response ready.",
+    "workflowStarted": "Workflow started.",
+    "planTitle": "Plan",
+    "planDetail": "Defining next steps.",
+    "planSteps": "Workflow of up to {{maxSteps}} steps with intermediate observations.",
+    "planStepList": ["Understand request", "Select tool", "Execute", "Observe", "Repeat or finish"],
+    "approvalTitle": "Approval required",
+    "approvalDetail": "Confirm use of {{toolName}}.",
+    "waitingApproval": "Workflow paused waiting for approval.",
+    "toolPrepare": "Preparing {{toolName}}.",
+    "toolDone": "{{toolName}} completed.",
+    "observationTitle": "Observation",
+    "observationDetail": "Audited result; next steps defined before final response.",
+    "finalResponseTitle": "Final response",
+    "finalResponseDetail": "Synthesizing result.",
+    "workflowFinished": "Workflow ready to finish.",
+    "emptyResult": "Workflow completed with no returned content.",
+    "toolUnavailable": "Tool unavailable: {{toolName}}",
+    "mockResultWithObservations": "[Workflow] Completed. Request: \"{{prompt}}\". Observations: {{observations}}",
+    "mockResult": "[Workflow] Completed. Request: \"{{prompt}}\"."
+  },
+  "mcp": {
+    "notFound": "MCP not found: {{id}}",
+    "commandMissing": "Command not defined for this MCP.",
+    "commandNotFound": "Command not found: {{command}}",
+    "configureEnv": "Configure {{env}} before enabling this MCP.",
+    "noResponseInitialize": "MCP did not respond within 10s.",
+    "handshakeError": "Error in initialize handshake.",
+    "noResponseToolsList": "MCP did not respond to tools/list within 10s.",
+    "toolsListError": "Error listing tools."
+  },
+  "planner": {
+    "response": "Response",
+    "generatedPlan": "Generated plan",
+    "generatedPlanDescription": "Workflow generated automatically for the request.",
+    "toolReasons": {
+      "rewrite": "Improve clipboard text.",
+      "summarize": "Summarize clipboard text.",
+      "translate": "Translate clipboard text.",
+      "extract": "Read URL content.",
+      "search": "Search current context.",
+      "searchWeb": "Search web context.",
+      "screenshot": "Read visual content from screen.",
+      "fallback": "Use {{tool}} per LLM decision."
+    }
+  },
+  "orchestrator": {
+    "aborted": "Execution aborted by user.",
+    "executingTool": "Executing tool {{tool}} for request: {{query}}",
+    "thinkingNextAction": "Thinking about the next action...",
+    "finalResponseError": "Could not get a final response from the agent.",
+    "responseError": "Could not get a response from the agent."
+  },
+  "sidecar": {
+    "connectionError": "Failed to connect to agent"
+  }
+}

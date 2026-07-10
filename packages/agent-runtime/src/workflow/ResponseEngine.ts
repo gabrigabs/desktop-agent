@@ -1,6 +1,8 @@
 import type { LlmProvider } from "@desktop-agent/provider-gateway";
 import type { AgentEvent } from "@desktop-agent/shared";
 import { parseAgentDecision, stripThinkingMarkup } from "@desktop-agent/shared";
+import type { SupportedLanguage } from "../i18n";
+import { t } from "../i18n";
 import type { ToolExecutor } from "./ToolExecutor";
 
 export type ResponseEngineConfig = {
@@ -21,6 +23,7 @@ export async function runResponseEngine(
   clipboardText: string,
   history: { role: "user" | "assistant" | "system"; content: string }[],
   config: ResponseEngineConfig,
+  lang: SupportedLanguage,
 ): Promise<string> {
   const { provider, model, toolExecutor, emit, signal } = config;
   const maxSteps = config.maxSteps ?? 5;
@@ -62,9 +65,9 @@ export async function runResponseEngine(
 
   while (steps < maxSteps) {
     steps++;
-    throwIfAborted(signal);
+    throwIfAborted(signal, lang);
 
-    emit({ type: "agent.thought", requestId, thought: "Pensando na próxima ação..." });
+    emit({ type: "agent.thought", requestId, thought: t("errors:orchestrator.thinkingNextAction", lang) });
 
     const res = await provider.complete({
       model,
@@ -78,9 +81,13 @@ export async function runResponseEngine(
 
     if (parsed.toolName) {
       const toolName = parsed.toolName;
-      emit({ type: "agent.thought", requestId, thought: `Executando ferramenta: ${toolName}` });
+      emit({
+        type: "agent.thought",
+        requestId,
+        thought: t("errors:orchestrator.executingTool", lang, { tool: toolName, query: prompt }),
+      });
       try {
-        throwIfAborted(signal);
+        throwIfAborted(signal, lang);
         const result = await toolExecutor.execute(requestId, toolName, parsed.toolInput ?? {});
         const outputString = JSON.stringify(result.output);
 
@@ -101,10 +108,10 @@ export async function runResponseEngine(
       finalResult =
         parsed.directResponse?.trim() ||
         stripThinkingMarkup(responseText) ||
-        "Não foi possível obter uma resposta.";
+        t("errors:orchestrator.responseError", lang);
 
-      emit({ type: "agent.thought", requestId, thought: "Preparando resposta final..." });
-      throwIfAborted(signal);
+      emit({ type: "agent.thought", requestId, thought: t("errors:orchestrator.thinkingNextAction", lang) });
+      throwIfAborted(signal, lang);
 
       for await (const chunk of provider.stream({
         model,
@@ -125,7 +132,7 @@ export async function runResponseEngine(
           },
         ],
       })) {
-        throwIfAborted(signal);
+        throwIfAborted(signal, lang);
         if (chunk.content) {
           emittedChunk = true;
           emit({ type: "agent.chunk", requestId, chunk: chunk.content });
@@ -143,8 +150,8 @@ export async function runResponseEngine(
   return finalResult;
 }
 
-function throwIfAborted(signal?: AbortSignal) {
+function throwIfAborted(signal: AbortSignal | undefined, lang: SupportedLanguage) {
   if (signal?.aborted) {
-    throw new Error("Execução abortada pelo usuário.");
+    throw new Error(t("errors:orchestrator.aborted", lang));
   }
 }

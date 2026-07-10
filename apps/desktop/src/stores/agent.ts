@@ -108,6 +108,7 @@ const defaultSettings: AppSettings = {
   timeout: 120,
   windowOpacity: 0.72,
   petSize: 72,
+  language: "pt-BR",
 };
 
 const defaultConnectors: ConnectorConfig[] = [

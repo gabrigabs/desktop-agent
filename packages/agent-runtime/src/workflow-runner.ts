@@ -20,12 +20,15 @@ import {
   updateWorkflowStep,
 } from "@desktop-agent/storage";
 import { registry } from "@desktop-agent/tool-registry";
+import type { SupportedLanguage } from "./i18n";
+import { t } from "./i18n";
 import type { Orchestrator } from "./orchestrator";
 
 type WorkflowRunnerConfig = {
   orchestrator: Orchestrator;
   getLlmProvider: () => LlmProvider;
   getActiveModel: () => string;
+  getLanguage: () => SupportedLanguage;
   emit: (event: AgentEvent) => void;
 };
 
@@ -46,7 +49,7 @@ type ToolPlan = {
 
 function throwIfAborted(signal?: AbortSignal) {
   if (signal?.aborted) {
-    throw new Error("Workflow abortado pelo usuário.");
+    throw new Error(t("errors:workflow.aborted"));
   }
 }
 
@@ -85,19 +88,25 @@ export class WorkflowRunner {
   private orchestrator: Orchestrator;
   private getLlmProvider: () => LlmProvider;
   private getActiveModel: () => string;
+  private getLanguage: () => SupportedLanguage;
   private emit: (event: AgentEvent) => void;
 
   constructor(config: WorkflowRunnerConfig) {
     this.orchestrator = config.orchestrator;
     this.getLlmProvider = config.getLlmProvider;
     this.getActiveModel = config.getActiveModel;
+    this.getLanguage = config.getLanguage;
     this.emit = config.emit;
+  }
+
+  private get lang() {
+    return this.getLanguage();
   }
 
   async start(input: RunInput): Promise<WorkflowRun> {
     const run = getWorkflowRun(getDb(), input.runId);
     if (!run) {
-      throw new Error(`Workflow run não encontrado: ${input.runId}`);
+      throw new Error(t("errors:workflow.runNotFound", this.lang, { runId: input.runId }));
     }
 
     if (isTerminalStatus(run.status)) {
@@ -129,7 +138,7 @@ export class WorkflowRunner {
   async resume(input: RunInput & { approved: boolean }): Promise<WorkflowRun> {
     const run = getWorkflowRun(getDb(), input.runId);
     if (!run) {
-      throw new Error(`Workflow run não encontrado: ${input.runId}`);
+      throw new Error(t("errors:workflow.runNotFound", undefined, { runId: input.runId }));
     }
 
     if (!run.approval) {
@@ -141,7 +150,7 @@ export class WorkflowRunner {
       if (approvalStep) {
         this.updateStep(input.requestId, run.id, approvalStep.id, {
           status: "failed",
-          errorMessage: "Aprovação negada pelo usuário.",
+          errorMessage: t("errors:workflow.approvalDenied", this.lang),
           completedAt: nowIso(),
         });
       }
@@ -149,7 +158,7 @@ export class WorkflowRunner {
         status: "cancelled",
         approval: null,
         completedAt: nowIso(),
-        errorMessage: "Aprovação negada pelo usuário.",
+        errorMessage: t("errors:workflow.approvalDenied", this.lang),
       });
       const cancelledRun = getWorkflowRun(getDb(), run.id) as WorkflowRun;
       this.emit({
@@ -164,7 +173,7 @@ export class WorkflowRunner {
     if (approvalStep) {
       this.updateStep(input.requestId, run.id, approvalStep.id, {
         status: "completed",
-        detail: "Aprovado pelo usuário.",
+        detail: t("errors:workflow.approved", this.lang),
         completedAt: nowIso(),
       });
     }
@@ -178,7 +187,7 @@ export class WorkflowRunner {
     const toolOutput = await this.executeTool(input, {
       toolName: payload.toolName,
       input: payload.toolInput ?? {},
-      reason: "Execução retomada após aprovação.",
+      reason: t("errors:workflow.resumed", this.lang),
     });
     this.recordObservation(input, { tool: payload.toolName, output: toolOutput, next: "continue" });
     return this.runWorkflowLoop(input, [toolOutput]);
@@ -190,14 +199,14 @@ export class WorkflowRunner {
       kind: "hook",
       status: "completed",
       title: "run_start",
-      detail: "Modo simples iniciado.",
+      detail: t("errors:workflow.simpleModeStarted", this.lang),
     });
 
     const responseStep = this.createStep(input.requestId, run.id, {
       kind: "response",
       status: "running",
-      title: "Resposta simples",
-      detail: "Gerando uma resposta direta.",
+      title: t("errors:workflow.finalResponseTitle", this.lang),
+      detail: t("errors:workflow.finalResponseDetail", this.lang),
       startedAt: nowIso(),
     });
 
@@ -210,6 +219,7 @@ export class WorkflowRunner {
       this.emit,
       this.getLlmProvider,
       this.getActiveModel,
+      this.lang,
       input.signal,
     );
 
@@ -222,7 +232,7 @@ export class WorkflowRunner {
       kind: "hook",
       status: "completed",
       title: "before_finish",
-      detail: "Resposta simples pronta.",
+      detail: t("errors:workflow.simpleReady", this.lang),
     });
     updateWorkflowRun(getDb(), run.id, {
       status: "completed",
@@ -240,14 +250,14 @@ export class WorkflowRunner {
       kind: "hook",
       status: "completed",
       title: "run_start",
-      detail: "Workflow iniciado.",
+      detail: t("errors:workflow.workflowStarted", this.lang),
     });
 
     const planStep = this.createStep(input.requestId, run.id, {
       kind: "plan",
       status: "running",
-      title: "Plano",
-      detail: "Definindo próximos passos.",
+      title: t("errors:workflow.planTitle", this.lang),
+      detail: t("errors:workflow.planDetail", this.lang),
       input: {
         prompt: input.prompt,
         hasClipboard: input.clipboardText.trim().length > 0,
@@ -258,9 +268,9 @@ export class WorkflowRunner {
 
     this.updateStep(input.requestId, run.id, planStep.id, {
       status: "completed",
-      detail: `Workflow de até ${run.maxSteps} passos com observações intermediárias.`,
+      detail: t("errors:workflow.planSteps", this.lang, { maxSteps: run.maxSteps }),
       output: {
-        steps: ["Entender pedido", "Selecionar ferramenta", "Executar", "Observar", "Repetir ou finalizar"],
+        steps: t("errors:workflow.planStepList", this.lang).split(", "),
       },
       completedAt: nowIso(),
     });
@@ -282,7 +292,7 @@ export class WorkflowRunner {
       const tool = registry.get(toolPlan.toolName);
       if (!tool) {
         this.recordObservation(input, {
-          error: `Ferramenta indisponível: ${toolPlan.toolName}`,
+          error: t("errors:workflow.toolUnavailable", this.lang, { toolName: toolPlan.toolName }),
           next: "continue",
         });
         continue;
@@ -314,8 +324,8 @@ export class WorkflowRunner {
     const step = this.createStep(input.requestId, run.id, {
       kind: "approval",
       status: "waiting_approval",
-      title: "Aprovação necessária",
-      detail: `Confirmar uso de ${toolPlan.toolName}.`,
+      title: t("errors:workflow.approvalTitle", this.lang),
+      detail: t("errors:workflow.approvalDetail", this.lang, { toolName: toolPlan.toolName }),
       toolName: toolPlan.toolName,
       permissionLevel,
       input: {
@@ -346,7 +356,7 @@ export class WorkflowRunner {
       kind: "hook",
       status: "completed",
       title: "waiting_for_input",
-      detail: "Workflow pausado aguardando aprovação.",
+      detail: t("errors:workflow.waitingApproval", this.lang),
     });
     this.emit({ type: "workflow.approval_required", requestId: input.requestId, runId: run.id, approval });
     this.emit({
@@ -362,14 +372,14 @@ export class WorkflowRunner {
     const run = getWorkflowRun(getDb(), input.runId) as WorkflowRun;
     const tool = registry.get(toolPlan.toolName);
     if (!tool) {
-      throw new Error(`Ferramenta indisponível: ${toolPlan.toolName}`);
+      throw new Error(t("errors:workflow.toolUnavailable", this.lang, { toolName: toolPlan.toolName }));
     }
 
     this.createStep(input.requestId, run.id, {
       kind: "hook",
       status: "completed",
       title: "before_tool",
-      detail: `Preparando ${toolPlan.toolName}.`,
+      detail: t("errors:workflow.toolPrepare", this.lang, { toolName: toolPlan.toolName }),
       output: { permissionLevel: tool.permissionLevel },
     });
 
@@ -400,7 +410,7 @@ export class WorkflowRunner {
       kind: "hook",
       status: "completed",
       title: "after_tool",
-      detail: `${toolPlan.toolName} concluída.`,
+      detail: t("errors:workflow.toolDone", this.lang, { toolName: toolPlan.toolName }),
     });
 
     return execution.result.output;
@@ -410,8 +420,8 @@ export class WorkflowRunner {
     this.createStep(input.requestId, input.runId, {
       kind: "observation",
       status: "completed",
-      title: "Observação",
-      detail: "Resultado auditado; próximos passos definidos antes da resposta final.",
+      title: t("errors:workflow.observationTitle", this.lang),
+      detail: t("errors:workflow.observationDetail", this.lang),
       output: {
         preview: stringifyOutput(observation).slice(0, 1200),
         ...(typeof observation === "object" && observation !== null
@@ -427,8 +437,8 @@ export class WorkflowRunner {
     const responseStep = this.createStep(input.requestId, run.id, {
       kind: "response",
       status: "running",
-      title: "Resposta final",
-      detail: "Sintetizando resultado.",
+      title: t("errors:workflow.finalResponseTitle", this.lang),
+      detail: t("errors:workflow.finalResponseDetail", this.lang),
       input: {
         prompt: input.prompt,
         observations,
@@ -447,7 +457,7 @@ export class WorkflowRunner {
       kind: "hook",
       status: "completed",
       title: "before_finish",
-      detail: "Workflow pronto para encerrar.",
+      detail: t("errors:workflow.workflowFinished", this.lang),
     });
     updateWorkflowRun(getDb(), run.id, {
       status: "completed",
@@ -465,8 +475,11 @@ export class WorkflowRunner {
     if (provider.name === "mock") {
       const result =
         observations.length > 0
-          ? `[Workflow] Concluído. Pedido: "${input.prompt}". Observações: ${observations.map(stringifyOutput).join(" | ")}`
-          : `[Workflow] Concluído. Pedido: "${input.prompt}".`;
+          ? t("errors:workflow.mockResultWithObservations", this.lang, {
+              prompt: input.prompt,
+              observations: observations.map(stringifyOutput).join(" | "),
+            })
+          : t("errors:workflow.mockResult", this.lang, { prompt: input.prompt });
       for (const word of result.split(" ")) {
         throwIfAborted(input.signal);
         this.emit({ type: "agent.chunk", requestId: input.requestId, chunk: `${word} ` });
@@ -513,7 +526,7 @@ REGRAS DE FORMATAÇÃO
       }
     }
 
-    const finalResult = result || "Workflow concluído sem conteúdo retornado.";
+    const finalResult = result || t("errors:workflow.emptyResult", this.lang);
     if (!emittedChunk) {
       this.emit({ type: "agent.chunk", requestId: input.requestId, chunk: finalResult });
     }

@@ -49,7 +49,7 @@ export class MockProvider implements LlmProvider {
     const userMessage = input.messages.find((m) => m.role === "user")?.content ?? "";
     const toolMatch = Object.keys(MOCK_RESPONSES).find((key) => userMessage.includes(key));
     const content = toolMatch
-      ? MOCK_RESPONSES[toolMatch]!
+      ? (MOCK_RESPONSES[toolMatch] ?? `Resposta mock para: "${userMessage.slice(0, 100)}"`)
       : `Resposta mock para: "${userMessage.slice(0, 100)}"`;
 
     return {

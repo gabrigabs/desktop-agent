@@ -146,6 +146,7 @@ export type AppSettings = {
   timeout: number;
   windowOpacity: number;
   petSize: number;
+  language: "pt-BR" | "en";
 };
 
 export type ExecutionMode = "simple" | "workflow";

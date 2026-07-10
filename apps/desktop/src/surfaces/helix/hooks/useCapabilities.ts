@@ -1,7 +1,8 @@
 import type { McpTestResult, PermissionLevel } from "@desktop-agent/shared";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useAgentStore } from "../../../stores/agent";
-import { callAgentWithRuntimeRefresh, isStaleRuntimeError } from "../constants";
+import { callAgentWithRuntimeRefresh, isStaleRuntimeError, useStaleRuntimeMessage } from "../constants";
 
 export type SaveConnectorInput = {
   id?: string;
@@ -15,6 +16,8 @@ export type SaveConnectorInput = {
 };
 
 export function useCapabilities() {
+  const { t } = useTranslation("helix");
+  const staleMessage = useStaleRuntimeMessage();
   const setConnectors = useAgentStore((s) => s.setConnectors);
   const setError = useAgentStore((s) => s.setError);
   const addAgentLog = useAgentStore((s) => s.addAgentLog);
@@ -25,16 +28,18 @@ export function useCapabilities() {
 
   const refreshCapabilities = useCallback(async () => {
     try {
-      const capabilities = await callAgentWithRuntimeRefresh("listCapabilities", (api) =>
-        api.listCapabilities(),
+      const capabilities = await callAgentWithRuntimeRefresh(
+        "listCapabilities",
+        (api) => api.listCapabilities(),
+        staleMessage,
       );
       setConnectors(capabilities.connectors);
     } catch (err) {
-      if (!isStaleRuntimeError(err)) {
+      if (!isStaleRuntimeError(err, staleMessage)) {
         console.error("Failed to refresh capabilities:", err);
       }
     }
-  }, [setConnectors]);
+  }, [setConnectors, staleMessage]);
 
   useEffect(() => {
     refreshCapabilities();
@@ -48,40 +53,45 @@ export function useCapabilities() {
       if (!connector || !command) return;
 
       try {
-        await callAgentWithRuntimeRefresh("saveMcpServer", (api) =>
-          api.saveMcpServer({
-            server: {
-              id: connector.id,
-              name: connector.name,
-              command,
-              args: connector.args,
-              enabled: !connector.enabled,
-              preset: connector.preset,
-              permissionPolicy: connector.permissionPolicy,
-            },
-          }),
+        await callAgentWithRuntimeRefresh(
+          "saveMcpServer",
+          (api) =>
+            api.saveMcpServer({
+              server: {
+                id: connector.id,
+                name: connector.name,
+                command,
+                args: connector.args,
+                enabled: !connector.enabled,
+                preset: connector.preset,
+                permissionPolicy: connector.permissionPolicy,
+              },
+            }),
+          staleMessage,
         );
         await refreshCapabilities();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Erro ao atualizar conector");
+        setError(err instanceof Error ? err.message : t("helix:errors.updateConnector"));
       }
     },
-    [refreshCapabilities, setError],
+    [refreshCapabilities, setError, staleMessage, t],
   );
 
   const handleTestConnector = useCallback(
     async (connectorId: string) => {
       setTestingConnectorId(connectorId);
       try {
-        const result = await callAgentWithRuntimeRefresh("testMcpServer", (api) =>
-          api.testMcpServer({ id: connectorId }),
+        const result = await callAgentWithRuntimeRefresh(
+          "testMcpServer",
+          (api) => api.testMcpServer({ id: connectorId }),
+          staleMessage,
         );
         setConnectorTestResults((prev) => ({ ...prev, [connectorId]: result }));
         if (!result.ok) {
-          addAgentLog({ type: "tool_fail", text: result.error || "Conector não passou no teste" });
+          addAgentLog({ type: "tool_fail", text: result.error || t("helix:errors.connectorFailed") });
         } else {
           const toolCount = result.tools?.length ?? 0;
-          addAgentLog({ type: "info", text: `Conector pronto — ${toolCount} tools detectadas` });
+          addAgentLog({ type: "info", text: t("helix:errors.connectorReady", { count: toolCount }) });
         }
         await refreshCapabilities();
       } catch (err) {
@@ -92,29 +102,38 @@ export function useCapabilities() {
         setTestingConnectorId(null);
       }
     },
-    [refreshCapabilities, addAgentLog],
+    [refreshCapabilities, addAgentLog, t, staleMessage],
   );
 
   const handleSaveConnector = useCallback(
     async (input: SaveConnectorInput) => {
       try {
-        await callAgentWithRuntimeRefresh("saveMcpServer", (api) => api.saveMcpServer({ server: input }));
+        await callAgentWithRuntimeRefresh(
+          "saveMcpServer",
+          (api) => api.saveMcpServer({ server: input }),
+          staleMessage,
+        );
         await refreshCapabilities();
         setEditingConnectorId(null);
         setShowAddConnector(false);
-        addAgentLog({ type: "info", text: input.id ? "Conector atualizado" : "Conector adicionado" });
+        addAgentLog({
+          type: "info",
+          text: input.id ? t("helix:errors.connectorUpdated") : t("helix:errors.connectorAdded"),
+        });
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Erro ao salvar conector");
+        setError(err instanceof Error ? err.message : t("helix:errors.saveConnector"));
       }
     },
-    [refreshCapabilities, setError, addAgentLog],
+    [refreshCapabilities, setError, addAgentLog, staleMessage, t],
   );
 
   const handleDeleteConnector = useCallback(
     async (connectorId: string) => {
       try {
-        await callAgentWithRuntimeRefresh("deleteMcpServer", (api) =>
-          api.deleteMcpServer({ id: connectorId }),
+        await callAgentWithRuntimeRefresh(
+          "deleteMcpServer",
+          (api) => api.deleteMcpServer({ id: connectorId }),
+          staleMessage,
         );
         setConnectorTestResults((prev) => {
           const next = { ...prev };
@@ -122,12 +141,12 @@ export function useCapabilities() {
           return next;
         });
         await refreshCapabilities();
-        addAgentLog({ type: "info", text: "Conector removido" });
+        addAgentLog({ type: "info", text: t("helix:errors.connectorRemoved") });
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Erro ao remover conector");
+        setError(err instanceof Error ? err.message : t("helix:errors.deleteConnector"));
       }
     },
-    [refreshCapabilities, setError, addAgentLog],
+    [refreshCapabilities, setError, addAgentLog, t, staleMessage],
   );
 
   const handleStartEditing = useCallback((connectorId: string) => {

@@ -6,7 +6,6 @@ import type {
   ExecutionMode,
   PermissionLevel,
   RunStatus,
-  Skill,
   WorkflowRun,
   WorkflowStep,
   WorkflowStepKind,
@@ -24,6 +23,8 @@ import {
   updateWorkflowStep,
 } from "@desktop-agent/storage";
 import { registry } from "@desktop-agent/tool-registry";
+import type { SupportedLanguage } from "../i18n";
+import { t } from "../i18n";
 import { requiresApproval } from "./ApprovalEngine";
 import { McpSessionManager } from "./McpSessionManager";
 import { runResponseEngine } from "./ResponseEngine";
@@ -35,6 +36,7 @@ import { WorkflowPlanner } from "./WorkflowPlanner";
 export type WorkflowRunnerConfig = {
   getLlmProvider: () => LlmProvider;
   getActiveModel: () => string;
+  getLanguage: () => SupportedLanguage;
   emit: (event: AgentEvent) => void;
 };
 
@@ -89,6 +91,7 @@ function stringifyOutput(output: unknown): string {
 export class WorkflowRunner {
   private getLlmProvider: () => LlmProvider;
   private getActiveModel: () => string;
+  private getLanguage: () => SupportedLanguage;
   private emit: (event: AgentEvent) => void;
   private planner: WorkflowPlanner;
   private toolExecutor: ToolExecutor;
@@ -96,12 +99,18 @@ export class WorkflowRunner {
   constructor(config: WorkflowRunnerConfig) {
     this.getLlmProvider = config.getLlmProvider;
     this.getActiveModel = config.getActiveModel;
+    this.getLanguage = config.getLanguage;
     this.emit = config.emit;
     this.planner = new WorkflowPlanner({
       getLlmProvider: config.getLlmProvider,
       getActiveModel: config.getActiveModel,
+      getLanguage: config.getLanguage,
     });
     this.toolExecutor = new ToolExecutor(config.emit, () => config.getLlmProvider().name);
+  }
+
+  private get lang(): SupportedLanguage {
+    return this.getLanguage();
   }
 
   async start(input: RunInput): Promise<WorkflowRun> {
@@ -211,7 +220,7 @@ export class WorkflowRunner {
 
         if (step.status === "waiting_approval" && resumeApproved !== undefined) {
           if (!resumeApproved) {
-            await this.failStepAndRun(db, run, step, "Aprovação negada pelo usuário.", emitter);
+            await this.failStepAndRun(db, run, step, t("errors:workflow.approvalDenied", this.lang), emitter);
             return getWorkflowRun(db, run.id) as WorkflowRun;
           }
           step.status = "pending";
@@ -238,7 +247,7 @@ export class WorkflowRunner {
             stepId: step.id,
             toolName: step.toolName ?? step.title,
             permissionLevel: step.permissionLevel as PermissionLevel,
-            reason: `Permissão necessária para executar ${step.toolName ?? step.title}`,
+            reason: t("errors:workflow.approvalDetail", this.lang, { toolName: step.toolName ?? step.title }),
             inputPreview: JSON.stringify(step.input).slice(0, 500),
             createdAt: nowIso(),
           };
@@ -435,7 +444,7 @@ export class WorkflowRunner {
       }
     }
 
-    const finalResult = result || "Não foi possível obter uma resposta.";
+    const finalResult = result || t("errors:workflow.emptyResult", this.lang);
     if (!emittedChunk) {
       ctx.emitter.chunk(finalResult);
     }
@@ -483,21 +492,28 @@ export class WorkflowRunner {
     const prompt = (config.prompt as string) ?? ctx.prompt;
     const clipboard = (config.clipboard as string) ?? ctx.clipboard;
     const systemPrompt = skill.systemPrompt ?? (config.system as string) ?? "";
-    const toolAllowlist = skill.toolAllowlist ?? (config.toolAllowlist as string[] | undefined);
-    const maxSteps = skill.maxSteps ?? (config.maxSteps as number) ?? 5;
-    const temperature = skill.temperature ?? (config.temperature as number) ?? 0.3;
+    const _toolAllowlist = skill.toolAllowlist ?? (config.toolAllowlist as string[] | undefined);
+    const _maxSteps = skill.maxSteps ?? (config.maxSteps as number) ?? 5;
+    const _temperature = skill.temperature ?? (config.temperature as number) ?? 0.3;
 
-    return runResponseEngine(ctx.requestId, prompt, clipboard, ctx.history, {
-      provider: ctx.provider,
-      model: (config.model as string) || skill.model || ctx.model,
-      systemPrompt,
-      temperature,
-      toolAllowlist,
-      maxSteps,
-      emit: ctx.emit,
-      toolExecutor: ctx.toolExecutor,
-      signal: ctx.signal,
-    });
+    return runResponseEngine(
+      ctx.requestId,
+      prompt,
+      clipboard,
+      ctx.history,
+      {
+        provider: ctx.provider,
+        model: (config.model as string) || skill.model || ctx.model,
+        systemPrompt,
+        emit: ctx.emit,
+        signal: ctx.signal,
+        toolExecutor: ctx.toolExecutor,
+        temperature: (config.temperature as number) ?? 0.3,
+        toolAllowlist: (config.toolAllowlist as string[] | undefined) ?? skill.toolAllowlist,
+        maxSteps: (config.maxSteps as number) ?? 5,
+      },
+      this.lang,
+    );
   }
 
   private async failRun(
@@ -532,7 +548,7 @@ export class WorkflowRunner {
 
 function throwIfAborted(signal?: AbortSignal) {
   if (signal?.aborted) {
-    throw new Error("Workflow abortado pelo usuário.");
+    throw new Error(t("errors:workflow.aborted"));
   }
 }
 

@@ -171,7 +171,8 @@ export function saveWorkflowTemplate(
 
   const steps = params.steps ?? [];
   for (let i = 0; i < steps.length; i++) {
-    const step = steps[i]!;
+    const step = steps[i];
+    if (!step) continue;
     createWorkflowTemplateStep(db, {
       templateId: id,
       stepIndex: i + 1,

@@ -1,17 +1,21 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { getAgent } from "../../lib/rpc";
 import { useAgentStore } from "../../stores/agent";
-import { PINSTRIPES_MODELS, SELECT_CLASS } from "./constants";
+import { SELECT_CLASS, usePinstripesModels } from "./constants";
 
-const PROVIDERS = [
-  { value: "", label: "Padrão do app" },
-  { value: "pinstripes", label: "Pinstripes API" },
-  { value: "mock", label: "Mock local" },
-  { value: "openai", label: "OpenAI Compatible" },
-  { value: "gemini", label: "Gemini Compatible" },
-] as const;
+function useProviders() {
+  const { t } = useTranslation("helix");
+  return [
+    { value: "", label: t("helix:providerModelSelect.defaultApp") },
+    { value: "pinstripes", label: t("helix:providerModelSelect.pinstripesApi") },
+    { value: "mock", label: t("helix:providerModelSelect.mockLocal") },
+    { value: "openai", label: t("helix:providerModelSelect.openaiCompatible") },
+    { value: "gemini", label: t("helix:providerModelSelect.geminiCompatible") },
+  ];
+}
 
 type Props = {
   provider: string;
@@ -23,6 +27,9 @@ type Props = {
 };
 
 export function ProviderModelSelect(p: Props) {
+  const { t } = useTranslation("helix");
+  const providers = useProviders();
+  const pinstripesModels = usePinstripesModels();
   const settings = useAgentStore((s) => s.settings);
   const [fetchedModels, setFetchedModels] = useState<string[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
@@ -83,14 +90,14 @@ export function ProviderModelSelect(p: Props) {
   return (
     <div className="grid grid-cols-2 gap-4">
       <div className="space-y-1">
-        <Label htmlFor={providerId}>Provedor</Label>
+        <Label htmlFor={providerId}>{t("helix:providerModelSelect.providerLabel")}</Label>
         <select
           id={providerId}
           className={SELECT_CLASS}
           value={p.provider}
           onChange={(e) => handleProviderChange(e.target.value)}
         >
-          {PROVIDERS.map((opt) => (
+          {providers.map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}
             </option>
@@ -100,9 +107,11 @@ export function ProviderModelSelect(p: Props) {
 
       <div className="space-y-1">
         <Label htmlFor={modelId} className="flex items-center justify-between">
-          <span>Modelo</span>
+          <span>{t("helix:providerModelSelect.modelLabel")}</span>
           {loadingModels && (
-            <span className="text-[9px] text-signal animate-pulse normal-case">carregando...</span>
+            <span className="text-[9px] text-signal animate-pulse normal-case">
+              {t("helix:providerModelSelect.loading")}
+            </span>
           )}
         </Label>
 
@@ -113,7 +122,7 @@ export function ProviderModelSelect(p: Props) {
             value={p.model || "ps/warp"}
             onChange={(e) => p.onModelChange(e.target.value)}
           >
-            {PINSTRIPES_MODELS.map((m) => (
+            {pinstripesModels.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.name} — {m.description}
               </option>
@@ -137,18 +146,18 @@ export function ProviderModelSelect(p: Props) {
             id={modelId}
             value={p.model}
             onChange={(e) => p.onModelChange(e.target.value)}
-            placeholder="gpt-4o-mini ou modelo customizado..."
+            placeholder={t("helix:providerModelSelect.modelPlaceholder")}
           />
         ) : showModelHint ? (
           <div className="h-9 flex items-center px-2 rounded-md border border-line/40 bg-white/[0.01] text-[11px] text-faint">
-            {p.provider === "mock" ? "mock-model" : "Herdado do app"}
+            {p.provider === "mock" ? "mock-model" : t("helix:providerModelSelect.inheritedFromApp")}
           </div>
         ) : (
           <Input
             id={modelId}
             value={p.model}
             onChange={(e) => p.onModelChange(e.target.value)}
-            placeholder="gpt-4o-mini ou modelo customizado..."
+            placeholder={t("helix:providerModelSelect.modelPlaceholder")}
           />
         )}
       </div>

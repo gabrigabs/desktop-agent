@@ -1,5 +1,6 @@
 import { AlertTriangle, CheckCircle, Info, X, XCircle } from "lucide-react";
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 
 export type ToastType = "success" | "info" | "warning" | "error";
 
@@ -30,6 +31,7 @@ const STYLES: Record<ToastType, string> = {
 };
 
 export function Toast({ toast, onDismiss }: ToastProps) {
+  const { t } = useTranslation("common");
   useEffect(() => {
     if (toast.duration === 0) return;
     const duration = toast.duration ?? 2500;
@@ -51,7 +53,7 @@ export function Toast({ toast, onDismiss }: ToastProps) {
         type="button"
         onClick={() => onDismiss(toast.id)}
         className="p-1 rounded-md hover:bg-white/10 transition-colors shrink-0"
-        aria-label="Fechar notificação"
+        aria-label={t("common:toast.closeNotification")}
       >
         <X className="w-3.5 h-3.5" />
       </button>

@@ -13,7 +13,7 @@ describe("Pinstripes Provider Factory Tests", () => {
     expect(provider.kind).toBe("pinstripes");
 
     // Access the private/internal properties of OpenAICompatibleProvider for verification
-    const castProvider = provider as any;
+    const castProvider = provider as unknown as { baseUrl: string; apiKey: string };
     expect(castProvider.baseUrl).toBe("https://api.pinstripes.io/v1");
     expect(castProvider.apiKey).toBe("test-api-key");
   });

@@ -7,6 +7,8 @@ import type {
   WorkflowTemplate,
   WorkflowTemplateSettings,
 } from "@desktop-agent/shared";
+import type { SupportedLanguage } from "../i18n";
+import { t } from "../i18n";
 import { ToolExecutor } from "./ToolExecutor";
 
 type ToolPlan = {
@@ -23,10 +25,15 @@ type WorkflowStepTemplateInput = Omit<
 export type WorkflowPlannerConfig = {
   getLlmProvider: () => LlmProvider;
   getActiveModel: () => string;
+  getLanguage: () => SupportedLanguage;
 };
 
 export class WorkflowPlanner {
   constructor(private config: WorkflowPlannerConfig) {}
+
+  private get lang(): SupportedLanguage {
+    return this.config.getLanguage();
+  }
 
   async plan(input: {
     prompt: string;
@@ -65,7 +72,7 @@ export class WorkflowPlanner {
         },
         steps: [
           {
-            name: "Resposta",
+            name: t("errors:planner.response", this.lang),
             kind: "llm",
             config: {
               system: systemPrompt,
@@ -96,7 +103,7 @@ export class WorkflowPlanner {
         },
         steps: [
           {
-            name: "Resposta",
+            name: t("errors:planner.response", this.lang),
             kind: "llm",
             config: {
               system: systemPrompt,
@@ -115,7 +122,7 @@ export class WorkflowPlanner {
     const steps: WorkflowStepTemplateInput[] = [
       toolStep,
       {
-        name: "Resposta final",
+        name: t("errors:workflow.finalResponseTitle", this.lang),
         kind: "llm",
         config: {
           system: systemPrompt,
@@ -191,8 +198,8 @@ export class WorkflowPlanner {
     const now = new Date().toISOString();
     return {
       id: randomUUID(),
-      name: "Plano gerado",
-      description: "Workflow gerado automaticamente para a requisição.",
+      name: t("errors:planner.generatedPlan", this.lang),
+      description: t("errors:planner.generatedPlanDescription", this.lang),
       prompt: "",
       settings: params.settings,
       mode: params.settings.mode ?? "workflow",
@@ -307,7 +314,8 @@ export class WorkflowPlanner {
 
       return {
         toolName: parsed.toolName,
-        reason: parsed.reason ?? `Usar ${parsed.toolName} conforme decisão do LLM.`,
+        reason:
+          parsed.reason ?? t("errors:planner.toolReasons.fallback", this.lang, { tool: parsed.toolName }),
         input: parsed.input ?? {},
       };
     } catch {
@@ -324,28 +332,28 @@ export class WorkflowPlanner {
       return {
         toolName: "text.rewrite",
         input: { text: clipboard, instruction: prompt },
-        reason: "Melhorar texto do clipboard.",
+        reason: t("errors:planner.toolReasons.rewrite", this.lang),
       };
     }
     if (hasClipboard && query.includes("resum")) {
       return {
         toolName: "text.summarize",
         input: { text: clipboard, style: "bullets" },
-        reason: "Resumir texto do clipboard.",
+        reason: t("errors:planner.toolReasons.summarize", this.lang),
       };
     }
     if (hasClipboard && query.includes("traduz")) {
       return {
         toolName: "text.translate",
         input: { text: clipboard, targetLanguage: "inglês" },
-        reason: "Traduzir texto do clipboard.",
+        reason: t("errors:planner.toolReasons.translate", this.lang),
       };
     }
     if (urlMatch) {
       return {
         toolName: "web.extract",
         input: { url: urlMatch[0], maxCharacters: 8000, provider: "jina" },
-        reason: "Ler conteúdo de URL.",
+        reason: t("errors:planner.toolReasons.extract", this.lang),
       };
     }
     if (
@@ -357,14 +365,14 @@ export class WorkflowPlanner {
       return {
         toolName: "web.search",
         input: { query: prompt, maxResults: 5, provider: "jina" },
-        reason: "Buscar contexto na web.",
+        reason: t("errors:planner.toolReasons.searchWeb", this.lang),
       };
     }
     if (query.includes("ocr") || query.includes("screenshot") || query.includes("tela")) {
       return {
         toolName: "ocr.screenshot",
         input: { instruction: prompt },
-        reason: "Ler conteúdo visual da tela.",
+        reason: t("errors:planner.toolReasons.screenshot", this.lang),
       };
     }
 

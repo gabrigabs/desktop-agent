@@ -10,6 +10,8 @@ import {
   runMigrations,
 } from "@desktop-agent/storage";
 import { registry } from "@desktop-agent/tool-registry";
+import type { SupportedLanguage } from "./i18n";
+import { t } from "./i18n";
 
 export type OrchestratorConfig = {
   provider: LlmProvider;
@@ -29,16 +31,16 @@ export type ExecutionResult = {
   events: AgentEvent[];
 };
 
-function throwIfAborted(signal?: AbortSignal) {
+function throwIfAborted(signal: AbortSignal | undefined, lang: SupportedLanguage) {
   if (signal?.aborted) {
-    throw new Error("Execução abortada pelo usuário.");
+    throw new Error(t("errors:orchestrator.aborted", lang));
   }
 }
 
-async function sleep(ms: number, signal?: AbortSignal) {
+async function sleep(ms: number, signal: AbortSignal | undefined, lang: SupportedLanguage) {
   await new Promise<void>((resolve, reject) => {
     if (signal?.aborted) {
-      reject(new Error("Execução abortada pelo usuário."));
+      reject(new Error(t("errors:orchestrator.aborted", lang)));
       return;
     }
 
@@ -49,7 +51,7 @@ async function sleep(ms: number, signal?: AbortSignal) {
 
     const abort = () => {
       clearTimeout(timeout);
-      reject(new Error("Execução abortada pelo usuário."));
+      reject(new Error(t("errors:orchestrator.aborted", lang)));
     };
 
     signal?.addEventListener("abort", abort, { once: true });
@@ -60,19 +62,20 @@ async function emitResponseChunks(
   text: string,
   requestId: string,
   emit: (event: AgentEvent) => void,
+  lang: SupportedLanguage,
   signal?: AbortSignal,
 ) {
   const characters = Array.from(text);
   const chunkSize = 56;
 
   for (let index = 0; index < characters.length; index += chunkSize) {
-    throwIfAborted(signal);
+    throwIfAborted(signal, lang);
     emit({
       type: "agent.chunk",
       requestId,
       chunk: characters.slice(index, index + chunkSize).join(""),
     });
-    if (index + chunkSize < characters.length) await sleep(8, signal);
+    if (index + chunkSize < characters.length) await sleep(8, signal, lang);
   }
 }
 
@@ -208,10 +211,11 @@ export class Orchestrator {
     emit: (event: AgentEvent) => void,
     getLlmProviderFn: () => LlmProvider,
     getActiveModelFn: () => string,
+    lang: SupportedLanguage,
     signal?: AbortSignal,
   ): Promise<string> {
     emit({ type: "agent.started", requestId });
-    throwIfAborted(signal);
+    throwIfAborted(signal, lang);
 
     const provider = getLlmProviderFn();
     const model = getActiveModelFn() || "gpt-4o";
@@ -286,11 +290,15 @@ REGRAS DE FORMATAÇÃO DO CAMPO "directResponse"
 
     while (steps < maxSteps) {
       steps++;
-      throwIfAborted(signal);
+      throwIfAborted(signal, lang);
 
       if (provider.name === "mock") {
-        emit({ type: "agent.thought", requestId, thought: "Analisando comando no modo mock..." });
-        await sleep(600, signal);
+        emit({
+          type: "agent.thought",
+          requestId,
+          thought: t("errors:orchestrator.thinkingNextAction", lang),
+        });
+        await sleep(600, signal, lang);
 
         let selectedTool = "";
         const normalizedQuery = query.toLowerCase();
@@ -310,10 +318,10 @@ REGRAS DE FORMATAÇÃO DO CAMPO "directResponse"
           emit({
             type: "agent.thought",
             requestId,
-            thought: `Executando ferramenta ${selectedTool} para a requisição: ${query}`,
+            thought: t("errors:orchestrator.executingTool", lang, { tool: selectedTool, query }),
           });
-          await sleep(600, signal);
-          throwIfAborted(signal);
+          await sleep(600, signal, lang);
+          throwIfAborted(signal, lang);
           const executionResult = await this.execute(requestId, selectedTool, {
             text: clipboardText,
             instruction: query,
@@ -327,19 +335,19 @@ REGRAS DE FORMATAÇÃO DO CAMPO "directResponse"
             ) ?? JSON.stringify(output);
 
           emittedFinalResponse = true;
-          await emitResponseChunks(text, requestId, emit, signal);
+          await emitResponseChunks(text, requestId, emit, lang, signal);
           finalResult = text;
         } else {
           const text = `[Mock] Executado com sucesso. Comando: "${query}". Clipboard: "${clipboardText.slice(0, 50)}".`;
           emittedFinalResponse = true;
-          await emitResponseChunks(text, requestId, emit, signal);
+          await emitResponseChunks(text, requestId, emit, lang, signal);
           finalResult = text;
         }
         break;
       }
 
-      emit({ type: "agent.thought", requestId, thought: "Pensando na próxima ação..." });
-      throwIfAborted(signal);
+      emit({ type: "agent.thought", requestId, thought: t("errors:orchestrator.thinkingNextAction", lang) });
+      throwIfAborted(signal, lang);
       const res = await provider.complete({
         model,
         messages,
@@ -356,9 +364,13 @@ REGRAS DE FORMATAÇÃO DO CAMPO "directResponse"
       });
 
       if (parsed.toolName) {
-        emit({ type: "agent.thought", requestId, thought: `Executando ferramenta: ${parsed.toolName}` });
+        emit({
+          type: "agent.thought",
+          requestId,
+          thought: t("errors:orchestrator.executingTool", lang, { tool: parsed.toolName, query }),
+        });
         try {
-          throwIfAborted(signal);
+          throwIfAborted(signal, lang);
           const execution = await this.execute(requestId, parsed.toolName, parsed.toolInput);
           const outputString = JSON.stringify(execution.result.output);
 
@@ -414,16 +426,16 @@ REGRAS
           finalResult =
             recoveredDecision.directResponse?.trim() ||
             stripThinkingMarkup(recovery.content) ||
-            "Não foi possível obter uma resposta final do agente.";
+            t("errors:orchestrator.finalResponseError", lang);
         }
         emittedFinalResponse = true;
-        await emitResponseChunks(finalResult, requestId, emit, signal);
+        await emitResponseChunks(finalResult, requestId, emit, lang, signal);
         break;
       }
     }
 
     if (!finalResult) {
-      finalResult = "Não foi possível obter uma resposta do agente.";
+      finalResult = t("errors:orchestrator.responseError", lang);
     }
 
     if (!emittedFinalResponse) {

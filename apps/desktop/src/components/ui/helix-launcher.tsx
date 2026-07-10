@@ -2,6 +2,7 @@ import { HELIX_ACTIONS, type HelixAction } from "@desktop-agent/shared";
 import { Clipboard, Globe, MessageCircle, Orbit, Scan, Workflow } from "lucide-react";
 import type { ComponentType } from "react";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { setLauncherMenuOpen, startWindowDrag } from "../../lib/window";
 import { Pet } from "./pet";
 
@@ -26,17 +27,23 @@ const ACTION_ICONS: Record<string, ComponentType<{ className?: string }>> = {
   orbit: Orbit,
 };
 
-const actions = HELIX_ACTIONS.map((action) => ({
-  ...action,
-  source: action,
-  label: action.title,
-  icon: ACTION_ICONS[action.icon] ?? Orbit,
-  accent: action.color,
-  bg: `${action.color}2e`,
-}));
+function useRadialActions() {
+  const { t } = useTranslation("helix");
+  return HELIX_ACTIONS.map((action) => ({
+    ...action,
+    source: action,
+    label: t(`helix:radialActions.${action.id}.title`),
+    description: t(`helix:radialActions.${action.id}.description`),
+    icon: ACTION_ICONS[action.icon] ?? Orbit,
+    accent: action.color,
+    bg: `${action.color}2e`,
+  }));
+}
 
 export function HelixLauncher(props: HelixLauncherProps) {
+  const { t } = useTranslation("helix");
   const { petSize, onOpenNormal } = props;
+  const actions = useRadialActions();
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -235,7 +242,7 @@ export function HelixLauncher(props: HelixLauncherProps) {
                 onMouseEnter={() => setSelectedIndex(index)}
                 onFocus={() => setSelectedIndex(index)}
                 className="radial-item-enter absolute focus:outline-none"
-                aria-label={`${action.label}: ${action.description}. Atalho ${index + 1}`}
+                aria-label={`${action.label}: ${action.description}. ${t("helix:helixLauncher.shortcut", { index: index + 1 })}`}
                 title={`${action.label} — ${action.description}`}
                 style={{
                   ["--accent-color" as string]: action.accent,
@@ -322,8 +329,8 @@ export function HelixLauncher(props: HelixLauncherProps) {
           height: menuOpen ? 96 : "100%",
         }}
         data-tauri-drag-region={!menuOpen}
-        aria-label={menuOpen ? "Fechar menu" : "Abrir Helix"}
-        title={menuOpen ? "Clique para fechar menu" : "Clique para abrir menu, arraste para mover"}
+        aria-label={menuOpen ? t("helix:helixLauncher.closeMenu") : t("helix:helixLauncher.openHelix")}
+        title={menuOpen ? t("helix:helixLauncher.closeMenuHint") : t("helix:helixLauncher.openMenuHint")}
       >
         <div className="relative">
           <Pet size={menuOpen ? 78 : petSize} glow={menuOpen} />

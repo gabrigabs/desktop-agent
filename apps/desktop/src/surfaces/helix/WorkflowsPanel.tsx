@@ -7,6 +7,7 @@ import type {
 import { z } from "@desktop-agent/shared";
 import { ArrowDown, ArrowUp, ChevronDown, Plus, Trash2, X } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "../../components/ui/button";
 import { IconButton } from "../../components/ui/icon-button";
 import { Input } from "../../components/ui/input";
@@ -20,30 +21,71 @@ import { ProviderModelSelect } from "./ProviderModelSelect";
 
 const KINDS: WorkflowStepKind[] = ["llm", "tool", "mcp", "skill"];
 
-const KIND_LABELS: Partial<Record<WorkflowStepKind, string>> = {
-  llm: "LLM",
-  tool: "Ferramenta",
-  mcp: "MCP",
-  skill: "Skill",
-};
+function useKindLabels(): Partial<Record<WorkflowStepKind, string>> {
+  const { t } = useTranslation("helix");
+  return {
+    llm: t("helix:workflowsPanel.kindLlm"),
+    tool: t("helix:workflowsPanel.kindTool"),
+    mcp: t("helix:workflowsPanel.kindMcp"),
+    skill: t("helix:workflowsPanel.kindSkill"),
+  };
+}
 
-const KIND_DESCRIPTIONS: Partial<Record<WorkflowStepKind, string>> = {
-  llm: "Geração de texto via modelo de linguagem",
-  tool: "Execução de ferramenta local",
-  mcp: "Chamada a servidor MCP externo",
-  skill: "Uso de skill pré-configurada",
-};
+function useKindDescriptions(): Partial<Record<WorkflowStepKind, string>> {
+  const { t } = useTranslation("helix");
+  return {
+    llm: t("helix:workflowsPanel.kindLlmDescription"),
+    tool: t("helix:workflowsPanel.kindToolDescription"),
+    mcp: t("helix:workflowsPanel.kindMcpDescription"),
+    skill: t("helix:workflowsPanel.kindSkillDescription"),
+  };
+}
 
-const APPROVAL_OPTIONS = [
-  { value: "all", label: "Aprovar tudo", description: "Pedir confirmação em cada ação" },
-  { value: "none", label: "Sem aprovação", description: "Executar automaticamente" },
-  { value: "local.read", label: "Leitura local", description: "Aprovar leituras de arquivos" },
-  { value: "local.write", label: "Escrita local", description: "Aprovar escrita de arquivos" },
-  { value: "network", label: "Rede", description: "Aprovar requisições de rede" },
-  { value: "browser.control", label: "Controle do navegador", description: "Aprovar automação do browser" },
-  { value: "screen.read", label: "Leitura de tela", description: "Aprovar captura de tela" },
-  { value: "external", label: "Externo", description: "Aprovar chamadas externas" },
-] as const;
+function useApprovalOptions() {
+  const { t } = useTranslation("helix");
+  return [
+    {
+      value: "all" as const,
+      label: t("helix:workflowsPanel.approvalAll"),
+      description: t("helix:workflowsPanel.approvalAllDescription"),
+    },
+    {
+      value: "none" as const,
+      label: t("helix:workflowsPanel.approvalNone"),
+      description: t("helix:workflowsPanel.approvalNoneDescription"),
+    },
+    {
+      value: "local.read" as const,
+      label: t("helix:workflowsPanel.approvalLocalRead"),
+      description: t("helix:workflowsPanel.approvalLocalReadDescription"),
+    },
+    {
+      value: "local.write" as const,
+      label: t("helix:workflowsPanel.approvalLocalWrite"),
+      description: t("helix:workflowsPanel.approvalLocalWriteDescription"),
+    },
+    {
+      value: "network" as const,
+      label: t("helix:workflowsPanel.approvalNetwork"),
+      description: t("helix:workflowsPanel.approvalNetworkDescription"),
+    },
+    {
+      value: "browser.control" as const,
+      label: t("helix:workflowsPanel.approvalBrowserControl"),
+      description: t("helix:workflowsPanel.approvalBrowserControlDescription"),
+    },
+    {
+      value: "screen.read" as const,
+      label: t("helix:workflowsPanel.approvalScreenRead"),
+      description: t("helix:workflowsPanel.approvalScreenReadDescription"),
+    },
+    {
+      value: "external" as const,
+      label: t("helix:workflowsPanel.approvalExternal"),
+      description: t("helix:workflowsPanel.approvalExternalDescription"),
+    },
+  ];
+}
 
 const approvalSchema = z.enum([
   "all",
@@ -56,23 +98,27 @@ const approvalSchema = z.enum([
   "external",
 ]);
 
-function parseStepConfig(value: string): { config: Record<string, unknown>; error?: string } {
+function parseStepConfig(
+  value: string,
+  t: (key: string) => string,
+): { config: Record<string, unknown>; error?: string } {
   try {
     const parsed = JSON.parse(value) as unknown;
     if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return { config: {}, error: "Config deve ser um objeto JSON" };
+      return { config: {}, error: t("helix:workflowsPanel.jsonObjectRequired") };
     }
     return { config: parsed as Record<string, unknown> };
   } catch {
-    return { config: {}, error: "JSON inválido" };
+    return { config: {}, error: t("helix:workflowsPanel.jsonInvalid") };
   }
 }
 
 function validateStepConfig(
   kind: WorkflowStepKind,
   value: string,
+  t: (key: string) => string,
 ): { config: Record<string, unknown>; error?: string } {
-  const parsed = parseStepConfig(value);
+  const parsed = parseStepConfig(value, t);
   if (parsed.error) return parsed;
   const config = parsed.config;
 
@@ -83,14 +129,14 @@ function validateStepConfig(
         try {
           const parsedArgs = JSON.parse(args);
           if (parsedArgs === null || typeof parsedArgs !== "object" || Array.isArray(parsedArgs)) {
-            return { config: {}, error: "Args deve ser um objeto JSON" };
+            return { config: {}, error: t("helix:workflowsPanel.argsJsonObjectRequired") };
           }
           config.args = parsedArgs;
         } catch {
-          return { config: {}, error: "Args JSON inválido" };
+          return { config: {}, error: t("helix:workflowsPanel.argsJsonInvalid") };
         }
       } else if (typeof args !== "object" || Array.isArray(args)) {
-        return { config: {}, error: "Args deve ser um objeto JSON" };
+        return { config: {}, error: t("helix:workflowsPanel.argsJsonObjectRequired") };
       }
     }
   }
@@ -109,38 +155,34 @@ function newStepId(): string {
   return crypto.randomUUID();
 }
 
-function defaultStep(kind: WorkflowStepKind): StepDraft {
+function defaultStep(kind: WorkflowStepKind, t: (key: string) => string): StepDraft {
   const base = { id: newStepId(), kind };
   if (kind === "llm") {
     return {
       ...base,
-      name: "Resposta",
+      name: t("helix:workflowsPanel.stepResponse"),
       config: JSON.stringify({ prompt: "{{$prompt}}", model: "", temperature: 0.3 }, null, 2),
     };
   }
   if (kind === "tool") {
     return {
       ...base,
-      name: "Ferramenta",
+      name: t("helix:workflowsPanel.stepTool"),
       config: JSON.stringify({ toolName: "", args: {} }, null, 2),
     };
   }
   if (kind === "mcp") {
     return {
       ...base,
-      name: "MCP",
+      name: t("helix:workflowsPanel.stepMcp"),
       config: JSON.stringify({ serverId: "", toolName: "", args: {} }, null, 2),
     };
   }
   return {
     ...base,
-    name: "Skill",
+    name: t("helix:workflowsPanel.stepSkill"),
     config: JSON.stringify({ skillId: "", prompt: "{{$prompt}}", args: {} }, null, 2),
   };
-}
-
-function formatFieldError(field: string, message: string): string {
-  return `${field}: ${message}`;
 }
 
 type Props = {
@@ -159,9 +201,13 @@ type Props = {
 };
 
 export function WorkflowsPanel(p: Props) {
+  const { t } = useTranslation("helix");
+  const kindLabels = useKindLabels();
+  const kindDescriptions = useKindDescriptions();
+  const approvalOptions = useApprovalOptions();
   const tools = useAgentStore((s) => s.tools);
   const connectors = useAgentStore((s) => s.connectors);
-  const toolNames = useMemo(() => tools.map((t) => t.name), [tools]);
+  const toolNames = useMemo(() => tools.map((tool) => tool.name), [tools]);
   const connectorNames = useMemo(() => connectors.map((c) => c.name), [connectors]);
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -227,21 +273,21 @@ export function WorkflowsPanel(p: Props) {
 
   async function handleSave() {
     if (!name.trim()) {
-      setError(formatFieldError("Nome", "obrigatório"));
+      setError(t("helix:workflowsPanel.nameRequired"));
       return;
     }
 
     const parsedApproval = approvalSchema.safeParse(approvalThreshold);
     if (!parsedApproval.success) {
-      setError(formatFieldError("Aprovação", "valor inválido"));
+      setError(t("helix:workflowsPanel.approvalInvalid"));
       return;
     }
 
     const stepErrors: string[] = [];
     const parsedSteps = steps.map((s, index) => {
-      const validated = validateStepConfig(s.kind, s.config);
+      const validated = validateStepConfig(s.kind, s.config, t);
       if (validated.error) {
-        stepErrors.push(formatFieldError(`Passo ${index + 1}`, validated.error));
+        stepErrors.push(t("helix:workflowsPanel.stepError", { index: index + 1, message: validated.error }));
       }
       return { name: s.name, kind: s.kind, config: validated.config };
     });
@@ -274,14 +320,14 @@ export function WorkflowsPanel(p: Props) {
       });
       resetForm();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha ao salvar workflow");
+      setError(err instanceof Error ? err.message : t("helix:workflowsPanel.saveFailed"));
     } finally {
       setSaving(false);
     }
   }
 
   function addStep() {
-    setSteps([...steps, defaultStep("llm")]);
+    setSteps([...steps, defaultStep("llm", t)]);
   }
 
   function removeStep(index: number) {
@@ -308,7 +354,7 @@ export function WorkflowsPanel(p: Props) {
   function updateStepConfig(index: number, patch: Record<string, unknown>) {
     const step = steps[index];
     if (!step) return;
-    const validated = validateStepConfig(step.kind, step.config);
+    const validated = validateStepConfig(step.kind, step.config, t);
     if (validated.error) return;
     const next = { ...validated.config, ...patch };
     updateStep(index, { config: JSON.stringify(next, null, 2) });
@@ -318,12 +364,12 @@ export function WorkflowsPanel(p: Props) {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-fg">Workflows</h2>
-          <p className="text-[11px] text-faint">Modelos de execução com passos</p>
+          <h2 className="text-sm font-semibold text-fg">{t("helix:workflowsPanel.title")}</h2>
+          <p className="text-[11px] text-faint">{t("helix:workflowsPanel.description")}</p>
         </div>
         <Button size="sm" onClick={handleNew}>
           <Plus className="w-3.5 h-3.5 mr-1" />
-          Novo
+          {t("helix:workflowsPanel.new")}
         </Button>
       </div>
 
@@ -331,50 +377,50 @@ export function WorkflowsPanel(p: Props) {
         <div className="rounded-xl border border-line/60 bg-white/[0.02] p-4 space-y-4 shadow-sm">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <Label htmlFor="wf-name">Nome</Label>
+              <Label htmlFor="wf-name">{t("helix:workflowsPanel.name")}</Label>
               <Input
                 id="wf-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Ex: Pesquisar e resumir"
+                placeholder={t("helix:workflowsPanel.namePlaceholder")}
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="wf-description">Descrição</Label>
+              <Label htmlFor="wf-description">{t("helix:workflowsPanel.descriptionLabel")}</Label>
               <Input
                 id="wf-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="O que este workflow faz"
+                placeholder={t("helix:workflowsPanel.descriptionPlaceholder")}
               />
             </div>
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="wf-prompt">Prompt do template</Label>
+            <Label htmlFor="wf-prompt">{t("helix:workflowsPanel.templatePrompt")}</Label>
             <Textarea
               id="wf-prompt"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Instrução inicial que guia o workflow"
+              placeholder={t("helix:workflowsPanel.templatePromptPlaceholder")}
             />
           </div>
 
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-1">
-              <Label htmlFor="wf-mode">Modo</Label>
+              <Label htmlFor="wf-mode">{t("helix:workflowsPanel.mode")}</Label>
               <select
                 id="wf-mode"
                 className={SELECT_CLASS}
                 value={mode}
                 onChange={(e) => setMode(e.target.value as "simple" | "workflow")}
               >
-                <option value="simple">Simples</option>
-                <option value="workflow">Workflow</option>
+                <option value="simple">{t("helix:workflowsPanel.modeSimple")}</option>
+                <option value="workflow">{t("helix:workflowsPanel.modeWorkflow")}</option>
               </select>
             </div>
             <div className="space-y-1">
-              <Label htmlFor="wf-max">Max steps</Label>
+              <Label htmlFor="wf-max">{t("helix:workflowsPanel.maxSteps")}</Label>
               <Input
                 id="wf-max"
                 type="number"
@@ -384,55 +430,55 @@ export function WorkflowsPanel(p: Props) {
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="wf-approval">Aprovação</Label>
+              <Label htmlFor="wf-approval">{t("helix:workflowsPanel.approval")}</Label>
               <select
                 id="wf-approval"
                 className={SELECT_CLASS}
                 value={approvalThreshold}
                 onChange={(e) => setApprovalThreshold(e.target.value)}
               >
-                {APPROVAL_OPTIONS.map((opt) => (
+                {approvalOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>
                     {opt.label}
                   </option>
                 ))}
               </select>
               <p className="text-[9px] text-faint">
-                {APPROVAL_OPTIONS.find((o) => o.value === approvalThreshold)?.description}
+                {approvalOptions.find((o) => o.value === approvalThreshold)?.description}
               </p>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <Label htmlFor="wf-tools">Ferramentas permitidas</Label>
+              <Label htmlFor="wf-tools">{t("helix:workflowsPanel.allowedTools")}</Label>
               <TagInput
                 id="wf-tools"
                 value={toolAllowlist}
                 onChange={setToolAllowlist}
                 suggestions={toolNames}
-                placeholder="Digite uma ferramenta e pressione Enter"
+                placeholder={t("helix:workflowsPanel.allowedToolsPlaceholder")}
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="wf-mcp">MCPs permitidos</Label>
+              <Label htmlFor="wf-mcp">{t("helix:workflowsPanel.allowedMcps")}</Label>
               <TagInput
                 id="wf-mcp"
                 value={mcpAllowlist}
                 onChange={setMcpAllowlist}
                 suggestions={connectorNames}
-                placeholder="Digite um MCP e pressione Enter"
+                placeholder={t("helix:workflowsPanel.allowedMcpsPlaceholder")}
               />
             </div>
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="wf-system">Instrução de sistema</Label>
+            <Label htmlFor="wf-system">{t("helix:workflowsPanel.systemPrompt")}</Label>
             <Textarea
               id="wf-system"
               value={systemPrompt}
               onChange={(e) => setSystemPrompt(e.target.value)}
-              placeholder="Contexto extra para o modelo"
+              placeholder={t("helix:workflowsPanel.systemPromptPlaceholder")}
             />
           </div>
 
@@ -447,7 +493,7 @@ export function WorkflowsPanel(p: Props) {
               onChange={(e) => setEnabled(e.target.checked)}
               className="w-3.5 h-3.5 rounded accent-signal cursor-pointer"
             />
-            Habilitado
+            {t("helix:workflowsPanel.enabled")}
           </label>
 
           <Separator />
@@ -455,16 +501,16 @@ export function WorkflowsPanel(p: Props) {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <span className="text-xs font-semibold text-fg">Passos</span>
-                <p className="text-[10px] text-faint">Sequência de execução do workflow</p>
+                <span className="text-xs font-semibold text-fg">{t("helix:workflowsPanel.steps")}</span>
+                <p className="text-[10px] text-faint">{t("helix:workflowsPanel.stepsDescription")}</p>
               </div>
               <Button size="sm" variant="secondary" onClick={addStep}>
                 <Plus className="w-3.5 h-3.5 mr-1" />
-                Adicionar passo
+                {t("helix:workflowsPanel.addStep")}
               </Button>
             </div>
             {steps.map((step, index) => {
-              const validated = validateStepConfig(step.kind, step.config);
+              const validated = validateStepConfig(step.kind, step.config, t);
               const cfg = validated.config;
               const llmProvider = (cfg.provider as string) ?? "";
               const llmModel = (cfg.model as string) ?? "";
@@ -476,7 +522,7 @@ export function WorkflowsPanel(p: Props) {
                       {String(index + 1).padStart(2, "0")}
                     </span>
                     <Input
-                      placeholder="Nome do passo"
+                      placeholder={t("helix:workflowsPanel.stepNamePlaceholder")}
                       value={step.name}
                       onChange={(e) => updateStep(index, { name: e.target.value })}
                       className="flex-1"
@@ -487,30 +533,39 @@ export function WorkflowsPanel(p: Props) {
                       onChange={(e) =>
                         updateStep(index, {
                           kind: e.target.value as WorkflowStepKind,
-                          config: defaultStep(e.target.value as WorkflowStepKind).config,
+                          config: defaultStep(e.target.value as WorkflowStepKind, t).config,
                         })
                       }
                     >
                       {KINDS.map((k) => (
                         <option key={k} value={k}>
-                          {KIND_LABELS[k] ?? k}
+                          {kindLabels[k] ?? k}
                         </option>
                       ))}
                     </select>
                     <div className="flex items-center gap-0.5">
-                      <IconButton title="Mover para cima" onClick={() => moveStep(index, -1)}>
+                      <IconButton
+                        title={t("helix:workflowsPanel.moveUp")}
+                        onClick={() => moveStep(index, -1)}
+                      >
                         <ArrowUp className="w-3.5 h-3.5" />
                       </IconButton>
-                      <IconButton title="Mover para baixo" onClick={() => moveStep(index, 1)}>
+                      <IconButton
+                        title={t("helix:workflowsPanel.moveDown")}
+                        onClick={() => moveStep(index, 1)}
+                      >
                         <ArrowDown className="w-3.5 h-3.5" />
                       </IconButton>
-                      <IconButton title="Remover passo" onClick={() => removeStep(index)}>
+                      <IconButton
+                        title={t("helix:workflowsPanel.removeStep")}
+                        onClick={() => removeStep(index)}
+                      >
                         <Trash2 className="w-3.5 h-3.5" />
                       </IconButton>
                     </div>
                   </div>
 
-                  <p className="text-[10px] text-faint -mt-1 pl-7">{KIND_DESCRIPTIONS[step.kind] ?? ""}</p>
+                  <p className="text-[10px] text-faint -mt-1 pl-7">{kindDescriptions[step.kind] ?? ""}</p>
 
                   {step.kind === "llm" && (
                     <div className="pl-7 space-y-3">
@@ -523,7 +578,7 @@ export function WorkflowsPanel(p: Props) {
                         modelId={`step-${step.id}-model`}
                       />
                       <div className="space-y-1">
-                        <Label htmlFor={`step-${step.id}-prompt`}>Prompt</Label>
+                        <Label htmlFor={`step-${step.id}-prompt`}>{t("helix:workflowsPanel.prompt")}</Label>
                         <Input
                           id={`step-${step.id}-prompt`}
                           value={(cfg.prompt as string) ?? ""}
@@ -532,7 +587,9 @@ export function WorkflowsPanel(p: Props) {
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label htmlFor={`step-${step.id}-temperature`}>Temperatura</Label>
+                        <Label htmlFor={`step-${step.id}-temperature`}>
+                          {t("helix:workflowsPanel.temperature")}
+                        </Label>
                         <Input
                           id={`step-${step.id}-temperature`}
                           type="number"
@@ -549,7 +606,7 @@ export function WorkflowsPanel(p: Props) {
                   {step.kind === "tool" && (
                     <div className="pl-7 space-y-3">
                       <div className="space-y-1">
-                        <Label htmlFor={`step-${step.id}-tool`}>Ferramenta</Label>
+                        <Label htmlFor={`step-${step.id}-tool`}>{t("helix:workflowsPanel.tool")}</Label>
                         <Input
                           id={`step-${step.id}-tool`}
                           list={`step-${step.id}-tool-list`}
@@ -558,13 +615,13 @@ export function WorkflowsPanel(p: Props) {
                           placeholder="web.search"
                         />
                         <datalist id={`step-${step.id}-tool-list`}>
-                          {toolNames.map((t) => (
-                            <option key={t} value={t} />
+                          {toolNames.map((toolName) => (
+                            <option key={toolName} value={toolName} />
                           ))}
                         </datalist>
                       </div>
                       <div className="space-y-1">
-                        <Label htmlFor={`step-${step.id}-args`}>Args (JSON)</Label>
+                        <Label htmlFor={`step-${step.id}-args`}>{t("helix:workflowsPanel.args")}</Label>
                         <Textarea
                           id={`step-${step.id}-args`}
                           value={
@@ -582,7 +639,9 @@ export function WorkflowsPanel(p: Props) {
                     <div className="pl-7 space-y-3">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
-                          <Label htmlFor={`step-${step.id}-server`}>Server ID</Label>
+                          <Label htmlFor={`step-${step.id}-server`}>
+                            {t("helix:workflowsPanel.serverId")}
+                          </Label>
                           <Input
                             id={`step-${step.id}-server`}
                             list={`step-${step.id}-server-list`}
@@ -591,13 +650,15 @@ export function WorkflowsPanel(p: Props) {
                             placeholder="playwright"
                           />
                           <datalist id={`step-${step.id}-server-list`}>
-                            {connectorNames.map((c) => (
-                              <option key={c} value={c} />
+                            {connectorNames.map((connectorName) => (
+                              <option key={connectorName} value={connectorName} />
                             ))}
                           </datalist>
                         </div>
                         <div className="space-y-1">
-                          <Label htmlFor={`step-${step.id}-mcp-tool`}>Tool name</Label>
+                          <Label htmlFor={`step-${step.id}-mcp-tool`}>
+                            {t("helix:workflowsPanel.toolName")}
+                          </Label>
                           <Input
                             id={`step-${step.id}-mcp-tool`}
                             value={(cfg.toolName as string) ?? ""}
@@ -607,7 +668,7 @@ export function WorkflowsPanel(p: Props) {
                         </div>
                       </div>
                       <div className="space-y-1">
-                        <Label htmlFor={`step-${step.id}-mcp-args`}>Args (JSON)</Label>
+                        <Label htmlFor={`step-${step.id}-mcp-args`}>{t("helix:workflowsPanel.args")}</Label>
                         <Textarea
                           id={`step-${step.id}-mcp-args`}
                           value={
@@ -624,14 +685,14 @@ export function WorkflowsPanel(p: Props) {
                   {step.kind === "skill" && (
                     <div className="pl-7 space-y-3">
                       <div className="space-y-1">
-                        <Label htmlFor={`step-${step.id}-skill`}>Skill</Label>
+                        <Label htmlFor={`step-${step.id}-skill`}>{t("helix:workflowsPanel.kindSkill")}</Label>
                         <select
                           id={`step-${step.id}-skill`}
                           className={SELECT_CLASS}
                           value={(cfg.skillId as string) ?? ""}
                           onChange={(e) => updateStepConfig(index, { skillId: e.target.value })}
                         >
-                          <option value="">Selecione uma skill</option>
+                          <option value="">{t("helix:workflowsPanel.selectSkill")}</option>
                           {p.skills.map((s) => (
                             <option key={s.id} value={s.id}>
                               {s.name}
@@ -640,7 +701,9 @@ export function WorkflowsPanel(p: Props) {
                         </select>
                       </div>
                       <div className="space-y-1">
-                        <Label htmlFor={`step-${step.id}-skill-prompt`}>Prompt</Label>
+                        <Label htmlFor={`step-${step.id}-skill-prompt`}>
+                          {t("helix:workflowsPanel.prompt")}
+                        </Label>
                         <Input
                           id={`step-${step.id}-skill-prompt`}
                           value={(cfg.prompt as string) ?? ""}
@@ -654,10 +717,10 @@ export function WorkflowsPanel(p: Props) {
                   <details className="group pl-7">
                     <summary className="flex items-center gap-1.5 text-[10px] text-faint cursor-pointer list-none hover:text-mute transition-colors">
                       <ChevronDown className="w-3 h-3 transition-transform group-open:rotate-180" />
-                      Config avançada (JSON)
+                      {t("helix:workflowsPanel.advancedConfig")}
                     </summary>
                     <Textarea
-                      placeholder="Config JSON"
+                      placeholder={t("helix:workflowsPanel.advancedConfigPlaceholder")}
                       value={step.config}
                       onChange={(e) => updateStep(index, { config: e.target.value })}
                       className="font-mono text-xs mt-2"
@@ -674,57 +737,65 @@ export function WorkflowsPanel(p: Props) {
           <div className="flex justify-end gap-2">
             <Button variant="secondary" size="sm" onClick={resetForm}>
               <X className="w-3.5 h-3.5 mr-1" />
-              Cancelar
+              {t("helix:workflowsPanel.cancel")}
             </Button>
             <Button size="sm" onClick={handleSave} disabled={saving}>
-              {saving ? "Salvando..." : "Salvar"}
+              {saving ? t("helix:workflowsPanel.saving") : t("helix:workflowsPanel.save")}
             </Button>
           </div>
         </div>
       ) : null}
 
       <div className="space-y-2">
-        {p.templates.map((t) => (
+        {p.templates.map((template) => (
           <div
-            key={t.id}
+            key={template.id}
             className="rounded-xl border border-line/60 bg-white/[0.02] p-3.5 flex items-center justify-between hover:border-line hover:bg-white/[0.04] transition-colors"
           >
             <div className="space-y-1 min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-fg truncate">{t.name}</span>
+                <span className="text-xs font-semibold text-fg truncate">{template.name}</span>
                 <span
                   className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${
-                    t.enabled
+                    template.enabled
                       ? "bg-good/10 text-good border border-good/20"
                       : "bg-faint/10 text-faint border border-faint/20"
                   }`}
                 >
-                  {t.enabled ? "ativo" : "inativo"}
+                  {template.enabled ? t("helix:workflowsPanel.active") : t("helix:workflowsPanel.inactive")}
                 </span>
               </div>
-              {t.description ? <p className="text-[10px] text-faint truncate">{t.description}</p> : null}
+              {template.description ? (
+                <p className="text-[10px] text-faint truncate">{template.description}</p>
+              ) : null}
               <div className="flex items-center gap-2 text-[9px] text-faint">
-                <span className="rounded bg-white/[0.03] px-1.5 py-0.5 font-mono">{t.mode}</span>
-                <span>{t.maxSteps} passos máx</span>
+                <span className="rounded bg-white/[0.03] px-1.5 py-0.5 font-mono">{template.mode}</span>
+                <span>
+                  {template.maxSteps} {t("helix:workflowsPanel.maxStepsLabel")}
+                </span>
                 <span className="w-0.5 h-0.5 rounded-full bg-faint" />
-                <span>{t.steps.length} etapas</span>
-                {t.settings?.approvalThreshold && t.settings.approvalThreshold !== "all" ? (
+                <span>
+                  {template.steps.length} {t("helix:workflowsPanel.stepsLabel")}
+                </span>
+                {template.settings?.approvalThreshold && template.settings.approvalThreshold !== "all" ? (
                   <>
                     <span className="w-0.5 h-0.5 rounded-full bg-faint" />
-                    <span>aprovação: {t.settings.approvalThreshold}</span>
+                    <span>
+                      {t("helix:workflowsPanel.approvalLabel")}: {template.settings.approvalThreshold}
+                    </span>
                   </>
                 ) : null}
               </div>
             </div>
             <div className="flex items-center gap-1 shrink-0 ml-2">
-              <Button size="sm" variant="secondary" onClick={() => startEdit(t)}>
-                Editar
+              <Button size="sm" variant="secondary" onClick={() => startEdit(template)}>
+                {t("helix:workflowsPanel.edit")}
               </Button>
               <IconButton
-                title="Excluir workflow"
+                title={t("helix:workflowsPanel.delete")}
                 onClick={() => {
-                  if (confirm(`Excluir o workflow "${t.name}"?`)) {
-                    p.onDelete(t.id);
+                  if (confirm(t("helix:workflowsPanel.confirmDelete", { name: template.name }))) {
+                    p.onDelete(template.id);
                   }
                 }}
               >
@@ -735,10 +806,8 @@ export function WorkflowsPanel(p: Props) {
         ))}
         {p.templates.length === 0 ? (
           <div className="text-center py-8 rounded-xl border border-dashed border-line/60 bg-white/[0.01]">
-            <p className="text-xs text-faint">Nenhum workflow criado</p>
-            <p className="text-[10px] text-faint/60 mt-1">
-              Clique em &quot;Novo&quot; para definir um modelo de execução
-            </p>
+            <p className="text-xs text-faint">{t("helix:workflowsPanel.noWorkflows")}</p>
+            <p className="text-[10px] text-faint/60 mt-1">{t("helix:workflowsPanel.noWorkflowsHint")}</p>
           </div>
         ) : null}
       </div>

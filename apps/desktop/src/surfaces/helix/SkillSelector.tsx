@@ -1,5 +1,6 @@
 import type { Skill } from "@desktop-agent/shared";
 import { Bot } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Label } from "../../components/ui/label";
 import { SELECT_CLASS } from "./constants";
 
@@ -11,6 +12,7 @@ type Props = {
 };
 
 export function SkillSelector(p: Props) {
+  const { t } = useTranslation("helix");
   const selectId = p.selectId ?? "skill-select";
   const selected = p.skills.find((s) => s.id === p.selectedSkillId);
   const enabledSkills = p.skills.filter((s) => s.enabled);
@@ -19,7 +21,7 @@ export function SkillSelector(p: Props) {
     <div className="space-y-1.5">
       <Label htmlFor={selectId} className="flex items-center gap-1.5">
         <Bot className="w-3 h-3 text-signal" />
-        Skill
+        {t("helix:skillSelector.label")}
       </Label>
       <select
         id={selectId}
@@ -27,7 +29,7 @@ export function SkillSelector(p: Props) {
         value={p.selectedSkillId ?? ""}
         onChange={(e) => p.onSelect(e.target.value || null)}
       >
-        <option value="">Nenhum (comportamento padrão)</option>
+        <option value="">{t("helix:skillSelector.defaultOption")}</option>
         {enabledSkills.map((s) => (
           <option key={s.id} value={s.id}>
             {s.name}
@@ -37,13 +39,16 @@ export function SkillSelector(p: Props) {
       {selected ? (
         <div className="rounded-md bg-signal/5 border border-signal/20 px-2.5 py-1.5">
           <p className="text-[11px] text-fg leading-relaxed">
-            {selected.description || "Usar esta skill ao executar"}
+            {selected.description || t("helix:skillSelector.useSkill")}
           </p>
           <div className="flex items-center flex-wrap gap-2 mt-1.5 text-[9px] text-faint">
             <span className="rounded bg-white/[0.03] px-1.5 py-0.5 font-mono">
-              {selected.provider || "padrão"}:{selected.model || "auto"}
+              {selected.provider || t("helix:skillSelector.defaultProvider")}:
+              {selected.model || t("helix:skillSelector.defaultModel")}
             </span>
-            <span>{selected.maxSteps ?? 1} passos</span>
+            <span>
+              {selected.maxSteps ?? 1} {t("helix:skillSelector.steps")}
+            </span>
             {selected.compatibility ? (
               <>
                 <span className="w-0.5 h-0.5 rounded-full bg-faint" />
@@ -53,7 +58,9 @@ export function SkillSelector(p: Props) {
             {selected.toolAllowlist && selected.toolAllowlist.length > 0 ? (
               <>
                 <span className="w-0.5 h-0.5 rounded-full bg-faint" />
-                <span>{selected.toolAllowlist.length} ferramentas</span>
+                <span>
+                  {selected.toolAllowlist.length} {t("helix:skillSelector.tools")}
+                </span>
               </>
             ) : null}
             {selected.metadata

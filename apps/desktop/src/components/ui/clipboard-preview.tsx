@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronUp, Clipboard, X } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface ClipboardPreviewProps {
   text: string;
@@ -7,6 +8,7 @@ interface ClipboardPreviewProps {
 }
 
 export function ClipboardPreview({ text, onClear }: ClipboardPreviewProps) {
+  const { t } = useTranslation("helix");
   const [expanded, setExpanded] = useState(false);
   const hasText = text.trim().length > 0;
 
@@ -14,7 +16,7 @@ export function ClipboardPreview({ text, onClear }: ClipboardPreviewProps) {
     return (
       <div className="flex items-center gap-2 text-[10px] text-faint select-none">
         <Clipboard className="w-3 h-3" />
-        <span>Copie um texto para ver ações de contexto</span>
+        <span>{t("helix:clipboardPreview.hint")}</span>
       </div>
     );
   }
@@ -27,15 +29,17 @@ export function ClipboardPreview({ text, onClear }: ClipboardPreviewProps) {
         <div className="flex items-center gap-1.5 text-[10px] text-mute">
           <Clipboard className="w-3.5 h-3.5 text-good" />
           <span className="uppercase font-semibold tracking-wide">Clipboard</span>
-          <span className="font-mono text-faint">{text.length} caracteres</span>
+          <span className="font-mono text-faint">
+            {text.length} {t("helix:clipboardPreview.characters")}
+          </span>
         </div>
         <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={() => setExpanded(!expanded)}
             className="p-1 rounded text-faint hover:text-fg hover:bg-white/5 transition-colors"
-            title={expanded ? "Recolher" : "Expandir"}
-            aria-label={expanded ? "Recolher" : "Expandir"}
+            title={expanded ? t("helix:clipboardPreview.collapse") : t("helix:clipboardPreview.expand")}
+            aria-label={expanded ? t("helix:clipboardPreview.collapse") : t("helix:clipboardPreview.expand")}
           >
             {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
@@ -44,8 +48,8 @@ export function ClipboardPreview({ text, onClear }: ClipboardPreviewProps) {
               type="button"
               onClick={onClear}
               className="p-1 rounded text-faint hover:text-bad hover:bg-bad/5 transition-colors"
-              title="Ignorar clipboard"
-              aria-label="Ignorar clipboard"
+              title={t("helix:clipboardPreview.ignoreClipboard")}
+              aria-label={t("helix:clipboardPreview.ignoreClipboard")}
             >
               <X className="w-3.5 h-3.5" />
             </button>
