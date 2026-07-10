@@ -8,7 +8,6 @@ import type {
   WorkflowStep,
   WorkflowStepKind,
   WorkflowStepStatus,
-  WorkflowTemplate,
 } from "@desktop-agent/shared";
 import type { Database } from "../db";
 
@@ -48,13 +47,14 @@ export function createWorkflowRun(
     providerId: string;
     model?: string;
     maxSteps?: number;
+    workflowTemplateId?: string;
     metadata?: Record<string, unknown>;
   },
 ): string {
   const id = params.id ?? randomUUID();
   db.run(
-    `INSERT INTO workflow_runs (id, mode, status, prompt, source_mode, clipboard_preview, provider_id, model, max_steps, metadata_json)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO workflow_runs (id, mode, status, prompt, source_mode, clipboard_preview, provider_id, model, max_steps, template_id, metadata_json)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       params.mode,
@@ -65,6 +65,7 @@ export function createWorkflowRun(
       params.providerId,
       params.model ?? "",
       params.maxSteps ?? 8,
+      params.workflowTemplateId ?? null,
       stringifyJson(params.metadata ?? {}),
     ],
   );
@@ -81,6 +82,7 @@ export function updateWorkflowRun(
     result?: string;
     errorMessage?: string | null;
     approval?: ApprovalRequest | null;
+    workflowTemplateId?: string | null;
     metadata?: Record<string, unknown>;
   },
 ): void {
@@ -110,6 +112,10 @@ export function updateWorkflowRun(
   if (params.approval !== undefined) {
     assignments.push("approval_json = ?");
     values.push(params.approval ? stringifyJson(params.approval) : null);
+  }
+  if (params.workflowTemplateId !== undefined) {
+    assignments.push("template_id = ?");
+    values.push(params.workflowTemplateId);
   }
   if (params.metadata !== undefined) {
     assignments.push("metadata_json = ?");
@@ -149,7 +155,10 @@ export function createWorkflowStep(
     title: string;
     detail?: string;
     toolName?: string;
+    mcpServerId?: string;
+    skillId?: string;
     permissionLevel?: PermissionLevel;
+    config?: Record<string, unknown>;
     input?: unknown;
     output?: unknown;
     errorMessage?: string;
@@ -160,8 +169,8 @@ export function createWorkflowStep(
 ): string {
   const id = params.id ?? randomUUID();
   db.run(
-    `INSERT INTO workflow_steps (id, run_id, step_index, kind, status, title, detail, tool_name, permission_level, input_json, output_json, error_message, requires_approval, started_at, completed_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO workflow_steps (id, run_id, step_index, kind, status, title, detail, tool_name, mcp_server_id, skill_id, permission_level, config_json, input_json, output_json, error_message, requires_approval, started_at, completed_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       params.runId,
@@ -171,7 +180,10 @@ export function createWorkflowStep(
       params.title,
       params.detail ?? "",
       params.toolName ?? null,
+      params.mcpServerId ?? null,
+      params.skillId ?? null,
       params.permissionLevel ?? null,
+      stringifyJson(params.config),
       stringifyJson(params.input ?? {}),
       stringifyJson(params.output ?? {}),
       params.errorMessage ?? null,
@@ -189,6 +201,7 @@ export function updateWorkflowStep(
   params: {
     status?: WorkflowStepStatus;
     detail?: string;
+    input?: unknown;
     output?: unknown;
     errorMessage?: string | null;
     requiresApproval?: boolean;
@@ -206,6 +219,10 @@ export function updateWorkflowStep(
   if (params.detail !== undefined) {
     assignments.push("detail = ?");
     values.push(params.detail);
+  }
+  if (params.input !== undefined) {
+    assignments.push("input_json = ?");
+    values.push(stringifyJson(params.input));
   }
   if (params.output !== undefined) {
     assignments.push("output_json = ?");
@@ -241,39 +258,6 @@ export function listWorkflowSteps(db: Database, runId: string): WorkflowStep[] {
     .map(mapWorkflowStep);
 }
 
-export function createWorkflowTemplate(
-  db: Database,
-  params: {
-    id?: string;
-    name: string;
-    description?: string;
-    prompt: string;
-    mode?: ExecutionMode;
-    maxSteps?: number;
-    enabled?: boolean;
-  },
-): string {
-  const id = params.id ?? randomUUID();
-  db.run(
-    `INSERT INTO workflow_templates (id, name, description, prompt, mode, max_steps, enabled)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [
-      id,
-      params.name,
-      params.description ?? "",
-      params.prompt,
-      params.mode ?? "workflow",
-      params.maxSteps ?? 8,
-      params.enabled === false ? 0 : 1,
-    ],
-  );
-  return id;
-}
-
-export function listWorkflowTemplates(db: Database): WorkflowTemplate[] {
-  return db.query("SELECT * FROM workflow_templates ORDER BY name ASC").all().map(mapWorkflowTemplate);
-}
-
 function mapWorkflowRun(row: unknown): WorkflowRun {
   const r = row as Record<string, unknown>;
   return {
@@ -281,6 +265,7 @@ function mapWorkflowRun(row: unknown): WorkflowRun {
     createdAt: r.created_at as string,
     updatedAt: r.updated_at as string,
     completedAt: (r.completed_at as string) ?? undefined,
+    workflowTemplateId: (r.template_id as string) ?? undefined,
     mode: r.mode as ExecutionMode,
     status: r.status as RunStatus,
     prompt: r.prompt as string,
@@ -308,7 +293,10 @@ function mapWorkflowStep(row: unknown): WorkflowStep {
     title: r.title as string,
     detail: r.detail as string,
     toolName: (r.tool_name as string) ?? undefined,
+    mcpServerId: (r.mcp_server_id as string) ?? undefined,
+    skillId: (r.skill_id as string) ?? undefined,
     permissionLevel: (r.permission_level as PermissionLevel) ?? undefined,
+    config: parseJson<Record<string, unknown>>(r.config_json, {}),
     input: parseJson(r.input_json, {}),
     output: parseJson(r.output_json, {}),
     errorMessage: (r.error_message as string) ?? undefined,
@@ -316,20 +304,5 @@ function mapWorkflowStep(row: unknown): WorkflowStep {
     startedAt: (r.started_at as string) ?? undefined,
     completedAt: (r.completed_at as string) ?? undefined,
     createdAt: r.created_at as string,
-  };
-}
-
-function mapWorkflowTemplate(row: unknown): WorkflowTemplate {
-  const r = row as Record<string, unknown>;
-  return {
-    id: r.id as string,
-    name: r.name as string,
-    description: r.description as string,
-    prompt: r.prompt as string,
-    mode: r.mode as ExecutionMode,
-    maxSteps: r.max_steps as number,
-    enabled: Boolean(r.enabled),
-    createdAt: r.created_at as string,
-    updatedAt: r.updated_at as string,
   };
 }

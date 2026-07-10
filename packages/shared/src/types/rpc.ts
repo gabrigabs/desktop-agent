@@ -22,16 +22,26 @@ export type AgentEvent =
   | { type: "agent.started"; requestId: string }
   | { type: "agent.thought"; requestId: string; thought: string }
   | { type: "agent.chunk"; requestId: string; chunk: string }
-  | { type: "workflow.started"; requestId: string; runId: string; mode: ExecutionMode }
-  | { type: "workflow.step"; requestId: string; runId: string; step: WorkflowStep }
-  | { type: "workflow.approval_required"; requestId: string; runId: string; approval: ApprovalRequest }
-  | { type: "workflow.completed"; requestId: string; runId: string; status: RunStatus }
-  | { type: "tool.started"; requestId: string; toolName: string }
-  | { type: "tool.completed"; requestId: string; toolName: string }
-  | { type: "tool.failed"; requestId: string; toolName: string; error: string }
-  | { type: "permission.required"; permission: string }
   | { type: "agent.cancelled"; requestId: string }
-  | { type: "agent.completed"; requestId: string };
+  | { type: "agent.completed"; requestId: string }
+  | { type: "error"; requestId: string; message: string }
+  | { type: "workflow.started"; requestId: string; runId: string; mode: ExecutionMode; prompt?: string }
+  | { type: "workflow.status"; requestId: string; runId: string; status: RunStatus }
+  | { type: "workflow.step"; requestId: string; runId: string; step: WorkflowStep }
+  | {
+      type: "workflow.approval_required";
+      requestId: string;
+      runId: string;
+      stepId: string;
+      stepTitle: string;
+      approval: ApprovalRequest;
+    }
+  | { type: "workflow.completed"; requestId: string; runId: string; status: RunStatus; result?: string }
+  | { type: "tool.started"; requestId: string; toolName: string; input?: unknown }
+  | { type: "tool.completed"; requestId: string; toolName: string; output?: unknown }
+  | { type: "tool.finished"; requestId: string; toolName: string; output?: unknown }
+  | { type: "tool.failed"; requestId: string; toolName: string; error: string }
+  | { type: "permission.required"; permission: string };
 
 export type PermissionLevel =
   | "local.read"
@@ -179,13 +189,23 @@ export type WorkflowStepStatus =
   | "failed"
   | "skipped";
 
-export type WorkflowStepKind = "plan" | "tool" | "observation" | "approval" | "response" | "hook";
+export type WorkflowStepKind =
+  | "plan"
+  | "tool"
+  | "observation"
+  | "approval"
+  | "response"
+  | "hook"
+  | "llm"
+  | "mcp"
+  | "skill";
 
 export type WorkflowRun = {
   id: string;
   createdAt: string;
   updatedAt: string;
   completedAt?: string;
+  workflowTemplateId?: string;
   mode: ExecutionMode;
   status: RunStatus;
   prompt: string;
@@ -211,7 +231,10 @@ export type WorkflowStep = {
   title: string;
   detail: string;
   toolName?: string;
+  mcpServerId?: string;
+  skillId?: string;
   permissionLevel?: PermissionLevel;
+  config?: Record<string, unknown>;
   input: unknown;
   output: unknown;
   errorMessage?: string;
@@ -221,13 +244,60 @@ export type WorkflowStep = {
   createdAt: string;
 };
 
+export type WorkflowTemplateSettings = {
+  mode?: ExecutionMode;
+  maxSteps?: number;
+  approvalThreshold?: PermissionLevel | "none" | "all";
+  toolAllowlist?: string[];
+  mcpAllowlist?: string[];
+  provider?: string;
+  providerId?: string;
+  model?: string;
+  temperature?: number;
+  maxTokens?: number;
+  systemPrompt?: string;
+};
+
+export type WorkflowStepTemplate = {
+  id: string;
+  templateId: string;
+  stepIndex: number;
+  name: string;
+  kind: WorkflowStepKind;
+  config: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type WorkflowTemplate = {
   id: string;
   name: string;
   description: string;
   prompt: string;
+  settings: WorkflowTemplateSettings;
+  steps: WorkflowStepTemplate[];
   mode: ExecutionMode;
   maxSteps: number;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Skill = {
+  id: string;
+  name: string;
+  description: string;
+  prompt: string;
+  systemPrompt?: string;
+  provider?: string;
+  model?: string;
+  temperature?: number;
+  maxTokens?: number;
+  toolAllowlist?: string[];
+  mcpAllowlist?: string[];
+  maxSteps?: number;
+  metadata?: Record<string, string>;
+  compatibility?: string;
   enabled: boolean;
   createdAt: string;
   updatedAt: string;

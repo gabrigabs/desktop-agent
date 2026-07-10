@@ -3,8 +3,12 @@ import type {
   ConnectorConfig,
   McpTestResult,
   PromptTemplate,
+  Skill,
   Turn,
   WorkflowStep,
+  WorkflowStepKind,
+  WorkflowTemplate,
+  WorkflowTemplateSettings,
 } from "@desktop-agent/shared";
 import { AlertCircle, ArrowLeft, Check, Clipboard, RefreshCw, Sparkles, Workflow, X } from "lucide-react";
 import type { RefObject } from "react";
@@ -19,6 +23,11 @@ import { HistoryList } from "./history-list";
 import type { SaveConnectorInput } from "./hooks/useCapabilities";
 import type { ContextChipItem } from "./hooks/useContextChips";
 import { PromptsPanel } from "./PromptsPanel";
+import { SkillSelector } from "./SkillSelector";
+import { SkillsPanel } from "./SkillsPanel";
+import type { HelixMode } from "./types";
+import { WorkflowSelector } from "./WorkflowSelector";
+import { WorkflowsPanel } from "./WorkflowsPanel";
 
 type Props = {
   error: string | null;
@@ -40,10 +49,12 @@ type Props = {
   connectors: ConnectorConfig[];
   testingConnectorId: string | null;
   textareaRef: RefObject<HTMLTextAreaElement | null>;
-  mode: "command" | "history" | "connectors" | "prompts";
+  mode: HelixMode;
   activeRequestId: string | null;
   copied: boolean;
   executionMode: "simple" | "workflow";
+  selectedWorkflowId: string | null;
+  selectedSkillId: string | null;
   composerPlaceholder: string;
   chips?: ContextChipItem[];
   starterChips?: ContextChipItem[];
@@ -70,8 +81,10 @@ type Props = {
   onEditPrompt: (text: string) => void;
   onCopyResponse: (text: string) => void;
   onRegenerate: () => void;
-  setMode: (m: "command" | "history" | "connectors" | "prompts" | "settings") => void;
+  setMode: (m: HelixMode | "settings") => void;
   setExecutionMode: (m: "simple" | "workflow") => void;
+  setSelectedWorkflowId: (id: string | null) => void;
+  setSelectedSkillId: (id: string | null) => void;
   setQuery: (q: string) => void;
   prompts: PromptTemplate[];
   profiles: AgentProfile[];
@@ -97,6 +110,36 @@ type Props = {
   }) => void;
   onDeleteProfile: (id: string) => void;
   onSetActiveProfile: (profileId: string | null) => void;
+  workflowTemplates: WorkflowTemplate[];
+  skills: Skill[];
+  onSaveWorkflowTemplate: (input: {
+    id?: string;
+    name: string;
+    description?: string;
+    prompt: string;
+    settings?: WorkflowTemplateSettings;
+    steps?: Array<{ name: string; kind: WorkflowStepKind; config: Record<string, unknown> }>;
+    enabled?: boolean;
+  }) => void;
+  onDeleteWorkflowTemplate: (id: string) => void;
+  onSaveSkill: (input: {
+    id?: string;
+    name: string;
+    description?: string;
+    prompt: string;
+    systemPrompt?: string;
+    provider?: string;
+    model?: string;
+    temperature?: number;
+    maxTokens?: number;
+    toolAllowlist?: string[];
+    mcpAllowlist?: string[];
+    maxSteps?: number;
+    metadata?: Record<string, string>;
+    compatibility?: string;
+    enabled?: boolean;
+  }) => void;
+  onDeleteSkill: (id: string) => void;
 };
 
 export function ExpandedView(p: Props) {
@@ -142,6 +185,19 @@ export function ExpandedView(p: Props) {
               onShowAddConnector={p.onShowAddConnector}
               variant="grid"
             />
+          </div>
+        ) : p.mode === "workflows" ? (
+          <div className="max-w-3xl">
+            <WorkflowsPanel
+              templates={p.workflowTemplates}
+              skills={p.skills}
+              onSave={p.onSaveWorkflowTemplate}
+              onDelete={p.onDeleteWorkflowTemplate}
+            />
+          </div>
+        ) : p.mode === "skills" ? (
+          <div className="max-w-3xl">
+            <SkillsPanel skills={p.skills} onSave={p.onSaveSkill} onDelete={p.onDeleteSkill} />
           </div>
         ) : p.messages.length > 0 ? (
           <ChatActive {...p} />
@@ -233,10 +289,10 @@ export function ExpandedView(p: Props) {
 
 function CommandHome(p: Props) {
   return (
-    <div className="min-h-full w-full flex flex-col items-center justify-center gap-3 py-2">
+    <div className="min-h-full w-full flex flex-col items-center justify-center gap-4 py-2">
       <HeroHome expanded />
 
-      <div className="w-full max-w-xl flex flex-col gap-2.5 px-6">
+      <div className="w-full max-w-xl flex flex-col gap-3 px-6">
         <div className="flex items-center justify-center gap-2">
           <button
             type="button"
@@ -262,6 +318,24 @@ function CommandHome(p: Props) {
           </button>
         </div>
 
+        {p.executionMode === "workflow" && (
+          <WorkflowSelector
+            templates={p.workflowTemplates}
+            selectedWorkflowId={p.selectedWorkflowId}
+            onSelect={p.setSelectedWorkflowId}
+            selectId="expanded-workflow-select"
+          />
+        )}
+
+        {p.executionMode === "simple" && (
+          <SkillSelector
+            skills={p.skills}
+            selectedSkillId={p.selectedSkillId}
+            onSelect={p.setSelectedSkillId}
+            selectId="expanded-skill-select"
+          />
+        )}
+
         <Composer
           query={p.query}
           setQuery={p.setQuery}
@@ -285,6 +359,8 @@ function CommandHome(p: Props) {
 }
 
 function ChatActive(p: Props) {
+  const selectedWorkflow = p.workflowTemplates.find((t) => t.id === p.selectedWorkflowId);
+
   return (
     <div className="h-full flex flex-col gap-4">
       <div className="flex items-center justify-between gap-2 shrink-0">
@@ -297,6 +373,11 @@ function ChatActive(p: Props) {
             activeProfileId={p.activeProfileId}
             onSetActiveProfile={p.onSetActiveProfile}
           />
+          {selectedWorkflow ? (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-signal/10 text-signal border border-signal/30 truncate max-w-[140px]">
+              {selectedWorkflow.name}
+            </span>
+          ) : null}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <Badge variant={p.error ? "error" : p.streaming ? "warning" : "success"}>{p.taskStatus}</Badge>

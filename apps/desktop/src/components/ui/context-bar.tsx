@@ -1,5 +1,5 @@
 import { Clipboard, Code, Eye, FileText, Globe, RefreshCw, Type, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ContextChipItem } from "../../surfaces/helix/hooks/useContextChips";
 
 interface ContextBarProps {
@@ -43,6 +43,15 @@ export function ContextBar({
   const [open, setOpen] = useState(false);
   const hasText = text.trim().length > 0;
   const Icon = detectIcon(text);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [open]);
 
   if (!hasText) {
     return (
@@ -132,16 +141,12 @@ export function ContextBar({
       </div>
 
       {open && (
-        <button
-          type="button"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm appearance-none border-0 bg-transparent"
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
           onClick={(e) => {
             if (e.target === e.currentTarget) setOpen(false);
           }}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") setOpen(false);
-          }}
-          aria-label="Fechar visualização do clipboard"
+          aria-hidden="true"
         >
           <div
             className="w-full max-w-xl max-h-[80vh] flex flex-col rounded-2xl border border-line bg-ink shadow-2xl overflow-hidden"
@@ -169,7 +174,7 @@ export function ContextBar({
               <p className="text-sm text-fg leading-relaxed whitespace-pre-wrap select-text">{text}</p>
             </div>
           </div>
-        </button>
+        </div>
       )}
     </>
   );

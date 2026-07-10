@@ -1,8 +1,8 @@
-import { Clock, Layers, MessageSquarePlus, Settings, Sparkles, Square } from "lucide-react";
+import { Bot, Clock, Layers, MessageSquarePlus, Settings, Sparkles, Square, Workflow } from "lucide-react";
 import { Button } from "./button";
 import { Separator } from "./separator";
 
-type NavMode = "command" | "history" | "prompts" | "connectors" | "settings";
+type NavMode = "command" | "history" | "prompts" | "connectors" | "workflows" | "skills" | "settings";
 
 interface HelixSidebarProps {
   mode: NavMode;
@@ -16,6 +16,8 @@ const items: { id: NavMode; label: string; icon: React.ComponentType<{ className
   { id: "history", label: "Histórico", icon: Clock },
   { id: "prompts", label: "Perfis", icon: Sparkles },
   { id: "connectors", label: "Conectores", icon: Layers },
+  { id: "workflows", label: "Workflows", icon: Workflow },
+  { id: "skills", label: "Skills", icon: Bot },
   { id: "settings", label: "Config", icon: Settings },
 ];
 

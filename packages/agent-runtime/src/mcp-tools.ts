@@ -39,7 +39,7 @@ export function getHighestPermissionLevel(policy?: PermissionLevel[]): Permissio
   return highest;
 }
 
-function sendMcpMessage(
+export function sendMcpMessage(
   child: import("node:child_process").ChildProcessWithoutNullStreams,
   method: string,
   params: Record<string, unknown>,
@@ -53,7 +53,7 @@ function sendMcpMessage(
   child.stdin.write(`${msg}\n`);
 }
 
-function waitForMcpResponse(
+export function waitForMcpResponse(
   child: import("node:child_process").ChildProcessWithoutNullStreams,
   timeoutMs: number,
 ): Promise<{ result?: unknown; error?: { message: string } } | null> {
@@ -88,7 +88,7 @@ function waitForMcpResponse(
   });
 }
 
-async function spawnMcpServer(server: ConnectorConfig) {
+export async function spawnMcpServer(server: ConnectorConfig) {
   const command = server.command;
   if (!command) {
     throw new Error("MCP command is not defined.");
@@ -129,7 +129,7 @@ async function spawnMcpServer(server: ConnectorConfig) {
   return { child, stderrBuf };
 }
 
-function stopMcpServer(child: import("node:child_process").ChildProcessWithoutNullStreams) {
+export function stopMcpServer(child: import("node:child_process").ChildProcessWithoutNullStreams) {
   try {
     child.stdin.end();
     child.kill("SIGTERM");

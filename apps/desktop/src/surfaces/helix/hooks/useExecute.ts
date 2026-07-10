@@ -86,7 +86,6 @@ export function useExecute() {
         const sourceMode: "free" | "clipboard" = hasClipboard ? "clipboard" : "free";
         const resolvedPrompt = cleanPrompt(activeQuery);
         if (!resolvedPrompt) return;
-        const clipboardPreview = rawClipboardText.slice(0, 500);
         const history = buildHistory(store.messages);
         store.startUserTurn(resolvedPrompt, sourceMode);
         store.setQuery("");
@@ -102,9 +101,11 @@ export function useExecute() {
           requestId,
           prompt: resolvedPrompt,
           mode: store.executionMode,
+          workflowId: store.selectedWorkflowId ?? undefined,
+          skillId: store.selectedSkillId ?? undefined,
           sourceMode,
           clipboardText,
-          maxSteps: store.executionMode === "workflow" ? 8 : 1,
+          maxSteps: store.executionMode === "workflow" ? 8 : undefined,
           history,
         };
 
@@ -113,32 +114,8 @@ export function useExecute() {
         ).catch(async (err) => {
           if (isStaleRuntimeError(err)) {
             const fallbackApi = await getAgent();
-            const fallback = await fallbackApi.runAgent({
-              requestId: requestId || crypto.randomUUID(),
-              query: resolvedPrompt,
-              clipboardText,
-              history,
-            });
-            return {
-              run: {
-                id: requestId || crypto.randomUUID(),
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                mode: "simple" as const,
-                status: "completed" as const,
-                prompt: resolvedPrompt,
-                sourceMode,
-                clipboardPreview,
-                providerId: store.settings.activeProvider,
-                model: store.settings.model,
-                maxSteps: 1,
-                currentStep: 1,
-                result: fallback.result,
-                metadata: {},
-                steps: [],
-              },
-              events: fallback.events,
-            };
+            const fallback = await fallbackApi.startRun(runInput);
+            return fallback;
           }
           throw err;
         });
@@ -187,20 +164,17 @@ export function useExecute() {
     if (!activeRequestId && !runId) return;
 
     try {
-      const api = await getAgent();
       if (runId) {
         await callAgentWithRuntimeRefresh("cancelRun", (runtimeApi) => runtimeApi.cancelRun({ runId })).catch(
           async (err) => {
-            if (activeRequestId && isStaleRuntimeError(err)) {
+            if (isStaleRuntimeError(err)) {
               const fallbackApi = await getAgent();
-              await fallbackApi.cancelAgent({ requestId: activeRequestId });
+              await fallbackApi.cancelRun({ runId });
               return;
             }
             throw err;
           },
         );
-      } else if (activeRequestId) {
-        await api.cancelAgent({ requestId: activeRequestId });
       }
     } catch (err) {
       console.error("Failed to cancel request:", err);

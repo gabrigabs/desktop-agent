@@ -42,13 +42,25 @@ export {
   setSetting,
 } from "./repositories/settings";
 export {
+  createSkill,
+  deleteSkill,
+  getSkill,
+  listSkills,
+  updateSkill,
+} from "./repositories/skills";
+export {
+  createWorkflowTemplate,
+  deleteWorkflowTemplate,
+  getWorkflowTemplate,
+  listWorkflowTemplates,
+  saveWorkflowTemplate,
+} from "./repositories/workflow-templates";
+export {
   createWorkflowRun,
   createWorkflowStep,
-  createWorkflowTemplate,
   getWorkflowRun,
   listWorkflowRuns,
   listWorkflowSteps,
-  listWorkflowTemplates,
   updateWorkflowRun,
   updateWorkflowStep,
 } from "./repositories/workflows";

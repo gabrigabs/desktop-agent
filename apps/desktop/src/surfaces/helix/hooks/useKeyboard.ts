@@ -1,13 +1,14 @@
 import { useEffect } from "react";
 import { hideWindow } from "../../../lib/window";
 import { useAgentStore } from "../../../stores/agent";
+import type { HelixMode } from "../types";
 
 type Deps = {
   handleExecute: (forceInstruction?: string) => void;
   showSettings: boolean;
   setShowSettings: (v: boolean) => void;
-  mode?: "command" | "history" | "connectors" | "prompts";
-  setMode?: (m: "command" | "history" | "connectors" | "prompts") => void;
+  mode?: HelixMode;
+  setMode?: (m: HelixMode) => void;
 };
 
 export function useKeyboard({ handleExecute, showSettings, setShowSettings, mode, setMode }: Deps) {

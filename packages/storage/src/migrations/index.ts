@@ -6,6 +6,8 @@ import { runMigration as runMcpEnvMigration } from "./004_mcp_env";
 import { runMigration as runUiPreferencesMigration } from "./005_ui_preferences";
 import { runMigration as runPromptLibraryMigration } from "./006_prompt_library";
 import { runMigration as runAgentProfilesFieldsMigration } from "./007_agent_profiles_fields";
+import { runMigration as runWorkflowsAndSkillsMigration } from "./008_workflows_and_skills";
+import { runMigration as runSkillMetadataMigration } from "./009_skill_metadata";
 
 const MIGRATION_TABLE = `
   CREATE TABLE IF NOT EXISTS _migrations (
@@ -31,4 +33,6 @@ export function runMigrations(db: Database): void {
   applyMigration(db, 5, runUiPreferencesMigration);
   applyMigration(db, 6, runPromptLibraryMigration);
   applyMigration(db, 7, runAgentProfilesFieldsMigration);
+  applyMigration(db, 8, runWorkflowsAndSkillsMigration);
+  applyMigration(db, 9, runSkillMetadataMigration);
 }

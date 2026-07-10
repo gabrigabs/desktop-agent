@@ -3,10 +3,46 @@ import type { LlmProvider } from "../types";
 
 type FetchFn = typeof globalThis.fetch;
 
-function createSignal(signal: CompletionInput["signal"], timeout: number) {
-  const timeoutSignal = AbortSignal.timeout(timeout);
+function createSignal(signal: CompletionInput["signal"], timeout: number): AbortSignal {
+  // Prefer AbortSignal.timeout when available, otherwise fallback to a manual timeout.
+  const timeoutSignal =
+    typeof AbortSignal !== "undefined" && "timeout" in AbortSignal
+      ? (AbortSignal as unknown as { timeout(ms: number): AbortSignal }).timeout(timeout)
+      : createFallbackTimeoutSignal(timeout);
+
   if (!signal) return timeoutSignal;
-  return AbortSignal.any([signal as AbortSignal, timeoutSignal]);
+
+  if (typeof AbortSignal !== "undefined" && "any" in AbortSignal) {
+    return (AbortSignal as unknown as { any(signals: AbortSignal[]): AbortSignal }).any([
+      signal as AbortSignal,
+      timeoutSignal,
+    ]);
+  }
+
+  return composeAbortSignals(signal as AbortSignal, timeoutSignal);
+}
+
+function createFallbackTimeoutSignal(timeout: number): AbortSignal {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+  // Avoid unref when running in environments that don't support it (e.g., some browsers).
+  if (typeof (timer as unknown as { unref?: () => void }).unref === "function") {
+    (timer as unknown as { unref: () => void }).unref();
+  }
+  return controller.signal;
+}
+
+function composeAbortSignals(...signals: AbortSignal[]): AbortSignal {
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  for (const signal of signals) {
+    if (signal.aborted) {
+      abort();
+      break;
+    }
+    signal.addEventListener("abort", abort, { once: true });
+  }
+  return controller.signal;
 }
 
 export class OpenAICompatibleProvider implements LlmProvider {
@@ -125,7 +161,7 @@ export class OpenAICompatibleProvider implements LlmProvider {
           const delta = choice?.delta?.content ?? "";
           const isDone = choice?.finish_reason != null;
 
-          if (delta) {
+          if (delta || isDone) {
             yield { content: delta, done: isDone };
           }
         }

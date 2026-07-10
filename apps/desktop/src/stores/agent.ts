@@ -45,6 +45,8 @@ type State = {
   events: AgentEvent[];
   error: string | null;
   executionMode: ExecutionMode;
+  selectedWorkflowId: string | null;
+  selectedSkillId: string | null;
   workflowRun: WorkflowRun | null;
   connectors: ConnectorConfig[];
   history: Array<{
@@ -80,6 +82,8 @@ type State = {
   addEvent: (e: AgentEvent) => void;
   setError: (e: string | null) => void;
   setExecutionMode: (mode: ExecutionMode) => void;
+  setSelectedWorkflowId: (id: string | null) => void;
+  setSelectedSkillId: (id: string | null) => void;
   setWorkflowRun: (run: WorkflowRun | null) => void;
   upsertWorkflowStep: (step: WorkflowStep) => void;
   setWorkflowApproval: (approval: ApprovalRequest | undefined) => void;
@@ -185,6 +189,8 @@ export const useAgentStore = create<State>((set) => ({
   events: [],
   error: null,
   executionMode: "simple",
+  selectedWorkflowId: null,
+  selectedSkillId: null,
   workflowRun: null,
   connectors: defaultConnectors,
   history: [],
@@ -284,6 +290,8 @@ export const useAgentStore = create<State>((set) => ({
   addEvent: (event) => set((s) => ({ events: [...s.events, event] })),
   setError: (error) => set({ error }),
   setExecutionMode: (executionMode) => set({ executionMode }),
+  setSelectedWorkflowId: (selectedWorkflowId) => set({ selectedWorkflowId }),
+  setSelectedSkillId: (selectedSkillId) => set({ selectedSkillId }),
   setWorkflowRun: (workflowRun) => set({ workflowRun }),
   upsertWorkflowStep: (step) =>
     set((s) => {
@@ -348,6 +356,8 @@ export const useAgentStore = create<State>((set) => ({
       streaming: false,
       events: [],
       error: null,
+      selectedWorkflowId: null,
+      selectedSkillId: null,
       workflowRun: null,
       agentLogs: [],
     }),

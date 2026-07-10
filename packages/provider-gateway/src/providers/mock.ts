@@ -63,11 +63,25 @@ export class MockProvider implements LlmProvider {
     const output = await this.complete(input);
     const words = output.content.split(" ");
     for (let i = 0; i < words.length; i++) {
+      if (input.signal?.aborted) {
+        throw new Error("Execução abortada pelo usuário.");
+      }
       yield {
         content: (i === 0 ? "" : " ") + words[i],
         done: i === words.length - 1,
       };
-      await new Promise((r) => setTimeout(r, 20));
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(resolve, 20);
+        const abort = () => {
+          clearTimeout(timer);
+          reject(new Error("Execução abortada pelo usuário."));
+        };
+        if (input.signal?.aborted) {
+          abort();
+          return;
+        }
+        input.signal?.addEventListener("abort", abort, { once: true });
+      });
     }
   }
 }

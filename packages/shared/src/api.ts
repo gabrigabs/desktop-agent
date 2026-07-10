@@ -11,10 +11,13 @@ import type {
   ProviderConfig,
   SaveProfileInput,
   SavePromptInput,
+  Skill,
   ToolResult,
   Turn,
   WorkflowRun,
+  WorkflowStepTemplate,
   WorkflowTemplate,
+  WorkflowTemplateSettings,
 } from "./types/rpc";
 
 export type SaveMcpServerInput = {
@@ -43,20 +46,12 @@ export type AgentApi = {
   getSettings(): Promise<AppSettings>;
   saveSettings(settings: AppSettings): Promise<void>;
   fetchModels(provider: string, apiKey: string, baseUrl?: string): Promise<string[]>;
-  runAgent(input: {
-    requestId: string;
-    query: string;
-    clipboardText: string;
-    history?: { role: "user" | "assistant" | "system"; content: string }[];
-  }): Promise<{
-    result: string;
-    events: AgentEvent[];
-  }>;
-  cancelAgent(input: { requestId: string }): Promise<{ cancelled: boolean }>;
   startRun(input: {
     requestId: string;
     prompt: string;
-    mode: ExecutionMode;
+    workflowId?: string;
+    skillId?: string;
+    mode?: ExecutionMode;
     sourceMode?: "free" | "clipboard";
     clipboardText?: string;
     maxSteps?: number;
@@ -92,6 +87,37 @@ export type AgentApi = {
   deleteAgentProfile(input: { id: string }): Promise<void>;
   setActiveProfile(input: { profileId: string | null }): Promise<void>;
   getActiveProfile(): Promise<AgentProfile | null>;
-  readFile(input: { path: string }): Promise<{ content: string; fileName: string; size: number }>;
+  listSkills(): Promise<Skill[]>;
+  getSkill(input: { id: string }): Promise<Skill | null>;
+  saveSkill(input: {
+    id?: string;
+    name: string;
+    description?: string;
+    prompt: string;
+    systemPrompt?: string;
+    provider?: string;
+    model?: string;
+    temperature?: number;
+    maxTokens?: number;
+    toolAllowlist?: string[];
+    mcpAllowlist?: string[];
+    maxSteps?: number;
+    metadata?: Record<string, string>;
+    compatibility?: string;
+    enabled?: boolean;
+  }): Promise<Skill>;
+  deleteSkill(input: { id: string }): Promise<void>;
+  listWorkflowTemplates(): Promise<WorkflowTemplate[]>;
+  getWorkflowTemplate(input: { id: string }): Promise<WorkflowTemplate | null>;
+  saveWorkflowTemplate(input: {
+    id?: string;
+    name: string;
+    description?: string;
+    prompt: string;
+    settings?: WorkflowTemplateSettings;
+    steps?: Array<Omit<WorkflowStepTemplate, "id" | "templateId" | "stepIndex" | "createdAt" | "updatedAt">>;
+    enabled?: boolean;
+  }): Promise<WorkflowTemplate>;
+  deleteWorkflowTemplate(input: { id: string }): Promise<void>;
   shutdown(): Promise<void>;
 };

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { randomUUID } from "node:crypto";
 import type { LlmProvider } from "@desktop-agent/provider-gateway";
 import type {

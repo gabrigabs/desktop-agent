@@ -1,6 +1,4 @@
 import { execSync, spawn } from "node:child_process";
-import { readFile as fsReadFile, stat as fsStat } from "node:fs/promises";
-import { basename } from "node:path";
 import type { LlmProvider } from "@desktop-agent/provider-gateway";
 import { createProvider } from "@desktop-agent/provider-gateway";
 import type {
@@ -12,38 +10,46 @@ import type {
   PromptTemplate,
   SaveProfileInput,
   SavePromptInput,
+  Skill,
   WorkflowRun,
 } from "@desktop-agent/shared";
 import {
   createAgentProfile,
   createConversation,
-  createInteraction,
   createPromptTemplate,
+  createSkill,
   createMcpServer as createStoredMcpServer,
   createWorkflowRun,
   deleteAgentProfile,
   deletePromptTemplate,
+  deleteSkill,
   deleteMcpServer as deleteStoredMcpServer,
+  deleteWorkflowTemplate,
   ensureDefaultMcpPresets,
   getAgentProfile,
   getConversation,
   getDb,
   getRecentInteractions,
   getSetting,
+  getSkill,
   getMcpServer as getStoredMcpServer,
   getWorkflowRun,
+  getWorkflowTemplate,
   listAgentProfiles,
   listConversations,
   listPromptTemplates,
+  listSkills,
   listMcpServers as listStoredMcpServers,
   listTurns,
   listWorkflowRuns,
   listWorkflowTemplates,
+  saveWorkflowTemplate,
   setSetting,
   updateAgentProfile,
   updateConversationTitle,
   updateMcpServerStatus,
   updatePromptTemplate,
+  updateSkill,
   updateWorkflowRun,
   upsertMcpServer,
   upsertTurn,
@@ -60,8 +66,8 @@ import {
   registerMcpToolsForServer,
   unregisterMcpToolsForServer,
 } from "./mcp-tools";
-import { Orchestrator } from "./orchestrator";
-import { WorkflowRunner } from "./workflow-runner";
+import { ToolExecutor } from "./workflow/ToolExecutor";
+import { WorkflowRunner } from "./workflow/WorkflowRunner";
 
 type ClientApi = {
   onEvent(event: AgentEvent): Promise<void>;
@@ -202,23 +208,9 @@ registry.register(createWebCrawlTool());
 registry.register(createOcrImageTool());
 registry.register(createScreenshotOcrTool());
 
-const orchestrator = new Orchestrator({ provider: proxyProvider });
 ensureMcpReady();
 
 export type { AgentApi };
-
-function previewText(value: string, limit = 500) {
-  const normalized = value.replace(/\s+/g, " ").trim();
-  if (normalized.length <= limit) return normalized;
-  return `${normalized.slice(0, limit - 3)}...`;
-}
-
-function formatAgentInputPreview(query: string, clipboardText?: string) {
-  if (clipboardText?.trim()) {
-    return previewText(`Pedido: ${query} | Clipboard: ${clipboardText}`);
-  }
-  return previewText(query);
-}
 
 function emitToClient(event: AgentEvent) {
   if (clientApi?.onEvent) {
@@ -243,6 +235,7 @@ function createQueuedRun(input: {
   sourceMode?: "free" | "clipboard";
   clipboardText?: string;
   maxSteps?: number;
+  workflowTemplateId?: string;
   history?: { role: "user" | "assistant" | "system"; content: string }[];
 }) {
   const db = getDb();
@@ -257,6 +250,7 @@ function createQueuedRun(input: {
     providerId: provider.name,
     model: config.model,
     maxSteps: input.maxSteps ?? 8,
+    workflowTemplateId: input.workflowTemplateId,
     metadata: {
       createdBy: "helix",
       timeoutSeconds: config.timeout,
@@ -280,8 +274,17 @@ export const agentApi: AgentApi = {
   },
 
   async execute({ requestId, toolName, input }) {
-    const execution = await orchestrator.execute(requestId, toolName, input);
-    return execution;
+    const events: AgentEvent[] = [{ type: "agent.started", requestId }];
+    const toolExecutor = new ToolExecutor(
+      (event) => {
+        events.push(event);
+        emitToClient(event);
+      },
+      () => getLlmProvider().name,
+    );
+    const result = await toolExecutor.execute(requestId, toolName, input);
+    events.push({ type: "agent.completed", requestId });
+    return { result, events };
   },
 
   async listTools() {
@@ -312,12 +315,39 @@ export const agentApi: AgentApi = {
   },
 
   async startRun(input) {
+    let mode: "simple" | "workflow" = input.mode ?? "workflow";
+    let maxSteps = input.maxSteps;
+    const workflowTemplateId = input.workflowId;
+    const skillId = input.skillId;
+
+    if (workflowTemplateId) {
+      const template = getWorkflowTemplate(getDb(), workflowTemplateId);
+      if (template) {
+        mode = template.mode;
+        maxSteps = maxSteps ?? template.maxSteps;
+      }
+    }
+
+    let skill: Skill | null = null;
+    if (skillId) {
+      skill = getSkill(getDb(), skillId);
+      if (skill) {
+        mode = mode === "workflow" ? "workflow" : "simple";
+        maxSteps = maxSteps ?? skill.maxSteps;
+      }
+    }
+
+    if (mode === "simple" && !maxSteps) {
+      maxSteps = 1;
+    }
+
     const run = createQueuedRun({
       prompt: input.prompt,
-      mode: input.mode,
+      mode,
       sourceMode: input.sourceMode,
       clipboardText: input.clipboardText,
-      maxSteps: input.maxSteps,
+      maxSteps,
+      workflowTemplateId,
       history: input.history,
     });
 
@@ -326,7 +356,6 @@ export const agentApi: AgentApi = {
     runningRequests.set(input.requestId, controller);
     const events: AgentEvent[] = [];
     const runner = new WorkflowRunner({
-      orchestrator,
       getLlmProvider,
       getActiveModel: () => getActiveProviderConfig().model,
       emit(event) {
@@ -342,6 +371,7 @@ export const agentApi: AgentApi = {
         prompt: input.prompt,
         clipboardText: input.clipboardText ?? "",
         history: input.history ?? [],
+        skillId: input.skillId,
         signal: controller.signal,
       });
       return { run: completedRun, events };
@@ -390,7 +420,6 @@ export const agentApi: AgentApi = {
     runningRequests.set(requestId, controller);
     const events: AgentEvent[] = [];
     const runner = new WorkflowRunner({
-      orchestrator,
       getLlmProvider,
       getActiveModel: () => getActiveProviderConfig().model,
       emit(event) {
@@ -697,76 +726,61 @@ export const agentApi: AgentApi = {
     }
   },
 
-  async runAgent({ requestId, query, clipboardText, history }) {
-    const startedAt = Date.now();
-    const providerId = getLlmProvider().name;
-    const inputPreview = formatAgentInputPreview(query, clipboardText);
-    const toolName = clipboardText?.trim() ? "agent.clipboard" : "agent.chat";
-    const controller = new AbortController();
-    runningRequests.set(requestId, controller);
-    const events: AgentEvent[] = [];
-    const emit = (event: AgentEvent) => {
-      events.push(event);
-      if (clientApi?.onEvent) {
-        clientApi.onEvent(event).catch((err: unknown) => {
-          console.error("Failed to emit event to client:", err);
-        });
-      }
-    };
-
-    try {
-      const result = await orchestrator.runAgent(
-        requestId,
-        query,
-        clipboardText,
-        history ?? [],
-        emit,
-        getLlmProvider,
-        () => getActiveProviderConfig().model,
-        controller.signal,
-      );
-
-      createInteraction(getDb(), {
-        toolName,
-        providerId,
-        permissionLevel: "external",
-        inputPreview,
-        outputPreview: previewText(result),
-        durationMs: Date.now() - startedAt,
-        success: true,
-      });
-
-      return { result, events };
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      if (controller.signal.aborted) {
-        emit({ type: "agent.cancelled", requestId });
-      }
-
-      createInteraction(getDb(), {
-        toolName,
-        providerId,
-        permissionLevel: "external",
-        inputPreview,
-        outputPreview: "",
-        durationMs: Date.now() - startedAt,
-        success: false,
-        errorMessage: previewText(errorMessage, 240),
-      });
-      throw err;
-    } finally {
-      runningRequests.delete(requestId);
-    }
+  async listSkills() {
+    return listSkills(getDb());
   },
 
-  async cancelAgent({ requestId }) {
-    const controller = runningRequests.get(requestId);
-    if (!controller) {
-      return { cancelled: false };
-    }
+  async getSkill({ id }) {
+    return getSkill(getDb(), id);
+  },
 
-    controller.abort();
-    return { cancelled: true };
+  async saveSkill(input) {
+    const db = getDb();
+    if (input.id) {
+      updateSkill(db, input.id, input);
+      const skill = getSkill(db, input.id);
+      if (!skill) throw new Error("Skill not found after update");
+      return skill;
+    }
+    const id = createSkill(db, {
+      name: input.name,
+      description: input.description,
+      prompt: input.prompt,
+      systemPrompt: input.systemPrompt,
+      provider: input.provider,
+      model: input.model,
+      temperature: input.temperature,
+      maxTokens: input.maxTokens,
+      toolAllowlist: input.toolAllowlist,
+      mcpAllowlist: input.mcpAllowlist,
+      maxSteps: input.maxSteps,
+      metadata: input.metadata,
+      compatibility: input.compatibility,
+      enabled: input.enabled,
+    });
+    const skill = getSkill(db, id);
+    if (!skill) throw new Error("Skill not found after creation");
+    return skill;
+  },
+
+  async deleteSkill({ id }) {
+    deleteSkill(getDb(), id);
+  },
+
+  async listWorkflowTemplates() {
+    return listWorkflowTemplates(getDb());
+  },
+
+  async getWorkflowTemplate({ id }) {
+    return getWorkflowTemplate(getDb(), id);
+  },
+
+  async saveWorkflowTemplate(input) {
+    return saveWorkflowTemplate(getDb(), input);
+  },
+
+  async deleteWorkflowTemplate({ id }) {
+    deleteWorkflowTemplate(getDb(), id);
   },
 
   async listConversations({ limit } = { limit: 20 }) {
@@ -817,7 +831,6 @@ export const agentApi: AgentApi = {
       controller.abort();
     }
     runningRuns.clear();
-    orchestrator.shutdown();
   },
 
   async listPromptTemplates(): Promise<PromptTemplate[]> {
@@ -895,15 +908,5 @@ export const agentApi: AgentApi = {
     const profileId = getSetting(getDb(), "activeProfileId");
     if (!profileId) return null;
     return getAgentProfile(getDb(), profileId);
-  },
-
-  async readFile(input: { path: string }): Promise<{ content: string; fileName: string; size: number }> {
-    const stat = await fsStat(input.path);
-    const content = await fsReadFile(input.path, "utf-8");
-    return {
-      content,
-      fileName: basename(input.path),
-      size: stat.size,
-    };
   },
 };

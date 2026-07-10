@@ -17,16 +17,16 @@ export interface ContextSuggestion {
 const URL_REGEX = /^https?:\/\/\S+/i;
 
 const CODE_INDICATORS = [
-  /\bfunction\b/,
-  /\bclass\b/,
-  /\bconst\b/,
-  /\blet\b/,
-  /\bvar\b/,
-  /=>/,
-  /\bimport\b/,
-  /\bexport\b/,
-  /\{[\s\S]*\}/,
-  /;\s*$/m,
+  { regex: /\bfunction\b/, weight: 2 },
+  { regex: /\bclass\b/, weight: 2 },
+  { regex: /\bconst\b/, weight: 1 },
+  { regex: /\blet\b/, weight: 1 },
+  { regex: /\bvar\b/, weight: 1 },
+  { regex: /=>/, weight: 2 },
+  { regex: /\bimport\b/, weight: 2 },
+  { regex: /\bexport\b/, weight: 2 },
+  { regex: /\{[\s\S]*\}/, weight: 1 },
+  { regex: /;\s*$/m, weight: 1 },
 ];
 
 const ERROR_INDICATORS = [
@@ -43,8 +43,8 @@ const MESSAGE_INDICATORS = [/^>\s/m, /On .+ wrote:/, /Forwarded message:/i, /Fro
 const LONG_TEXT_THRESHOLD = 800;
 
 function looksLikeCode(text: string): boolean {
-  const score = CODE_INDICATORS.reduce((acc, regex) => acc + (regex.test(text) ? 1 : 0), 0);
-  return score >= 3 && (text.includes("{") || text.includes("}"));
+  const score = CODE_INDICATORS.reduce((acc, { regex, weight }) => acc + (regex.test(text) ? weight : 0), 0);
+  return score >= 4 && (text.includes("{") || text.includes("}"));
 }
 
 function looksLikeError(text: string): boolean {

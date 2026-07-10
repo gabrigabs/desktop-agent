@@ -41,6 +41,7 @@ export type {
   RunStatus,
   SaveProfileInput,
   SavePromptInput,
+  Skill,
   ToolChunk,
   ToolDefinition,
   ToolResult,
@@ -50,5 +51,7 @@ export type {
   WorkflowStep,
   WorkflowStepKind,
   WorkflowStepStatus,
+  WorkflowStepTemplate,
   WorkflowTemplate,
+  WorkflowTemplateSettings,
 } from "./types/rpc";

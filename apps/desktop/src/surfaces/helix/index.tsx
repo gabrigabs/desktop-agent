@@ -13,6 +13,8 @@ import { useExecute } from "./hooks/useExecute";
 import { useKeyboard } from "./hooks/useKeyboard";
 import { usePrompts } from "./hooks/usePrompts";
 import { useSettingsForm } from "./hooks/useSettingsForm";
+import { useSkills } from "./hooks/useSkills";
+import { useWorkflows } from "./hooks/useWorkflows";
 import { NormalCommandView } from "./NormalCommandView";
 import { SettingsPanel } from "./SettingsPanel";
 
@@ -22,7 +24,7 @@ type HelixProps = {
   onToggleAlwaysOnTop: () => void;
 };
 
-type HelixMode = "command" | "history" | "prompts" | "connectors";
+import type { HelixMode } from "./types";
 
 export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: HelixProps) {
   const {
@@ -34,6 +36,10 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     setQuery,
     executionMode,
     setExecutionMode,
+    selectedWorkflowId,
+    setSelectedWorkflowId,
+    selectedSkillId,
+    setSelectedSkillId,
     workflowRun,
     connectors,
     agentLogs,
@@ -51,6 +57,8 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
   const clipboard = useClipboard();
   const capabilities = useCapabilities();
   const promptsHook = usePrompts();
+  const workflows = useWorkflows();
+  const skills = useSkills();
   const exec = useExecute();
   const ignoreClipboard = useAgentStore((s) => s.ignoreClipboard);
   const setIgnoreClipboard = useAgentStore((s) => s.setIgnoreClipboard);
@@ -118,16 +126,13 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     setMode("command");
   }, [exec]);
 
-  const handleChangeMode = useCallback(
-    (next: "command" | "history" | "prompts" | "connectors" | "settings") => {
-      if (next === "settings") {
-        setShowSettings(true);
-        return;
-      }
-      setMode(next);
-    },
-    [],
-  );
+  const handleChangeMode = useCallback((next: HelixMode | "settings") => {
+    if (next === "settings") {
+      setShowSettings(true);
+      return;
+    }
+    setMode(next);
+  }, []);
 
   useKeyboard({
     handleExecute: exec.handleExecute,
@@ -271,6 +276,10 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     onApproval: exec.handleApproval,
     setMode: handleChangeMode,
     setExecutionMode,
+    selectedWorkflowId,
+    setSelectedWorkflowId,
+    selectedSkillId,
+    setSelectedSkillId,
     setQuery,
     onTestConnector: capabilities.handleTestConnector,
     onToggleConnector: capabilities.handleToggleConnector,
@@ -291,6 +300,12 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     onSaveProfile: promptsHook.handleSaveProfile,
     onDeleteProfile: promptsHook.handleDeleteProfile,
     onSetActiveProfile: promptsHook.handleSetActiveProfile,
+    workflowTemplates: workflows.templates,
+    skills: skills.skills,
+    onSaveWorkflowTemplate: workflows.handleSave,
+    onDeleteWorkflowTemplate: workflows.handleDelete,
+    onSaveSkill: skills.handleSave,
+    onDeleteSkill: skills.handleDelete,
   };
 
   if (uiMode === "expanded") {
