@@ -2,7 +2,7 @@
 
 > Fonte principal do produto. `BACKLOG.md` fica como histórico/status resumido.
 > Última atualização: 2026-07-10.
-> Foco atual: consolidar a nova identidade Helix, transformar Artifacts em Workspaces contínuos e abrir a fundação segura de Follow-up Sessions.
+> Foco atual: fechar pendências do redesign, consolidar Settings e contexto explícito, adicionar trabalho seguro com arquivos e ferramentas nativas e manter Workspaces contínuos e Follow-up Sessions no roadmap ativo.
 
 ---
 
@@ -610,6 +610,8 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 ### Fase 10 — Follow-up Sessions
 
+> Esta fase permanece integralmente no roadmap. A rodada de ferramentas e correções abaixo não substitui nem descontinua `FUP01-FUP04`.
+
 #### FUP01 — Criar contrato, storage e ciclo de vida
 
 - Status: pendente.
@@ -674,31 +676,227 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
   - Revogar permissão pausa a sessão e remove acesso imediatamente.
   - Nenhuma captura ocorre após pause, stop, crash ou restore.
 
+## Nova Rodada — Consolidação E Capacidades Nativas
+
+> Esta rodada é cumulativa. Nenhuma fase, decisão, hipótese ou critério anterior é removido. Workspaces (`W01-W04`) e Follow-up Sessions (`FUP01-FUP04`) continuam ativos no roadmap, mesmo quando não forem a próxima entrega.
+
+### Definições Novas
+
+- **File Context:** arquivo ou pasta escolhido explicitamente pelo usuário, visível antes do envio e persistido como bloco de contexto do turn.
+- **Document Parser:** parser determinístico local para PDF, CSV, Excel ou Markdown; extrai estrutura antes de qualquer interpretação por LLM.
+- **Native Vision:** capacidades on-device do Vision Framework da Apple para reconhecimento de texto, classificação, códigos e saliência; não significa provider multimodal em nuvem.
+- **Developer Tool:** ferramenta local auditável para Git, shell ou patch, sempre limitada a um diretório autorizado e sujeita à política de permissão.
+- **Desktop Context:** sinal nativo explícito do macOS, como app/janela ativa, informações seguras do sistema ou notificação.
+- **Mermaid Artifact:** bloco Mermaid validado e renderizável, com fallback de código quando a renderização falhar.
+- **Workspace Memory:** fatos e notas persistentes vinculados a um Workspace; memória global transversal permanece futura.
+
+### Prioridade Vigente
+
+1. Fechar pendências parciais do redesign: bug de Settings, `PR03`, `PR04`, `A02`, `R01`, `C01` e `D03`.
+2. Aplicar o design system às páginas internas antes de movê-las para Settings.
+3. Mover Profiles, Workflows e Skills para Settings sem apagar seus contratos, dados ou fluxos de execução.
+4. Adicionar contexto seguro de arquivos/pastas e parsers locais de documentos.
+5. Adicionar Mermaid validado e renderizado no chat.
+6. Migrar a implementação de OCR para Vision Framework nativo, preservando a capacidade de OCR e ampliando-a com classificação, barcode e saliência.
+7. Implementar memória por Workspace em alinhamento com `W03`.
+8. Adicionar ferramentas de desenvolvimento e contexto nativo do desktop.
+9. Continuar `W01-W04` e `FUP01-FUP04` conforme dependências e capacidade de entrega.
+
+### Fase 11 — Fechamento Das Pendências Parciais
+
+#### CL01 — Corrigir interação de Settings no expanded
+
+- Status: pendente.
+- Objetivo: manter a navegação principal clicável quando Settings estiver aberto no modo expanded.
+- Implementação:
+  1. Isolar o overlay de `SettingsPanel` ao workspace de conteúdo, sem cobrir `HelixSidebar`.
+  2. Revisar `z-index`, stacking contexts e `pointer-events`.
+  3. Garantir que trocar de destino pela sidebar feche Settings e abra a superfície escolhida.
+- Aceite:
+  - Nova conversa, Histórico, Espaços e Conectores respondem a um clique com Settings aberto.
+  - A navegação interna de Settings continua clicável e rolável.
+
+#### CL02 — Concluir Profile snapshot (`PR03`)
+
+- Status: pendente, complementa `PR03` sem substituí-lo.
+- Objetivo: impedir que a troca de profile altere uma conversa já iniciada.
+- Implementação: persistir `profileId` na Conversation ou no primeiro turn e fazer o runtime usar esse snapshot durante todo o histórico relacionado.
+- Aceite:
+  - Nova conversa usa o profile ativo no início.
+  - Trocar o profile só afeta novas conversas.
+
+#### CL03 — Concluir clipboard estruturado (`PR04`)
+
+- Status: pendente, complementa `PR04` sem substituí-lo.
+- Objetivo: persistir clipboard como contexto explícito do turn `user`.
+- Implementação: remover o `inputMode` legado do fluxo principal e persistir blocos `text` + `context` com origem, preview e política de uso.
+- Aceite:
+  - Regeneração e histórico preservam o contexto de clipboard original.
+  - Clipboard nunca é enviado sem indicação visual.
+
+#### CL04 — Concluir radial, resultado e Context Bar (`A02`, `R01`, `C01`)
+
+- Status: pendente.
+- Objetivo: concluir a segunda órbita, o resultado compacto e o contexto orientado a permissões como uma experiência coerente.
+- Implementação:
+  1. Segunda órbita para Clipboard, Tela, Workflow e Espaços.
+  2. `CompactResultCard` no modo normal com Copiar, Refinar e Expandir.
+  3. Context Bar para Clipboard, Tela, App ativo, Arquivo e Connectors com Ver, Usar/Não usar e Remover.
+- Aceite:
+  - Nenhuma ação sensível executa automaticamente ao ser selecionada no radial.
+  - Resultado curto não força a abertura do modo expanded.
+  - Toda fonte enviada permanece visível e removível.
+
+#### CL05 — Design system e reorganização de Settings (`D03`)
+
+- Status: pendente, complementa `D03`.
+- Objetivo: padronizar páginas internas antes de consolidá-las em Settings.
+- Implementação:
+  1. Aplicar componentes e tokens em Profiles/Prompts, Workflows, Skills e Connectors.
+  2. Mover Profiles, Workflows e Skills para seções funcionais de Settings.
+  3. Preservar seleção contextual de Profile e acionamento de Workflow/Skill no composer, Workspace e runtime.
+  4. Manter a navegação principal em Nova conversa, Histórico, Espaços, Conectores e Config.
+- Aceite:
+  - Nenhuma entidade ou dado legado é apagado durante a mudança de localização.
+  - CRUD e ativação continuam funcionando ponta a ponta.
+
+### Fase 12 — Arquivos, Pastas E Parsers
+
+#### FILE01 — Contexto seguro de arquivos e pastas
+
+- Status: pendente.
+- Objetivo: permitir leitura e escrita de arquivos dentro de escopo escolhido pelo usuário.
+- Implementação:
+  1. Selecionar arquivo/pasta via diálogo nativo e aceitar drag-and-drop.
+  2. Listar pasta e ler arquivo com limites de tamanho, encoding e exclusões explícitas.
+  3. Persistir anexos como blocos de contexto e mostrar preview antes do envio.
+  4. Escrever ou criar arquivo somente após aprovação `local.write`.
+- Edge cases:
+  - Symlinks, arquivos binários, pacotes macOS, paths fora do escopo e arquivos grandes devem ser tratados sem leitura implícita.
+  - Segredos detectáveis recebem aviso e podem ser removidos antes do envio.
+- Aceite:
+  - Arquivo/pasta anexado permanece visível, removível e auditável.
+  - Nenhuma escrita acontece fora do diretório autorizado.
+
+#### FILE02 — Parsers locais de documentos
+
+- Status: pendente.
+- Objetivo: interpretar PDF, CSV, Excel e Markdown de forma determinística antes do LLM.
+- Implementação:
+  1. PDF com texto por página, metadados e indicação de páginas sem camada textual.
+  2. CSV/Excel como tabelas estruturadas com headers, tipos inferidos e limites de linhas/colunas.
+  3. Markdown com frontmatter, títulos, links e blocos de código preservados.
+  4. Indexação opt-in de uma pasta Markdown como fonte de Workspace.
+- Aceite:
+  - Preview informa formato, tamanho, páginas/abas e truncamento.
+  - Parser falho retorna erro claro e nunca inventa conteúdo.
+
+### Fase 13 — Mermaid Confiável
+
+#### MER01 — Renderizador Mermaid no chat
+
+- Status: pendente.
+- Objetivo: renderizar blocos `mermaid` no Markdown sem comprometer segurança ou legibilidade.
+- Implementação: renderização isolada, tema Helix, zoom/cópia e fallback para código com erro de parse.
+- Aceite:
+  - Markdown comum continua funcionando.
+  - Diagrama inválido não quebra a resposta inteira.
+
+#### MER02 — Tool de geração e validação
+
+- Status: pendente.
+- Objetivo: gerar Mermaid sintaticamente válido a partir de uma descrição.
+- Implementação: tool `mermaid.generate` com tipo de diagrama, validação antes do retorno, retries limitados e erro estruturado.
+- Aceite:
+  - A tool retorna Mermaid validado ou erro explícito; nunca marca conteúdo inválido como sucesso.
+
+### Fase 14 — Vision Framework Nativo
+
+#### VIS01 — Ponte nativa do Vision Framework
+
+- Status: pendente.
+- Objetivo: migrar OCR para APIs nativas da Apple e ampliar análise visual on-device.
+- Implementação:
+  1. `vision.text` com `VNRecognizeTextRequest`.
+  2. `vision.classify` com `VNClassifyImageRequest`.
+  3. `vision.barcode` com `VNDetectBarcodesRequest`.
+  4. `vision.saliency` com `VNGenerateAttentionBasedSaliencyImageRequest`.
+  5. Entrada por imagem local, screenshot ou região selecionada.
+- Decisões:
+  - Vision Framework substitui tesseract/OCR.space como implementação de OCR, mas a capacidade funcional de OCR permanece.
+  - Provider multimodal em nuvem fica futuro; esta fase é on-device.
+- Aceite:
+  - Captura exige disclosure e permissão antes da execução.
+  - Resultados incluem confiança, bounding boxes quando disponíveis e erros tipados.
+  - Nenhuma imagem é enviada à rede por esta feature.
+
+### Fase 15 — Ferramentas De Desenvolvimento
+
+#### DEV01 — Git, shell e patch auditáveis
+
+- Status: pendente.
+- Objetivo: permitir que o agente trabalhe em projetos locais dentro de um escopo autorizado.
+- Implementação:
+  1. Tools `git.status`, `git.diff` e `git.log` com permissão `local.read`.
+  2. `shell.exec` com cwd explícito, timeout, limite de saída e aprovação.
+  3. `file.patch` com preview do diff, escrita atômica e rollback quando aplicável.
+  4. Auditoria de comando, argumentos, diretório, duração e resultado.
+- Edge cases:
+  - Bloquear mudança implícita de diretório, escaping do workspace autorizado e comandos interativos sem suporte.
+  - Operações destrutivas nunca são autoaprovadas.
+- Aceite:
+  - Cada mutação mostra o que será alterado antes da aprovação.
+  - Falha parcial não deixa arquivo truncado.
+
+### Fase 16 — Contexto Nativo Do Desktop
+
+#### DESK01 — App ativo, notificações e sistema
+
+- Status: pendente.
+- Objetivo: fornecer contexto útil do macOS sem vigilância invisível.
+- Implementação:
+  1. `desktop.app` para app e janela ativos, com disclosure de Accessibility.
+  2. `desktop.notify` para conclusão, erro ou aprovação pendente de tarefas longas.
+  3. `desktop.system` para versão do macOS, locale, displays, horário e dados não sensíveis.
+  4. Integrar app ativo à Context Bar como contexto opt-in e removível.
+- Aceite:
+  - App ativo não é coletado nem persistido sem consentimento.
+  - Notificações são configuráveis e não expõem conteúdo sensível por padrão.
+  - Revogar permissão remove acesso imediatamente.
+
 ## Fora Da Rodada Visual Atual
+
+> Esta lista continua válida para a rodada visual original. Itens promovidos para a nova rodada permanecem fora do redesign visual, mas agora possuem fases técnicas próprias; isso não representa remoção nem descontinuação.
 
 - Skills customizadas.
 - Profiles avançados (voz, idioma e modelos preferenciais).
-- Anexos de arquivo.
+- Anexos de arquivo — promovidos para `FILE01-FILE02` na rodada técnica.
 - Voz/áudio.
-- Novas ferramentas de runtime/backend.
+- Novas ferramentas de runtime/backend — promovidas parcialmente para `MER02`, `VIS01`, `DEV01` e `DESK01`.
 - Captura contínua de tela antes de FUP01-FUP03, disclosure e validação nativa.
 - Automação silenciosa ou reativação automática de qualquer Follow-up Session.
 
 ## Ordem Recomendada De Commits (atualizada)
 
-1. `feat: refine Helix identity, pet and command palette`
-2. `docs: define continuous workspaces and follow-up backlog`
-3. `feat: persist workspace domain and migrate artifact templates (W01)`
-4. `feat: add continuous workspace shell (W02)`
-5. `feat: expose editable workspace memory and context (W03)`
-6. `feat: ship finance reference workspace (W04)`
-7. `feat: persist follow-up session lifecycle (FUP01)`
-8. `feat: add visible follow-up controls and timeline (FUP02)`
-9. `feat: add writing and debug follow-up modes (FUP03)`
-10. `feat: add consent-driven vision follow-up (FUP04)`
-11. `feat: compact result card for normal mode (R01)`
-12. `feat: permission-oriented context bar (C01)`
-13. `feat: radial V2 second orbit (A02)`
+1. `feat: refine Helix identity, pet and command palette` — concluído.
+2. `docs: define continuous workspaces and follow-up backlog` — concluído.
+3. `fix: keep expanded navigation interactive with settings open (CL01)`.
+4. `feat: snapshot conversation profiles and persist clipboard context (CL02-CL03 / PR03-PR04)`.
+5. `feat: compact result, permission context and radial second orbit (CL04 / R01-C01-A02)`.
+6. `refactor: apply design system and consolidate settings sections (CL05 / D03)`.
+7. `feat: add scoped file context and deterministic document parsers (FILE01-FILE02)`.
+8. `feat: render and validate Mermaid diagrams (MER01-MER02)`.
+9. `feat: add on-device Apple Vision Framework tools (VIS01)`.
+10. `feat: add audited git shell and patch tools (DEV01)`.
+11. `feat: expose consent-driven native desktop context (DESK01)`.
+12. `feat: persist workspace domain and migrate artifact templates (W01)`.
+13. `feat: add continuous workspace shell (W02)`.
+14. `feat: expose editable workspace memory and context (W03)`.
+15. `feat: ship finance reference workspace (W04)`.
+16. `feat: persist follow-up session lifecycle (FUP01)`.
+17. `feat: add visible follow-up controls and timeline (FUP02)`.
+18. `feat: add writing and debug follow-up modes (FUP03)`.
+19. `feat: add consent-driven vision follow-up (FUP04)`.
 
 ## Critérios Gerais de Aceite do Redesign
 

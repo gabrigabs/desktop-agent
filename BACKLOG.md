@@ -111,6 +111,25 @@ Decisões consolidadas no plano canônico:
 
 As unidades executáveis, dependências, edge cases, critérios de aceite e ordem de commits estão em `W01-W04` e `FUP01-FUP04` no [PLANO.md](/Users/gabrielbezerrarodrigues/dev/desktop-agent/PLANO.md).
 
+## Consolidação, Arquivos E Capacidades Nativas (2026-07-10)
+
+A rodada seguinte amplia o produto sem descontinuar as decisões, fases ou entidades anteriores. Workspaces (`W01-W04`) e Follow-up Sessions (`FUP01-FUP04`) continuam no roadmap ativo; a ordem imediata passa a fechar pendências parciais do redesign e preparar ferramentas locais seguras.
+
+Decisões adicionadas ao plano canônico:
+
+- Corrigir a navegação principal bloqueada quando Settings está aberto no modo expanded.
+- Concluir o snapshot de Profile por conversa (`PR03`) e o clipboard como bloco explícito do turn `user` (`PR04`).
+- Concluir segunda órbita do radial (`A02`), resultado compacto (`R01`) e Context Bar orientada a permissões (`C01`).
+- Aplicar o design system às páginas internas antes de mover Profiles, Workflows e Skills para Settings; seus contratos, dados, seleção contextual e execução permanecem ativos.
+- Adicionar trabalho com arquivos e pastas em escopo autorizado, incluindo parsers locais para PDF, CSV, Excel e Markdown.
+- Adicionar renderização Mermaid no chat e uma tool que valida sintaxe antes de retornar o diagrama.
+- Migrar a implementação de OCR para o Vision Framework nativo da Apple, preservando a capacidade de OCR e adicionando classificação, barcode e saliência 100% on-device.
+- Implementar memória persistente por Workspace, alinhada a `W03`; memória global transversal continua futura.
+- Adicionar tools auditáveis de Git, shell e patch, com aprovação e limites de diretório.
+- Adicionar contexto nativo explícito do macOS: app/janela ativa, notificações e informações seguras do sistema.
+
+Novas unidades executáveis no plano: `CL01-CL05`, `FILE01-FILE02`, `MER01-MER02`, `VIS01`, `DEV01` e `DESK01`.
+
 ## Próximo Uso Deste Arquivo
 
 - Registrar contexto histórico que explique por que uma decisão foi tomada.
