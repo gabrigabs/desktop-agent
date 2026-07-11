@@ -154,11 +154,8 @@ export function ExpandedView(p: Props) {
     >
       <main className="min-w-0 min-h-0 overflow-y-auto p-5">
         {p.mode === "history" ? (
-          <div className="max-w-2xl">
-            <h2 className="text-sm font-semibold text-fg mb-3">
-              {t("helix:normalCommandView.historyTitle")}
-            </h2>
-            <HistoryList onSelectConversation={() => p.setMode("command")} />
+          <div className="max-w-5xl">
+            <HistoryList variant="page" onSelectConversation={() => p.setMode("command")} />
           </div>
         ) : p.mode === "artifacts" ? (
           <div className="max-w-5xl">
@@ -187,7 +184,7 @@ export function ExpandedView(p: Props) {
             />
           </div>
         ) : p.mode === "connectors" ? (
-          <div className="max-w-3xl">
+          <div className="max-w-5xl">
             <ConnectorsPanel
               connectors={p.connectors.slice(0, 7)}
               testingConnectorId={p.testingConnectorId}

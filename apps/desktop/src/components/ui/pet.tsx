@@ -81,7 +81,7 @@ export function Pet({ className = "", size = 64, variant = "full", glow = true }
   const detailed = variant === "full" || variant === "hero";
   const hero = variant === "hero";
   const dot = variant === "dot";
-  const markSize = dot ? size * 0.82 : hero ? size * 0.72 : detailed ? size * 0.76 : size * 0.88;
+  const markSize = dot ? size * 0.82 : hero ? size * 0.72 : detailed ? size * 0.84 : size * 0.88;
 
   return (
     <div
@@ -107,20 +107,93 @@ export function Pet({ className = "", size = 64, variant = "full", glow = true }
           <defs>
             <linearGradient id={orbitId} x1="14" y1="20" x2="86" y2="80">
               <stop offset="0" stopColor={config.secondary} stopOpacity="0.08" />
-              <stop offset="0.55" stopColor={config.primary} stopOpacity="0.34" />
-              <stop offset="1" stopColor={config.primary} stopOpacity="0.04" />
+              <stop offset="0.46" stopColor={config.primary} stopOpacity="0.58" />
+              <stop offset="1" stopColor={config.primary} stopOpacity="0.1" />
             </linearGradient>
+            <radialGradient id={`${orbitId}-node`} cx="50%" cy="50%" r="50%">
+              <stop offset="0" stopColor={config.secondary} />
+              <stop offset="0.5" stopColor={config.primary} stopOpacity="0.9" />
+              <stop offset="1" stopColor={config.primary} stopOpacity="0" />
+            </radialGradient>
           </defs>
-          <ellipse
-            cx="50"
-            cy="50"
-            rx={hero ? 46 : 44}
-            ry={hero ? 28 : 26}
-            transform="rotate(-24 50 50)"
-            stroke={`url(#${orbitId})`}
-            strokeWidth="1"
-            strokeDasharray="18 12 3 15"
-          />
+          <g className="helix-orbital-chamber">
+            <ellipse
+              className="helix-orbit-track helix-orbit-track-a"
+              cx="50"
+              cy="50"
+              rx={hero ? 47 : 44}
+              ry={hero ? 27 : 25}
+              transform="rotate(-24 50 50)"
+              stroke={`url(#${orbitId})`}
+              strokeWidth={hero ? 0.9 : 1.8}
+              strokeDasharray="7 15 30 22"
+            />
+            <ellipse
+              className="helix-orbit-sweep helix-orbit-sweep-a"
+              cx="50"
+              cy="50"
+              rx={hero ? 47 : 44}
+              ry={hero ? 27 : 25}
+              transform="rotate(-24 50 50)"
+              stroke={config.primary}
+              strokeWidth={hero ? 1.15 : 2.2}
+              strokeDasharray="1 180"
+              strokeLinecap="round"
+            />
+            <ellipse
+              className="helix-orbit-track helix-orbit-track-b"
+              cx="50"
+              cy="50"
+              rx={hero ? 40 : 38}
+              ry={hero ? 36 : 34}
+              transform="rotate(31 50 50)"
+              stroke={`url(#${orbitId})`}
+              strokeWidth={hero ? 0.7 : 1.45}
+              strokeDasharray="2 10 18 24"
+            />
+            <ellipse
+              className="helix-orbit-sweep helix-orbit-sweep-b"
+              cx="50"
+              cy="50"
+              rx={hero ? 40 : 38}
+              ry={hero ? 36 : 34}
+              transform="rotate(31 50 50)"
+              stroke={config.secondary}
+              strokeWidth={hero ? 0.9 : 1.8}
+              strokeDasharray="1 210"
+              strokeLinecap="round"
+            />
+            <ellipse
+              className="helix-orbit-track helix-orbit-track-c"
+              cx="50"
+              cy="50"
+              rx={hero ? 31 : 30}
+              ry={hero ? 46 : 43}
+              transform="rotate(72 50 50)"
+              stroke={config.secondary}
+              strokeOpacity={hero ? 0.16 : 0.24}
+              strokeWidth={hero ? 0.65 : 1.3}
+              strokeDasharray="1 8"
+            />
+            <g transform="rotate(-24 50 50)">
+              <circle
+                className="helix-orbit-node helix-orbit-node-a"
+                cx={hero ? 97 : 94}
+                cy="50"
+                r="2.8"
+                fill={`url(#${orbitId}-node)`}
+              />
+            </g>
+            <g transform="rotate(31 50 50)">
+              <circle
+                className="helix-orbit-node helix-orbit-node-b"
+                cx="50"
+                cy={hero ? 14 : 16}
+                r="2.2"
+                fill={`url(#${orbitId}-node)`}
+              />
+            </g>
+          </g>
         </svg>
       )}
 

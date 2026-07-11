@@ -1,5 +1,6 @@
 import type { ConnectorConfig, McpTestResult, PermissionLevel } from "@desktop-agent/shared";
 import {
+  Activity,
   AlertCircle,
   Check,
   ChevronDown,
@@ -7,6 +8,8 @@ import {
   Pencil,
   Plus,
   RefreshCw,
+  ServerCog,
+  ShieldCheck,
   Trash2,
   X,
 } from "lucide-react";
@@ -245,24 +248,42 @@ function ConnectorCard({
 
   return (
     <div
-      className={`rounded-lg border ${borderClass} p-3 flex ${variant === "grid" ? "flex-col gap-3" : "items-start justify-between gap-3"} bg-white/[0.02] transition-colors`}
+      className={`relative rounded-2xl border ${borderClass} p-4 flex ${variant === "grid" ? "flex-col gap-4" : "items-start justify-between gap-4"} ${isEditing ? "col-span-full" : ""} bg-white/[0.018] transition-colors hover:bg-white/[0.028]`}
     >
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-fg truncate">{c.name}</span>
-          {c.preset && <Badge variant="default">{t("helix:connectorsPanel.preset")}</Badge>}
-        </div>
-        <div className="text-[10px] text-faint mt-0.5 truncate font-mono">
-          {c.command || c.kind}
-          {c.args && c.args.length > 0 ? ` ${c.args.join(" ")}` : ""}
+        <div className="grid grid-cols-[36px_minmax(0,1fr)_auto] items-start gap-3">
+          <span
+            className={`flex h-9 w-9 items-center justify-center rounded-xl border ${
+              c.enabled
+                ? "border-good/20 bg-good/[0.06] text-good"
+                : "border-line bg-white/[0.025] text-faint"
+            }`}
+          >
+            <ServerCog className="h-4 w-4" />
+          </span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="truncate text-xs font-semibold text-fg">{c.name}</span>
+              {c.preset && <Badge variant="default">{t("helix:connectorsPanel.preset")}</Badge>}
+            </div>
+            <div className="mt-1 truncate font-mono text-[9px] text-faint">
+              {c.command || c.kind}
+              {c.args && c.args.length > 0 ? ` ${c.args.join(" ")}` : ""}
+            </div>
+          </div>
+          <span
+            className={`mt-1 h-2 w-2 rounded-full ${c.enabled ? "bg-good shadow-[0_0_10px_rgba(95,208,160,0.5)]" : "bg-faint"}`}
+            title={c.enabled ? t("helix:connectorsPanel.active") : t("helix:connectorsPanel.off")}
+          />
         </div>
 
-        {/* Status feedback */}
-        <div className="flex items-center gap-2 mt-1.5">
-          <Badge variant={c.enabled ? "success" : "default"}>
-            {c.enabled ? t("helix:connectorsPanel.active") : t("helix:connectorsPanel.off")}
-          </Badge>
-          <span className="text-[9px] text-faint">{timeAgo(c.lastCheckedAt)}</span>
+        <div className="mt-3 flex items-center gap-2 border-y border-line py-2 text-[9px] text-faint">
+          <Activity className="h-3 w-3" />
+          <span>{timeAgo(c.lastCheckedAt)}</span>
+          <span className="ml-auto font-mono">
+            {c.permissionPolicy.length}{" "}
+            {t("helix:connectorsPanel.permissionCount", { count: c.permissionPolicy.length })}
+          </span>
         </div>
 
         {/* Test error feedback */}
@@ -309,9 +330,13 @@ function ConnectorCard({
         )}
 
         {/* Permission tags */}
-        <div className="flex flex-wrap gap-1 mt-2">
+        <div className="mt-3 flex flex-wrap gap-1.5">
           {c.permissionPolicy.map((perm) => (
-            <span key={perm} className="px-1.5 py-0.5 rounded bg-white/5 text-[9px] font-mono text-faint">
+            <span
+              key={perm}
+              className="inline-flex items-center gap-1 rounded-md border border-line bg-white/[0.025] px-1.5 py-0.5 font-mono text-[8px] text-faint"
+            >
+              <ShieldCheck className="h-2.5 w-2.5" />
               {perm}
             </span>
           ))}
@@ -349,7 +374,9 @@ function ConnectorCard({
       </div>
 
       {/* Action buttons */}
-      <div className={`shrink-0 flex ${variant === "grid" ? "mt-auto" : "flex-col items-end"} gap-1.5`}>
+      <div
+        className={`shrink-0 flex ${variant === "grid" ? "mt-auto border-t border-line pt-3" : "flex-col items-end"} gap-1.5`}
+      >
         <div className="flex items-center gap-1.5">
           <Button variant="secondary" size="sm" onClick={() => onTest(c.id)} disabled={isTesting}>
             {isTesting ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
@@ -402,6 +429,8 @@ export function ConnectorsPanel({
   variant = "list",
 }: Props) {
   const { t } = useTranslation("helix");
+  const activeCount = connectors.filter((connector) => connector.enabled).length;
+  const errorCount = connectors.filter((connector) => Boolean(connector.lastError)).length;
   if (connectors.length === 0 && !showAddConnector) {
     return (
       <div className="py-8 text-center flex flex-col gap-3">
@@ -416,11 +445,36 @@ export function ConnectorsPanel({
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs font-semibold text-fg">{t("helix:connectorsPanel.title")}</p>
-          <p className="text-[10px] text-faint mt-0.5">{t("helix:connectorsPanel.description")}</p>
+    <div className="flex flex-col gap-5">
+      <header
+        className={`grid gap-4 border-b border-line ${
+          variant === "grid"
+            ? "pb-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"
+            : "pb-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+        }`}
+      >
+        <div className="min-w-0">
+          {variant === "grid" && (
+            <>
+              <div className="mb-2 flex items-center gap-2 text-[9px] font-mono uppercase tracking-[0.16em] text-faint">
+                <Activity className="h-3 w-3 text-good" />
+                {t("helix:connectorsPanel.runtimeLayer")}
+              </div>
+              <p className="text-lg font-semibold tracking-tight text-fg">
+                {t("helix:connectorsPanel.title")}
+              </p>
+            </>
+          )}
+          <p
+            className={`${variant === "grid" ? "mt-1.5 text-xs" : "text-[10px]"} max-w-2xl leading-relaxed text-mute`}
+          >
+            {t("helix:connectorsPanel.description")}
+          </p>
+          <div className="mt-3 flex items-center gap-3 text-[9px] text-faint">
+            <span>{t("helix:connectorsPanel.activeCount", { count: activeCount })}</span>
+            <span className="h-1 w-1 rounded-full bg-line-strong" />
+            <span>{t("helix:connectorsPanel.errorCount", { count: errorCount })}</span>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {onShowAddConnector && (
@@ -438,11 +492,11 @@ export function ConnectorsPanel({
             </Button>
           )}
         </div>
-      </div>
+      </header>
 
       {/* Add connector form */}
       {showAddConnector && onSaveConnector && onCancelEditing && (
-        <div className="rounded-lg border border-signal/20 bg-signal/[0.02] p-3">
+        <div className="rounded-2xl border border-signal/20 bg-signal/[0.02] p-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] font-bold text-signal uppercase">
               {t("helix:connectorsPanel.newConnector")}
@@ -455,7 +509,7 @@ export function ConnectorsPanel({
         </div>
       )}
 
-      <div className={variant === "grid" ? "grid grid-cols-2 gap-3" : "flex flex-col gap-2"}>
+      <div className={variant === "grid" ? "grid gap-3 lg:grid-cols-2" : "flex flex-col gap-3"}>
         {connectors.map((c) => (
           <ConnectorCard
             key={c.id}

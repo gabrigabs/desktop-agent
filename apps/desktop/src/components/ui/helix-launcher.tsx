@@ -152,13 +152,13 @@ export function HelixLauncher(props: HelixLauncherProps) {
   return (
     <div
       ref={containerRef}
-      className="relative flex items-center justify-center w-full h-full overflow-hidden rounded-full"
+      className="helix-launcher relative flex items-center justify-center w-full h-full overflow-hidden rounded-full"
       style={{ clipPath: menuOpen ? "circle(50%)" : undefined }}
     >
       {/* Dynamic background that makes the pet stand out on bright wallpapers */}
       <div
         className={`absolute rounded-full pointer-events-none transition-all duration-300 ease-out ${
-          menuOpen ? "w-full h-full opacity-[0.97]" : "w-[82px] h-[82px] opacity-75"
+          menuOpen ? "w-full h-full opacity-[0.98]" : "w-[78px] h-[78px] opacity-[0.94]"
         }`}
         style={{
           background:
@@ -169,6 +169,32 @@ export function HelixLauncher(props: HelixLauncherProps) {
             "inset 0 0 0 1px rgba(255,255,255,0.08), inset 0 1px 0 rgba(255,255,255,0.035), 0 22px 56px rgba(0,0,0,0.42)",
         }}
       />
+
+      {!menuOpen && (
+        <svg
+          className="pointer-events-none absolute left-1/2 top-1/2 h-[84px] w-[84px] -translate-x-1/2 -translate-y-1/2"
+          viewBox="0 0 84 84"
+          fill="none"
+          aria-hidden="true"
+        >
+          <path
+            className="helix-launcher-arc helix-launcher-arc-a"
+            d="M15 45 C18 66 58 72 70 46"
+            stroke="rgba(196, 153, 244, 0.68)"
+            strokeWidth="1.25"
+            strokeLinecap="round"
+            strokeDasharray="18 7 2 12"
+          />
+          <path
+            className="helix-launcher-arc helix-launcher-arc-b"
+            d="M20 29 C31 12 57 13 66 31"
+            stroke="rgba(120, 221, 232, 0.46)"
+            strokeWidth="1"
+            strokeLinecap="round"
+            strokeDasharray="3 9 14 8"
+          />
+        </svg>
+      )}
 
       {menuOpen && (
         <>
@@ -325,7 +351,7 @@ export function HelixLauncher(props: HelixLauncherProps) {
         title={menuOpen ? t("helix:helixLauncher.closeMenuHint") : t("helix:helixLauncher.openMenuHint")}
       >
         <div className="relative">
-          <Pet size={menuOpen ? 64 : petSize} glow={menuOpen} />
+          <Pet size={menuOpen ? 72 : petSize} variant={menuOpen ? "full" : "compact"} glow />
         </div>
       </button>
 

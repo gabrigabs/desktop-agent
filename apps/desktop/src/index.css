@@ -181,6 +181,7 @@ select:focus-visible {
 }
 @keyframes twinkle { 0%, 100% { opacity: 0.2; transform: scale(0.8); } 50% { opacity: 0.8; transform: scale(1.2); } }
 @keyframes pulse-soft { 0%, 100% { opacity: 0.55; transform: scale(1); } 50% { opacity: 0.9; transform: scale(1.06); } }
+@keyframes launcher-arc-flow { to { stroke-dashoffset: -78; } }
 
 .animate-spin-clockwise { animation: spin-clockwise 10s linear infinite; transform-origin: center; }
 .animate-spin-counter { animation: spin-counter 14s linear infinite; transform-origin: center; }
@@ -194,6 +195,22 @@ select:focus-visible {
 .animate-thinking-3 { animation: thinking-dot 1.4s ease-in-out infinite 0.4s; }
 .animate-pet-breathe { animation: pet-breathe 3.2s ease-in-out infinite; }
 .animate-float { animation: float-gentle 5s ease-in-out infinite; }
+
+.helix-launcher-arc {
+  animation: launcher-arc-flow 9s linear infinite;
+  transition: opacity 180ms ease, stroke-width 180ms ease;
+}
+
+.helix-launcher-arc-b {
+  animation-duration: 12s;
+  animation-direction: reverse;
+}
+
+.helix-launcher:hover .helix-launcher-arc {
+  animation-duration: 3s;
+  opacity: 1;
+  stroke-width: 1.5;
+}
 
 .pet-companion {
   cursor: inherit;
@@ -250,10 +267,64 @@ select:focus-visible {
   animation: helix-mark-success 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.helix-seed[data-state="connecting"] .helix-seed-orbits,
-.helix-seed[data-state="thinking"] .helix-seed-orbits,
-.helix-seed[data-state="using_tool"] .helix-seed-orbits {
-  animation: helix-seed-orbit 6s linear infinite;
+.helix-orbit-track {
+  fill: none;
+  animation: helix-orbit-flow 16s linear infinite;
+}
+
+.helix-orbit-track-b {
+  animation-duration: 20s;
+  animation-direction: reverse;
+}
+
+.helix-orbit-track-c {
+  animation-duration: 28s;
+}
+
+.helix-orbit-sweep {
+  fill: none;
+  filter: drop-shadow(0 0 2px currentColor);
+  opacity: 0.72;
+  animation: helix-orbit-sweep 9s linear infinite;
+}
+
+.helix-orbit-sweep-b {
+  animation-duration: 13s;
+  animation-direction: reverse;
+  opacity: 0.42;
+}
+
+.helix-seed:hover .helix-orbit-sweep,
+.helix-seed:focus-visible .helix-orbit-sweep {
+  animation-duration: 2.2s;
+  opacity: 1;
+}
+
+.helix-orbit-node {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: helix-orbit-node 4.8s ease-in-out infinite;
+}
+
+.helix-orbit-node-b {
+  animation-delay: -2.4s;
+}
+
+.helix-seed[data-state="connecting"] .helix-orbit-track,
+.helix-seed[data-state="thinking"] .helix-orbit-track,
+.helix-seed[data-state="using_tool"] .helix-orbit-track {
+  animation-duration: 3.2s;
+}
+
+.helix-seed[data-state="connecting"] .helix-orbit-sweep,
+.helix-seed[data-state="thinking"] .helix-orbit-sweep,
+.helix-seed[data-state="using_tool"] .helix-orbit-sweep {
+  animation-duration: 2.8s;
+  opacity: 0.92;
+}
+
+.helix-seed[data-state="waiting_approval"] .helix-orbit-track {
+  animation: helix-orbit-hold 1.8s ease-in-out infinite;
 }
 
 .helix-seed[data-state="thinking"] .helix-seed-glow,
@@ -295,9 +366,22 @@ select:focus-visible {
   50% { opacity: 0.46; transform: scale(1.04); }
 }
 
-@keyframes helix-seed-orbit {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+@keyframes helix-orbit-flow {
+  to { stroke-dashoffset: -116; }
+}
+
+@keyframes helix-orbit-sweep {
+  to { stroke-dashoffset: -240; }
+}
+
+@keyframes helix-orbit-node {
+  0%, 100% { opacity: 0.34; transform: scale(0.72); }
+  50% { opacity: 1; transform: scale(1.18); }
+}
+
+@keyframes helix-orbit-hold {
+  0%, 100% { opacity: 0.42; stroke-dashoffset: 0; }
+  50% { opacity: 0.95; stroke-dashoffset: -8; }
 }
 
 @keyframes helix-seed-alert {
@@ -527,6 +611,10 @@ select:focus-visible {
   .helix-mark-ribbon,
   .helix-mark-ribbons,
   .helix-seed-orbits,
+  .helix-orbit-track,
+  .helix-orbit-sweep,
+  .helix-orbit-node,
+  .helix-launcher-arc,
   .animate-pulse-fast,
   .animate-thinking-1,
   .animate-thinking-2,

@@ -196,9 +196,7 @@ export function SettingsPanel(p: SettingsPanelProps) {
 
   const submitSettings = (event: React.FormEvent) => {
     event.preventDefault();
-    void p.handleSaveSettings(event).then((ok) => {
-      if (ok) p.onClose();
-    });
+    void p.handleSaveSettings(event);
   };
 
   const handleProviderChange = (next: string) => {
@@ -216,11 +214,15 @@ export function SettingsPanel(p: SettingsPanelProps) {
     <div className="absolute inset-0 z-30 flex select-none bg-ink/96 backdrop-blur-xl">
       <form
         onSubmit={submitSettings}
-        className={`grid h-full w-full ${compact ? "grid-rows-[auto_minmax(0,1fr)_auto]" : "grid-cols-[224px_minmax(0,1fr)]"}`}
+        className={`grid h-full w-full ${
+          compact
+            ? "grid-rows-[auto_minmax(0,1fr)_auto]"
+            : "grid-cols-[216px_minmax(0,1fr)] grid-rows-[minmax(0,1fr)_auto]"
+        }`}
       >
         <aside
-          className={`min-w-0 border-line bg-white/[0.015] ${
-            compact ? "border-b px-4 py-3" : "row-span-2 border-r p-4"
+          className={`min-w-0 border-line bg-white/[0.012] ${
+            compact ? "border-b px-4 py-3" : "row-span-2 flex min-h-0 flex-col border-r p-3.5"
           }`}
         >
           <div className="flex items-center justify-between gap-3">
@@ -255,7 +257,10 @@ export function SettingsPanel(p: SettingsPanelProps) {
               <ChevronDown className="pointer-events-none absolute right-3 top-3 w-4 h-4 text-faint" />
             </label>
           ) : (
-            <nav className="mt-5 grid gap-1" aria-label={t("settings:navLabel")}>
+            <nav
+              className="mt-5 grid min-h-0 flex-1 content-start gap-0.5 overflow-y-auto pr-1"
+              aria-label={t("settings:navLabel")}
+            >
               {sections.all.map((section) => {
                 const Icon = section.icon;
                 const active = section.id === activeSection;
@@ -264,18 +269,15 @@ export function SettingsPanel(p: SettingsPanelProps) {
                     key={section.id}
                     type="button"
                     onClick={() => setActiveSection(section.id)}
-                    className={`rounded-lg border px-3 py-2 text-left transition-colors ${
+                    className={`relative rounded-lg border px-3 py-2 text-left transition-colors ${
                       active
-                        ? "border-signal/25 bg-signal/10 text-fg"
+                        ? "border-line-strong bg-white/[0.055] text-fg before:absolute before:bottom-2 before:left-0 before:top-2 before:w-px before:bg-signal"
                         : "border-transparent text-mute hover:bg-white/[0.035] hover:text-fg"
                     }`}
                   >
                     <span className="flex items-center gap-2 text-xs font-semibold">
                       <Icon className={`w-3.5 h-3.5 ${active ? "text-signal" : "text-faint"}`} />
                       {section.label}
-                    </span>
-                    <span className="mt-0.5 block pl-5.5 text-[9px] leading-relaxed text-faint">
-                      {section.description}
                     </span>
                   </button>
                 );
@@ -284,23 +286,23 @@ export function SettingsPanel(p: SettingsPanelProps) {
           )}
 
           {!compact && (
-            <div className="mt-4 rounded-xl border border-line bg-white/[0.02] p-3 text-[10px] leading-relaxed text-faint">
+            <div className="mt-3 shrink-0 border-t border-line px-2 pt-3 text-[9px] leading-relaxed text-faint">
               {t("settings:localNotice")}
             </div>
           )}
         </aside>
 
-        <main className="min-w-0 min-h-0 flex flex-col overflow-hidden">
-          <header className="border-b border-line px-5 py-3">
+        <main className="flex min-h-0 min-w-0 flex-col overflow-hidden">
+          <header className="shrink-0 border-b border-line px-5 py-4">
             <div className="flex items-center gap-2">
-              <h2 className="text-sm font-bold text-fg">{currentSection.label}</h2>
+              <h2 className="text-base font-semibold tracking-tight text-fg">{currentSection.label}</h2>
               {p.savingSettings && <Badge variant="signal">{t("common:saving")}</Badge>}
               {justSaved && !p.savingSettings && <Badge variant="success">{t("common:saved")}</Badge>}
             </div>
             <p className="mt-1 text-xs text-faint">{currentSection.description}</p>
           </header>
 
-          <div className="flex-1 overflow-y-auto p-5">
+          <div className="min-h-0 flex-1 overflow-y-auto p-5 overscroll-contain">
             <div className="mx-auto w-full max-w-4xl">
               {activeSection === "general" && (
                 <GeneralSection
@@ -327,32 +329,22 @@ export function SettingsPanel(p: SettingsPanelProps) {
           </div>
         </main>
 
-        <footer
-          className={`border-line bg-white/[0.012] px-5 py-3 flex items-center justify-end gap-2 ${
-            compact ? "border-t" : "border-t"
-          }`}
-        >
+        <footer className="flex min-w-0 items-center gap-2 border-t border-line bg-[#0d0b12]/96 px-5 py-3">
+          <span className="mr-auto text-[10px] text-faint">
+            {isDirty ? t("common:unsaved") : t("common:saved")}
+          </span>
           <Button type="button" variant="secondary" onClick={p.onClose}>
             {t("common:cancel")}
           </Button>
           <Button
             type="submit"
             variant="primary"
-            disabled={p.savingSettings || needsApiKey || timeoutOutOfRange}
+            disabled={!isDirty || p.savingSettings || needsApiKey || timeoutOutOfRange}
           >
             {p.savingSettings ? `${t("common:saving")}...` : t("common:saveSettings")}
           </Button>
         </footer>
       </form>
-    </div>
-  );
-}
-
-function SectionIntro({ title, description }: { title: string; description: string }) {
-  return (
-    <div className="mb-4">
-      <h3 className="text-sm font-bold text-fg">{title}</h3>
-      <p className="mt-1 text-xs leading-relaxed text-mute">{description}</p>
     </div>
   );
 }
@@ -391,7 +383,6 @@ function GeneralSection({
   const modeLabel = { collapsed: "Pet", normal: "Normal", expanded: "Expandido" }[settings.lastWindowMode];
   return (
     <div>
-      <SectionIntro title={t("settings:general.title")} description={t("settings:general.description")} />
       <div className="grid gap-3 md:grid-cols-2">
         <Card>
           <div className="flex items-center gap-2 text-xs font-semibold text-fg">
@@ -445,7 +436,6 @@ function ModelSection({
   const apiKeyId = useId();
   return (
     <div>
-      <SectionIntro title={t("settings:model.title")} description={t("settings:model.description")} />
       <Card className="grid gap-4 md:grid-cols-2">
         <label className="flex flex-col gap-1.5">
           <span className="text-xs font-semibold text-mute">{t("common:provider")}</span>
@@ -553,7 +543,6 @@ function PetSection({ p }: { p: SettingsPanelProps }) {
   const { t } = useTranslation(["settings", "common"]);
   return (
     <div>
-      <SectionIntro title={t("settings:pet.title")} description={t("settings:pet.description")} />
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <label className="flex flex-col gap-2 text-xs font-semibold text-fg">
@@ -641,7 +630,6 @@ function ShortcutsSection() {
   ];
   return (
     <div>
-      <SectionIntro title={t("settings:shortcuts.title")} description={t("settings:shortcuts.description")} />
       <div className="grid gap-2">
         {shortcuts.map(([title, value, status]) => (
           <div
@@ -666,7 +654,6 @@ function PrivacySection() {
   const { t } = useTranslation(["settings", "common"]);
   return (
     <div>
-      <SectionIntro title={t("settings:privacy.title")} description={t("settings:privacy.description")} />
       <div className="grid gap-2">
         <StatusRow
           title={t("settings:privacy.clipboard")}
@@ -697,7 +684,6 @@ function ConnectorsSection() {
   const { t } = useTranslation(["settings", "common"]);
   return (
     <div>
-      <SectionIntro title={t("common:connectors")} description={t("settings:connectors.description")} />
       <div className="grid gap-3 md:grid-cols-2">
         {["Brave Search", "Filesystem escopado", "Firecrawl", "GitHub", "Jina Reader/Search"].map(
           (connector, index) => (
@@ -723,7 +709,6 @@ function ArtifactsSection() {
   const { t } = useTranslation(["settings", "helix"]);
   return (
     <div>
-      <SectionIntro title={t("settings:artifacts.title")} description={t("settings:artifacts.description")} />
       <div className="grid gap-3 md:grid-cols-2">
         {HELIX_ARTIFACTS.map((artifact) => (
           <Card key={artifact.id}>
@@ -754,7 +739,6 @@ function WorkflowsSection() {
   const { t } = useTranslation(["settings"]);
   return (
     <div>
-      <SectionIntro title={t("common:workflows")} description={t("settings:workflows.description")} />
       <StatusRow
         title={t("settings:workflows.pinRadial")}
         description={t("settings:workflows.pinRadialHint")}
@@ -773,7 +757,6 @@ function DataSection() {
   const { t } = useTranslation(["settings", "common"]);
   return (
     <div>
-      <SectionIntro title={t("settings:data.title")} description={t("settings:data.description")} />
       <div className="grid gap-2">
         <StatusRow title={t("settings:data.retention")} description={t("settings:data.retentionHint")} />
         <StatusRow title={t("settings:data.export")} description={t("settings:data.exportHint")} />
@@ -794,7 +777,6 @@ function AdvancedSection({ p, timeoutOutOfRange }: { p: SettingsPanelProps; time
   const baseUrlId = useId();
   return (
     <div>
-      <SectionIntro title={t("common:advanced")} description={t("settings:advanced.description")} />
       <Card className="grid gap-4 md:grid-cols-2">
         <label htmlFor={timeoutId} className="flex flex-col gap-1.5">
           <span className="text-xs font-semibold text-mute flex items-center gap-1.5">

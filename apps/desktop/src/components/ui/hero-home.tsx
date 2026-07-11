@@ -15,54 +15,19 @@ export function HeroHome({ expanded, footer, profiles, activeProfileId, onSetAct
   return (
     <div
       className={`relative flex flex-col items-center justify-center gap-2 overflow-visible w-full ${
-        expanded ? "py-3" : "py-2"
+        expanded ? "py-4" : "py-2"
       }`}
     >
       <div
-        className="absolute inset-0 -z-10 pointer-events-none opacity-55"
+        className="absolute inset-0 -z-10 pointer-events-none opacity-60"
         style={{
-          background: "radial-gradient(ellipse at 50% 55%, rgba(185, 130, 255, 0.12) 0%, transparent 42%)",
+          background:
+            "radial-gradient(ellipse at 50% 52%, rgba(196, 155, 244, 0.11) 0%, rgba(120, 221, 232, 0.025) 34%, transparent 62%)",
         }}
       />
 
-      {/* Symbol wrapper: rings and Pet centered together */}
-      <div className="relative flex items-center justify-center">
-        <svg
-          className="-z-10 pointer-events-none"
-          width={expanded ? 250 : 210}
-          height={expanded ? 190 : 164}
-          viewBox="0 0 220 170"
-          aria-hidden="true"
-        >
-          <ellipse
-            cx="110"
-            cy="85"
-            rx={expanded ? 94 : 78}
-            ry={expanded ? 44 : 38}
-            transform="rotate(-14 110 85)"
-            fill="none"
-            stroke="rgba(185, 130, 255, 0.12)"
-            strokeWidth="1"
-            strokeDasharray="18 12 3 15"
-            className="animate-spin-slow"
-          />
-          <ellipse
-            cx="110"
-            cy="85"
-            rx={expanded ? 76 : 66}
-            ry={expanded ? 56 : 48}
-            transform="rotate(28 110 85)"
-            fill="none"
-            stroke="rgba(53, 214, 255, 0.07)"
-            strokeWidth="1"
-            strokeDasharray="4 17"
-          />
-        </svg>
-
-        {/* Hero pet with entrance animation */}
-        <div className="hero-enter absolute z-10 p-4 flex items-center justify-center">
-          <Pet size={expanded ? 124 : 104} variant="hero" glow />
-        </div>
+      <div className="hero-enter relative flex items-center justify-center">
+        <Pet size={expanded ? 166 : 126} variant="hero" glow />
       </div>
 
       {/* Profile switch */}
@@ -88,7 +53,7 @@ export function HeroHome({ expanded, footer, profiles, activeProfileId, onSetAct
           animation: hero-enter 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
         }
         @media (prefers-reduced-motion: reduce) {
-          .hero-enter, .animate-spin-slow, .animate-pulse-soft { animation: none !important; }
+          .hero-enter { animation: none !important; }
         }
       `}</style>
     </div>

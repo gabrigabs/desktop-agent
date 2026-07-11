@@ -179,6 +179,7 @@ export function NormalCommandView(p: Props) {
       ) : p.mode === "artifacts" ? (
         <PanelWrapper title={t("helix:normalCommandView.artifacts")} onBack={() => p.setMode("command")}>
           <ArtifactsPanel
+            variant="compact"
             onUseAction={(_artifact, action) => {
               p.onStarterAction(action.prompt);
               p.setMode("command");

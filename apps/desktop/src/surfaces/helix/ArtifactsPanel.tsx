@@ -2,10 +2,10 @@ import { type ArtifactAction, HELIX_ARTIFACTS, type HelixArtifact } from "@deskt
 import {
   ArrowRight,
   Boxes,
-  Check,
   Code2,
   GraduationCap,
   Landmark,
+  LayoutGrid,
   Orbit,
   PenLine,
   ShieldCheck,
@@ -14,11 +14,10 @@ import {
 import type { ComponentType } from "react";
 import { useTranslation } from "react-i18next";
 import { Badge } from "../../components/ui/badge";
-import { Button } from "../../components/ui/button";
-import { Card } from "../../components/ui/card";
 
 type Props = {
   onUseAction: (artifact: HelixArtifact, action: ArtifactAction) => void;
+  variant?: "compact" | "page";
 };
 
 const ICONS: Record<string, ComponentType<{ className?: string }>> = {
@@ -43,115 +42,130 @@ function getArtifactActionKey(artifactId: string, actionId: string): string {
   return `helix:radialArtifacts.${artifactId}.${suffix}`;
 }
 
-export function ArtifactsPanel({ onUseAction }: Props) {
+export function ArtifactsPanel({ onUseAction, variant = "page" }: Props) {
   const { t } = useTranslation("helix");
   const modeLabels = useModeLabels();
   return (
-    <div className="flex flex-col gap-5">
-      <header className="flex items-start justify-between gap-4">
+    <div className="flex flex-col gap-6">
+      <header
+        className={`grid gap-4 border-b border-line ${
+          variant === "page"
+            ? "pb-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"
+            : "pb-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+        }`}
+      >
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <Orbit className="w-4 h-4 text-signal" />
-            <h2 className="text-sm font-bold text-fg">{t("helix:artifactsPanel.title")}</h2>
-            <Badge variant="signal">{t("helix:artifactsPanel.experimental")}</Badge>
-          </div>
-          <p className="mt-1.5 max-w-2xl text-[11px] leading-relaxed text-mute">
+          {variant === "page" && (
+            <>
+              <div className="mb-2 flex items-center gap-2 text-[9px] font-mono uppercase tracking-[0.16em] text-faint">
+                <Orbit className="h-3 w-3 text-signal" />
+                {t("helix:artifactsPanel.catalog")}
+              </div>
+              <h2 className="text-lg font-semibold tracking-tight text-fg">
+                {t("helix:artifactsPanel.title")}
+              </h2>
+            </>
+          )}
+          <p
+            className={`${variant === "page" ? "mt-1.5 text-xs" : "text-[10px]"} max-w-2xl leading-relaxed text-mute`}
+          >
             {t("helix:artifactsPanel.description")}
           </p>
         </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          className="whitespace-nowrap"
-          disabled
-          title={t("helix:artifactsPanel.createDisabled")}
-        >
-          {t("helix:artifactsPanel.createArtifact")}
-        </Button>
+        <div className="flex items-center gap-2 text-[10px] text-faint">
+          <LayoutGrid className="h-3.5 w-3.5" />
+          {t("helix:artifactsPanel.availableCount", { count: HELIX_ARTIFACTS.length })}
+        </div>
       </header>
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        {HELIX_ARTIFACTS.map((artifact, index) => {
+      <div className="grid gap-3 lg:grid-cols-2">
+        {HELIX_ARTIFACTS.map((artifact) => {
           const Icon = ICONS[artifact.icon] ?? Orbit;
           return (
-            <Card
+            <article
               key={artifact.id}
-              className={`flex flex-col gap-4 bg-ink/45 ${index === 0 ? "border-good/30" : ""}`}
+              className="group relative flex min-w-0 flex-col overflow-hidden rounded-2xl border border-line bg-white/[0.018] transition-colors hover:border-line-strong hover:bg-white/[0.028]"
             >
-              <div className="flex items-start gap-3">
+              <span
+                className="absolute inset-y-0 left-0 w-px opacity-75"
+                style={{ backgroundColor: artifact.color }}
+                aria-hidden="true"
+              />
+              <div className="flex items-start gap-3.5 p-4 pb-3.5">
                 <div
-                  className="w-10 h-10 shrink-0 rounded-xl border flex items-center justify-center"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border"
                   style={{
                     color: artifact.color,
-                    borderColor: `${artifact.color}40`,
-                    backgroundColor: `${artifact.color}12`,
+                    borderColor: `${artifact.color}32`,
+                    backgroundColor: `${artifact.color}0d`,
                   }}
                 >
-                  <Icon className="w-5 h-5" />
+                  <Icon className="h-4.5 w-4.5" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-sm font-bold text-fg">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="truncate text-sm font-semibold text-fg">
                       {t(`helix:radialArtifacts.${artifact.id}.name`)}
                     </h3>
-                    {index === 0 && <Badge variant="success">{t("helix:artifactsPanel.featured")}</Badge>}
-                    <Badge>{modeLabels[artifact.ui.preferredMode]}</Badge>
+                    <Badge className="shrink-0 font-mono">{modeLabels[artifact.ui.preferredMode]}</Badge>
                   </div>
-                  <p className="mt-1 text-[11px] font-medium text-mute">
+                  <p className="mt-1 text-[11px] leading-relaxed text-mute">
                     {t(`helix:radialArtifacts.${artifact.id}.shortDescription`)}
                   </p>
                 </div>
               </div>
 
-              <p className="text-[11px] leading-relaxed text-mute">
+              <p className="px-4 pb-3 text-[10px] leading-relaxed text-faint">
                 {t(`helix:radialArtifacts.${artifact.id}.description`)}
               </p>
 
-              <div className="flex flex-wrap gap-1.5">
-                {artifact.capabilities.slice(0, 4).map((capability) => (
-                  <Badge key={capability}>{capability}</Badge>
+              <div className="mx-4 flex flex-wrap gap-x-3 gap-y-1 border-y border-line py-2.5">
+                {artifact.capabilities.slice(0, 3).map((capability) => (
+                  <span key={capability} className="text-[9px] text-mute">
+                    {capability}
+                  </span>
                 ))}
               </div>
 
-              <div className="grid gap-2 sm:grid-cols-2">
+              <div className="mt-3 grid gap-px bg-line">
                 {artifact.quickActions.map((action) => (
                   <button
                     key={action.id}
                     type="button"
                     aria-label={`${t(`helix:radialArtifacts.${artifact.id}.name`)}: ${t(getArtifactActionKey(artifact.id, action.id))}`}
                     onClick={() => onUseAction(artifact, action)}
-                    className="group min-h-14 rounded-xl border border-line-strong bg-ink/35 px-3 py-2.5 text-left transition-colors hover:border-signal/30 hover:bg-white/[0.06]"
+                    className="group/action grid min-h-11 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 bg-[#0e0c14] px-4 py-2.5 text-left transition-colors hover:bg-white/[0.045]"
                   >
-                    <span className="flex items-center justify-between gap-2 text-[11px] font-semibold text-fg">
-                      {t(getArtifactActionKey(artifact.id, action.id))}
-                      <ArrowRight className="w-3.5 h-3.5 text-faint transition-transform group-hover:translate-x-0.5 group-hover:text-fg" />
-                    </span>
-                    {action.description && (
-                      <span className="mt-1 block text-[9px] leading-relaxed text-mute">
-                        {t(`${getArtifactActionKey(artifact.id, action.id)}Description`)}
+                    <span className="min-w-0">
+                      <span className="block text-[10px] font-semibold text-fg">
+                        {t(getArtifactActionKey(artifact.id, action.id))}
                       </span>
-                    )}
+                      {action.description && (
+                        <span className="mt-0.5 block truncate text-[9px] text-faint">
+                          {t(`${getArtifactActionKey(artifact.id, action.id)}Description`)}
+                        </span>
+                      )}
+                    </span>
+                    <ArrowRight className="h-3.5 w-3.5 text-faint transition-transform group-hover/action:translate-x-0.5 group-hover/action:text-fg" />
                   </button>
                 ))}
               </div>
 
-              <div className="mt-auto flex flex-wrap items-center gap-3 border-t border-line pt-3 text-[9px] text-mute">
+              <div className="mt-auto flex flex-wrap items-center gap-3 px-4 py-3 text-[8px] text-faint">
                 <span className="flex items-center gap-1">
-                  <ShieldCheck className="w-3 h-3" />
+                  <ShieldCheck className="h-3 w-3" />
                   {t("helix:artifactsPanel.confirmation")}{" "}
                   {artifact.contextPolicy.requiresConfirmationForSensitiveActions
                     ? t("helix:artifactsPanel.confirmationActive")
                     : t("helix:artifactsPanel.confirmationOnDemand")}
                 </span>
                 <span className="flex items-center gap-1">
-                  <Wrench className="w-3 h-3" />
+                  <Wrench className="h-3 w-3" />
                   {artifact.tools.length} {t("helix:artifactsPanel.toolsLabel")}
                 </span>
-                <span className="flex items-center gap-1 text-good">
-                  <Check className="w-3 h-3" />v{artifact.version}
-                </span>
+                <span className="ml-auto font-mono">v{artifact.version}</span>
               </div>
-            </Card>
+            </article>
           );
         })}
       </div>
