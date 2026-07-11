@@ -1,9 +1,9 @@
 import { HELIX_ACTIONS, type HelixAction } from "@desktop-agent/shared";
-import { Clipboard, Globe, MessageCircle, Orbit, Scan, Workflow } from "lucide-react";
-import type { ComponentType } from "react";
+import { Orbit } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { setLauncherMenuOpen, startWindowDrag } from "../../lib/window";
+import { LAUNCHER_MENU_SIZE, setLauncherMenuOpen, startWindowDrag } from "../../lib/window";
+import { HELIX_ACTION_ICONS } from "./helix-action-icon";
 import { Pet } from "./pet";
 
 interface HelixLauncherProps {
@@ -12,20 +12,11 @@ interface HelixLauncherProps {
   onAction: (action: HelixAction) => void;
 }
 
-const MENU_SIZE = 420;
-const ORBIT_RADIUS = 142;
+const MENU_SIZE = LAUNCHER_MENU_SIZE;
+const ORBIT_RADIUS = 122;
 const START_ANGLE = -72;
-const RAY_OFFSET = 28;
-const HIT_SIZE = 48;
-
-const ACTION_ICONS: Record<string, ComponentType<{ className?: string }>> = {
-  "message-circle": MessageCircle,
-  clipboard: Clipboard,
-  scan: Scan,
-  globe: Globe,
-  workflow: Workflow,
-  orbit: Orbit,
-};
+const RAY_OFFSET = 34;
+const HIT_SIZE = 44;
 
 function useRadialActions() {
   const { t } = useTranslation("helix");
@@ -34,7 +25,7 @@ function useRadialActions() {
     source: action,
     label: t(`helix:radialActions.${action.id}.title`),
     description: t(`helix:radialActions.${action.id}.description`),
-    icon: ACTION_ICONS[action.icon] ?? Orbit,
+    icon: HELIX_ACTION_ICONS[action.icon] ?? Orbit,
     accent: action.color,
     bg: `${action.color}2e`,
   }));
@@ -155,7 +146,7 @@ export function HelixLauncher(props: HelixLauncherProps) {
       setClickingIndex(null);
       props.onAction(action.source);
       setMenuOpen(false);
-    }, 300);
+    }, 140);
   };
 
   return (
@@ -166,16 +157,16 @@ export function HelixLauncher(props: HelixLauncherProps) {
     >
       {/* Dynamic background that makes the pet stand out on bright wallpapers */}
       <div
-        className={`absolute rounded-full pointer-events-none transition-all duration-500 ease-out ${
-          menuOpen ? "w-full h-full opacity-95" : "w-[96px] h-[96px] opacity-85"
+        className={`absolute rounded-full pointer-events-none transition-all duration-300 ease-out ${
+          menuOpen ? "w-full h-full opacity-[0.97]" : "w-[82px] h-[82px] opacity-75"
         }`}
         style={{
           background:
-            "radial-gradient(circle at 48% 44%, rgba(31, 26, 44, 0.97) 0%, rgba(14, 12, 22, 0.94) 58%, rgba(8, 7, 13, 0.88) 100%)",
-          backdropFilter: "blur(18px) saturate(115%)",
-          WebkitBackdropFilter: "blur(18px) saturate(115%)",
+            "radial-gradient(circle at 48% 44%, rgba(27, 24, 36, 0.96) 0%, rgba(13, 12, 19, 0.95) 62%, rgba(8, 7, 12, 0.9) 100%)",
+          backdropFilter: "blur(20px) saturate(108%)",
+          WebkitBackdropFilter: "blur(20px) saturate(108%)",
           boxShadow:
-            "inset 0 0 0 1px rgba(255,255,255,0.09), inset 0 0 0 7px rgba(255,255,255,0.012), 0 26px 70px rgba(0,0,0,0.48)",
+            "inset 0 0 0 1px rgba(255,255,255,0.08), inset 0 1px 0 rgba(255,255,255,0.035), 0 22px 56px rgba(0,0,0,0.42)",
         }}
       />
 
@@ -192,16 +183,16 @@ export function HelixLauncher(props: HelixLauncherProps) {
               cy={MENU_SIZE / 2}
               r={ORBIT_RADIUS}
               fill="none"
-              stroke="rgba(255,255,255,0.1)"
+              stroke="rgba(255,255,255,0.085)"
               strokeWidth="1"
-              strokeDasharray="3 9"
+              strokeDasharray="2 10"
             />
             <circle
               cx={MENU_SIZE / 2}
               cy={MENU_SIZE / 2}
-              r={ORBIT_RADIUS - 28}
+              r={ORBIT_RADIUS - 26}
               fill="none"
-              stroke="rgba(185,130,255,0.14)"
+              stroke="rgba(185,130,255,0.09)"
               strokeWidth="1"
               strokeDasharray="4 14"
             />
@@ -241,12 +232,13 @@ export function HelixLauncher(props: HelixLauncherProps) {
                 onClick={() => executeAction(index)}
                 onMouseEnter={() => setSelectedIndex(index)}
                 onFocus={() => setSelectedIndex(index)}
+                onKeyDown={handleKeyDown}
                 className="radial-item-enter absolute focus:outline-none"
                 aria-label={`${action.label}: ${action.description}. ${t("helix:helixLauncher.shortcut", { index: index + 1 })}`}
                 title={`${action.label} — ${action.description}`}
                 style={{
                   ["--accent-color" as string]: action.accent,
-                  animationDelay: `${index * 0.04}s`,
+                  animationDelay: `${index * 0.02}s`,
                   left: x,
                   top: y,
                   transform: "translate(-50%, -50%)",
@@ -265,17 +257,17 @@ export function HelixLauncher(props: HelixLauncherProps) {
                   }}
                 >
                   <div
-                    className="relative flex items-center justify-center rounded-2xl transition-all duration-200"
+                    className="relative flex items-center justify-center rounded-[15px] transition-all duration-150"
                     style={{
-                      width: 52,
-                      height: 52,
+                      width: 46,
+                      height: 46,
                       background: isSelected ? action.bg : "rgba(255,255,255,0.035)",
                       border: isSelected
                         ? "1px solid var(--accent-color)"
                         : "1px solid rgba(255,255,255,0.1)",
                       boxShadow: isSelected
-                        ? "0 10px 28px rgba(0,0,0,0.42), inset 0 0 18px color-mix(in srgb, var(--accent-color) 12%, transparent)"
-                        : "0 8px 20px rgba(0,0,0,0.26)",
+                        ? "0 8px 22px rgba(0,0,0,0.38), inset 0 0 14px color-mix(in srgb, var(--accent-color) 10%, transparent)"
+                        : "0 6px 16px rgba(0,0,0,0.24)",
                     }}
                   >
                     <span className="absolute right-1.5 top-1 text-[7px] font-mono text-faint">
@@ -283,7 +275,7 @@ export function HelixLauncher(props: HelixLauncherProps) {
                     </span>
                     <action.icon
                       className="transition-transform duration-300"
-                      size={22}
+                      size={19}
                       style={{
                         color: "var(--accent-color)",
                         transform: isSelected ? "scale(1.08)" : "scale(1)",
@@ -292,7 +284,7 @@ export function HelixLauncher(props: HelixLauncherProps) {
                     />
                   </div>
                   <span
-                    className="text-center text-[11px] font-semibold tracking-tight"
+                    className="text-center text-[10px] font-semibold tracking-tight"
                     style={{
                       color: isSelected ? "#f4f0ff" : "#a8a0ba",
                       lineHeight: 1.2,
@@ -308,7 +300,7 @@ export function HelixLauncher(props: HelixLauncherProps) {
             );
           })}
 
-          <div className="pointer-events-none absolute left-1/2 top-1/2 h-[112px] w-[112px] -translate-x-1/2 -translate-y-1/2 rounded-[38%] border border-white/[0.055]" />
+          <div className="pointer-events-none absolute left-1/2 top-1/2 h-[92px] w-[92px] -translate-x-1/2 -translate-y-1/2 rounded-[34%] border border-white/[0.05]" />
         </>
       )}
 
@@ -321,21 +313,28 @@ export function HelixLauncher(props: HelixLauncherProps) {
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         onKeyDown={handleKeyDown}
-        className={`relative z-30 flex items-center justify-center rounded-[38%] cursor-pointer transition-transform duration-300 bg-transparent border-0 p-0 focus:outline-none hover:scale-105 ${
-          menuOpen ? "scale-105" : ""
+        className={`relative z-30 flex items-center justify-center rounded-[34%] cursor-pointer transition-transform duration-200 bg-transparent border-0 p-0 focus:outline-none hover:scale-[1.025] ${
+          menuOpen ? "scale-[1.02]" : ""
         }`}
         style={{
-          width: menuOpen ? 96 : "100%",
-          height: menuOpen ? 96 : "100%",
+          width: menuOpen ? 82 : "100%",
+          height: menuOpen ? 82 : "100%",
         }}
         data-tauri-drag-region={!menuOpen}
         aria-label={menuOpen ? t("helix:helixLauncher.closeMenu") : t("helix:helixLauncher.openHelix")}
         title={menuOpen ? t("helix:helixLauncher.closeMenuHint") : t("helix:helixLauncher.openMenuHint")}
       >
         <div className="relative">
-          <Pet size={menuOpen ? 78 : petSize} glow={menuOpen} />
+          <Pet size={menuOpen ? 64 : petSize} glow={menuOpen} />
         </div>
       </button>
+
+      {menuOpen && activeAction && (
+        <div className="pointer-events-none absolute left-1/2 top-[calc(50%+45px)] z-40 w-[178px] -translate-x-1/2 text-center radial-preview">
+          <div className="text-[10px] font-semibold tracking-wide text-fg">{activeAction.label}</div>
+          <div className="mt-0.5 text-[8px] leading-tight text-mute">{activeAction.description}</div>
+        </div>
+      )}
     </div>
   );
 }

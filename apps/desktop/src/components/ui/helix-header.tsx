@@ -1,7 +1,7 @@
 import { Menu, Orbit, PanelsTopLeft, Pin, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { HelixMark } from "./helix-mark";
 import { IconButton } from "./icon-button";
-import { Pet } from "./pet";
 
 interface HelixHeaderProps {
   expanded: boolean;
@@ -41,8 +41,10 @@ export function HelixHeader({
             <Menu className="h-3.5 w-3.5" />
           </IconButton>
         )}
-        <Pet size={24} variant="compact" glow={false} className="shrink-0" />
-        <span className="truncate text-xs font-bold tracking-[0.16em] text-fg" data-tauri-drag-region>
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-signal/15 bg-signal/[0.055]">
+          <HelixMark size={20} />
+        </span>
+        <span className="truncate text-[11px] font-bold tracking-[0.2em] text-fg" data-tauri-drag-region>
           HELIX
         </span>
         {expanded && (

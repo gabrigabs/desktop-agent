@@ -21,7 +21,7 @@
   "shortcuts": "Atalhos",
   "privacy": "Contexto e privacidade",
   "connectors": "Conectores",
-  "artifacts": "Artefatos",
+  "artifacts": "Espaços",
   "workflows": "Workflows",
   "data": "Dados e histórico",
   "advanced": "Avançado",
@@ -57,6 +57,8 @@
     "connecting": "Conectando",
     "error": "Erro",
     "thinking": "Pensando",
+    "using_tool": "Usando ferramenta",
+    "waiting_approval": "Aguardando aprovação",
     "success": "Concluído",
     "idle": "Pronto"
   }

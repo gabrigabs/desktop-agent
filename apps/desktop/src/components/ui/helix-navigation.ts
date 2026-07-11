@@ -1,4 +1,4 @@
-import { Bot, Clock3, Layers3, MessageSquarePlus, Orbit, Settings2, Sparkles, Workflow } from "lucide-react";
+import { Clock3, Layers3, MessageSquarePlus, Orbit, Settings2 } from "lucide-react";
 import type { ComponentType } from "react";
 import type { HelixMode } from "../../surfaces/helix/types";
 
@@ -10,7 +10,7 @@ export type HelixNavItem = {
 };
 
 export type HelixNavGroup = {
-  labelKey: "work" | "build" | "sources";
+  labelKey: "work" | "sources";
   items: HelixNavItem[];
 };
 
@@ -20,14 +20,6 @@ export const HELIX_NAV_GROUPS: HelixNavGroup[] = [
     items: [
       { id: "history", icon: Clock3 },
       { id: "artifacts", icon: Orbit },
-    ],
-  },
-  {
-    labelKey: "build",
-    items: [
-      { id: "prompts", icon: Sparkles },
-      { id: "workflows", icon: Workflow },
-      { id: "skills", icon: Bot },
     ],
   },
   {

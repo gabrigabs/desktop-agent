@@ -8,7 +8,7 @@ export const WINDOW_SIZES = {
   expanded: { width: 1180, height: 820 },
 };
 
-export const LAUNCHER_MENU_SIZE = 420;
+export const LAUNCHER_MENU_SIZE = 380;
 
 export function isTauriRuntime() {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;

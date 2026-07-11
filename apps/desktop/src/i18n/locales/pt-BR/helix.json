@@ -444,8 +444,11 @@
     "edit": "Editar"
   },
   "normalCommandView": {
+    "commandTitle": "Comando rápido",
+    "commandDescription": "Uma intenção, o contexto certo e espaço para continuar.",
+    "primaryActions": "Ações principais",
     "history": "Histórico",
-    "artifacts": "Artefatos",
+    "artifacts": "Espaços",
     "profiles": "Perfis",
     "workflows": "Workflows",
     "skills": "Skills",
@@ -478,10 +481,10 @@
     "recentConversations": "Conversas recentes"
   },
   "artifactsPanel": {
-    "title": "Artefatos",
+    "title": "Espaços",
     "experimental": "Experimental",
     "description": "Assistentes especializados com identidade, ações e política de contexto próprias. Nesta fase, o catálogo é local e as ações iniciam uma conversa normal.",
-    "createArtifact": "Criar artefato",
+    "createArtifact": "Novo espaço",
     "createDisabled": "Criação e persistência entram em uma próxima fase",
     "modeCollapsed": "Pet",
     "modeNormal": "Normal",
@@ -535,7 +538,7 @@
     "screen": { "title": "Ler tela", "description": "Capturar a tela com aprovação" },
     "web": { "title": "Web", "description": "Pesquisar com fontes" },
     "workflow": { "title": "Workflow", "description": "Executar uma sequência guiada" },
-    "artifacts": { "title": "Artefatos", "description": "Abrir assistentes especializados" }
+    "artifacts": { "title": "Espaços", "description": "Abrir contextos especializados" }
   },
   "radialArtifacts": {
     "finance": {
@@ -608,8 +611,8 @@
     "sources": "Fontes",
     "history": "Histórico",
     "historyDescription": "Conversas e resultados",
-    "artifacts": "Artefatos",
-    "artifactsDescription": "Assistentes especializados",
+    "artifacts": "Espaços",
+    "artifactsDescription": "Contextos especializados",
     "prompts": "Perfis",
     "promptsDescription": "Estilos de resposta",
     "workflows": "Workflows",

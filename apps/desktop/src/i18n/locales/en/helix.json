@@ -444,8 +444,11 @@
     "edit": "Edit"
   },
   "normalCommandView": {
+    "commandTitle": "Quick command",
+    "commandDescription": "One intent, the right context, and room to continue.",
+    "primaryActions": "Primary actions",
     "history": "History",
-    "artifacts": "Artifacts",
+    "artifacts": "Workspaces",
     "profiles": "Profiles",
     "workflows": "Workflows",
     "skills": "Skills",
@@ -478,10 +481,10 @@
     "recentConversations": "Recent conversations"
   },
   "artifactsPanel": {
-    "title": "Artifacts",
+    "title": "Workspaces",
     "experimental": "Experimental",
     "description": "Specialized assistants with their own identity, actions, and context policy. At this stage, the catalog is local and actions start a normal conversation.",
-    "createArtifact": "Create artifact",
+    "createArtifact": "New workspace",
     "createDisabled": "Creation and persistence will come in a future phase",
     "modeCollapsed": "Pet",
     "modeNormal": "Normal",
@@ -535,7 +538,7 @@
     "screen": { "title": "Read screen", "description": "Capture screen with approval" },
     "web": { "title": "Web", "description": "Search with sources" },
     "workflow": { "title": "Workflow", "description": "Run a guided sequence" },
-    "artifacts": { "title": "Artifacts", "description": "Open specialized assistants" }
+    "artifacts": { "title": "Workspaces", "description": "Open specialized contexts" }
   },
   "radialArtifacts": {
     "finance": {
@@ -608,8 +611,8 @@
     "sources": "Sources",
     "history": "History",
     "historyDescription": "Conversations and results",
-    "artifacts": "Artifacts",
-    "artifactsDescription": "Specialized assistants",
+    "artifacts": "Workspaces",
+    "artifactsDescription": "Specialized contexts",
     "prompts": "Profiles",
     "promptsDescription": "Response styles",
     "workflows": "Workflows",

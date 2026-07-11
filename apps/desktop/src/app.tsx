@@ -139,7 +139,7 @@ export function App() {
             <BootScreen compact />
           ) : (
             <HelixLauncher
-              petSize={settings.petSize ?? 72}
+              petSize={settings.petSize ?? 56}
               onOpenNormal={() => applyWindowMode("normal")}
               onAction={(action) => {
                 sessionStorage.setItem("helix.pending-action", action.id);

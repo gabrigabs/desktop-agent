@@ -162,7 +162,7 @@ select:focus-visible {
 @keyframes pet-hero-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 @keyframes radial-enter {
-  from { opacity: 0; transform: translate(-50%, -50%) scale(0.35); }
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.72); }
   to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }
 @keyframes halo-pulse {
@@ -205,70 +205,94 @@ select:focus-visible {
 }
 
 .helix-seed-glow {
-  border-radius: 42% 58% 52% 48%;
-  background: radial-gradient(ellipse, var(--seed-glow) 0%, transparent 68%);
-  filter: blur(8px);
-  opacity: 0.72;
-  animation: helix-seed-glow 4.8s ease-in-out infinite;
+  border-radius: 44%;
+  background: radial-gradient(circle, var(--seed-glow) 0%, transparent 70%);
+  filter: blur(7px);
+  opacity: 0.3;
 }
 
-.helix-seed-ribbon,
-.helix-seed-void {
+.helix-mark {
+  overflow: visible;
+  transform-origin: center;
+}
+
+.helix-mark-ribbon {
   transform-box: fill-box;
   transform-origin: center;
-  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1), opacity 180ms ease;
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1), opacity 140ms ease;
 }
 
-.helix-seed-orbits,
-.helix-seed-satellites {
-  transform-origin: center;
-  transform-box: view-box;
+.helix-mark[data-state="idle"] .helix-mark-ribbons {
+  animation: helix-mark-idle 7s ease-in-out infinite;
 }
 
-.helix-seed[data-state="idle"] .helix-seed-ribbons {
-  transform-origin: center;
-  animation: helix-seed-breathe 4.2s ease-in-out infinite;
+.helix-mark[data-state="connecting"] .helix-mark-ribbon,
+.helix-mark[data-state="thinking"] .helix-mark-ribbon,
+.helix-mark[data-state="using_tool"] .helix-mark-ribbon {
+  stroke-dasharray: 74 12;
+  animation: helix-mark-flow 1.6s linear infinite;
 }
 
-.helix-seed[data-state="connecting"] .helix-seed-orbits {
-  animation: helix-seed-orbit 5s linear infinite;
-}
-
-.helix-seed[data-state="connecting"] .helix-seed-ribbon,
-.helix-seed[data-state="thinking"] .helix-seed-ribbon {
-  stroke-dasharray: 18 7;
-  animation: helix-seed-flow 1.4s linear infinite;
-}
-
-.helix-seed[data-state="thinking"] .helix-seed-ribbon-b {
+.helix-mark[data-state="thinking"] .helix-mark-ribbon-b,
+.helix-mark[data-state="using_tool"] .helix-mark-ribbon-b {
   animation-direction: reverse;
 }
 
-.helix-seed[data-state="error"] {
+.helix-mark[data-state="waiting_approval"] {
+  animation: helix-mark-waiting 1.8s ease-in-out infinite;
+}
+
+.helix-mark[data-state="error"] {
   animation: helix-seed-alert 420ms ease-in-out 2;
 }
 
-.helix-seed-success {
-  transform-origin: center;
-  animation: helix-seed-success 1.4s ease-out infinite;
+.helix-mark[data-state="success"] {
+  animation: helix-mark-success 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.helix-seed:hover .helix-seed-ribbon-a {
-  transform: translateX(-2px) rotate(-1deg);
+.helix-seed[data-state="connecting"] .helix-seed-orbits,
+.helix-seed[data-state="thinking"] .helix-seed-orbits,
+.helix-seed[data-state="using_tool"] .helix-seed-orbits {
+  animation: helix-seed-orbit 6s linear infinite;
 }
 
-.helix-seed:hover .helix-seed-ribbon-b {
-  transform: translateX(2px) rotate(1deg);
+.helix-seed[data-state="thinking"] .helix-seed-glow,
+.helix-seed[data-state="using_tool"] .helix-seed-glow,
+.helix-seed[data-state="waiting_approval"] .helix-seed-glow {
+  animation: helix-seed-glow 2.6s ease-in-out infinite;
 }
 
-@keyframes helix-seed-breathe {
-  0%, 100% { transform: scale(0.98) rotate(-1deg); }
-  50% { transform: scale(1.025) rotate(1deg); }
+.helix-seed:hover .helix-mark-ribbon-a {
+  transform: translateX(-1.5px);
+}
+
+.helix-seed:hover .helix-mark-ribbon-b {
+  transform: translateX(1.5px);
+}
+
+@keyframes helix-mark-idle {
+  0%, 44%, 56%, 100% { transform: scaleX(1); }
+  50% { transform: scaleX(0.94); }
+}
+
+@keyframes helix-mark-flow {
+  to { stroke-dashoffset: -86; }
+}
+
+@keyframes helix-mark-waiting {
+  0%, 100% { opacity: 0.72; transform: scale(0.97); }
+  50% { opacity: 1; transform: scale(1.02); }
+}
+
+@keyframes helix-mark-success {
+  0% { transform: scale(0.92); }
+  55% { transform: scale(1.04); }
+  100% { transform: scale(1); }
 }
 
 @keyframes helix-seed-glow {
-  0%, 100% { opacity: 0.48; transform: scale(0.94) rotate(-4deg); }
-  50% { opacity: 0.78; transform: scale(1.04) rotate(4deg); }
+  0%, 100% { opacity: 0.2; transform: scale(0.96); }
+  50% { opacity: 0.46; transform: scale(1.04); }
 }
 
 @keyframes helix-seed-orbit {
@@ -276,20 +300,10 @@ select:focus-visible {
   to { transform: rotate(360deg); }
 }
 
-@keyframes helix-seed-flow {
-  to { stroke-dashoffset: -50; }
-}
-
 @keyframes helix-seed-alert {
   0%, 100% { transform: translateX(0); }
   35% { transform: translateX(-2px) rotate(-2deg); }
   70% { transform: translateX(2px) rotate(2deg); }
-}
-
-@keyframes helix-seed-success {
-  0% { opacity: 0; transform: scale(0.45) rotate(-20deg); }
-  35% { opacity: 1; transform: scale(1) rotate(0deg); }
-  100% { opacity: 0; transform: scale(1.35) rotate(12deg); }
 }
 
 .pet-spiral-ring {
@@ -432,16 +446,16 @@ select:focus-visible {
 }
 
 .radial-item {
-  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.18s ease, color 0.18s ease;
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.14s ease, color 0.14s ease;
   will-change: transform;
 }
 
 .radial-item-enter {
-  animation: radial-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  animation: radial-enter 0.22s cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
 
 .radial-click {
-  animation: radial-click 0.27s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: radial-click 0.14s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .radial-halo {
@@ -449,9 +463,21 @@ select:focus-visible {
 }
 
 .radial-ray {
-  animation: ray-glow 2.5s ease-in-out infinite;
-  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.18s ease;
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.14s ease;
   will-change: transform;
+}
+
+.radial-preview {
+  animation: fade-in-up 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.helix-view-enter {
+  animation: helix-view-enter 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes helix-view-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .discrete-enter {
@@ -497,10 +523,10 @@ select:focus-visible {
   .pet-spiral-ring,
   .helix-seed,
   .helix-seed-glow,
-  .helix-seed-ribbon,
+  .helix-mark,
+  .helix-mark-ribbon,
+  .helix-mark-ribbons,
   .helix-seed-orbits,
-  .helix-seed-ribbons,
-  .helix-seed-success,
   .animate-pulse-fast,
   .animate-thinking-1,
   .animate-thinking-2,
@@ -509,7 +535,9 @@ select:focus-visible {
   .radial-click,
   .radial-halo,
   .radial-ray,
+  .radial-preview,
   .radial-arc g,
+  .helix-view-enter,
   .animate-fade-in {
     animation: none;
   }

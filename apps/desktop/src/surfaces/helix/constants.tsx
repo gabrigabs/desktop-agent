@@ -23,6 +23,7 @@ export const SELECT_CLASS =
   "h-9 w-full rounded-md border border-line bg-bg px-2 text-xs text-fg cursor-pointer hover:border-line-strong transition-colors";
 
 export const GLOBAL_SHORTCUT_LABEL = "Control+Shift+Space";
+export const GLOBAL_SHORTCUT_GLYPH = "⌃ ⇧ Space";
 
 export function useStaleRuntimeMessage(): string {
   const { t } = useTranslation("helix");

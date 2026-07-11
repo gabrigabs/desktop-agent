@@ -21,7 +21,7 @@
   "shortcuts": "Shortcuts",
   "privacy": "Context and privacy",
   "connectors": "Connectors",
-  "artifacts": "Artifacts",
+  "artifacts": "Workspaces",
   "workflows": "Workflows",
   "data": "Data and history",
   "advanced": "Advanced",
@@ -57,6 +57,8 @@
     "connecting": "Connecting",
     "error": "Error",
     "thinking": "Thinking",
+    "using_tool": "Using tool",
+    "waiting_approval": "Waiting for approval",
     "success": "Done",
     "idle": "Ready"
   }

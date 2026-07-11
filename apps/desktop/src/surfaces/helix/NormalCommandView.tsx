@@ -10,6 +10,7 @@ import type {
   WorkflowTemplate,
   WorkflowTemplateSettings,
 } from "@desktop-agent/shared";
+import { HELIX_ACTIONS } from "@desktop-agent/shared";
 import {
   AlertCircle,
   ArrowLeft,
@@ -26,7 +27,8 @@ import { useTranslation } from "react-i18next";
 import { AgentIdentity } from "../../components/ui/agent-identity";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
-import { HeroHome } from "../../components/ui/hero-home";
+import { HELIX_ACTION_ICONS } from "../../components/ui/helix-action-icon";
+import { HelixMark } from "../../components/ui/helix-mark";
 import { IconButton } from "../../components/ui/icon-button";
 import { MarkdownRenderer } from "../../components/ui/markdown-renderer";
 import { Separator } from "../../components/ui/separator";
@@ -34,6 +36,7 @@ import { ArtifactsPanel } from "./ArtifactsPanel";
 import { ChatView } from "./ChatView";
 import { Composer } from "./Composer";
 import { ConnectorsPanel } from "./ConnectorsPanel";
+import { GLOBAL_SHORTCUT_GLYPH } from "./constants";
 import { HistoryList } from "./history-list";
 import type { SaveConnectorInput } from "./hooks/useCapabilities";
 import type { ContextChipItem } from "./hooks/useContextChips";
@@ -160,7 +163,7 @@ type Props = {
 export function NormalCommandView(p: Props) {
   const { t } = useTranslation("helix");
   return (
-    <div className="h-full w-full overflow-y-auto p-4 text-fg">
+    <div className="helix-view-enter h-full w-full overflow-y-auto p-4 text-fg">
       {p.mode === "command" ? (
         p.messages.length > 0 ? (
           <ChatActive {...p} />
@@ -261,11 +264,45 @@ function PanelWrapper({
 }
 
 function CommandHome(p: Props) {
-  return (
-    <div className="min-h-full w-full flex flex-col items-center justify-center gap-4 py-2">
-      <HeroHome />
+  const { t } = useTranslation("helix");
 
-      <div className="w-full max-w-md flex flex-col gap-3 px-5">
+  const handlePrimaryAction = (action: (typeof HELIX_ACTIONS)[number]) => {
+    if (action.id === "artifacts") {
+      p.setMode("artifacts");
+      return;
+    }
+    if (action.id === "workflow") {
+      p.setMode("workflows");
+      return;
+    }
+    if (action.requiredContext?.includes("clipboard")) {
+      p.setIgnoreClipboard(false);
+    }
+    p.onStarterAction(action.prompt, action.executionMode);
+  };
+
+  return (
+    <div className="min-h-full w-full flex flex-col items-center justify-center py-5">
+      <div className="w-full max-w-md flex flex-col gap-4 px-5">
+        <div className="flex items-center justify-between gap-4 px-1">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-signal/15 bg-signal/[0.06]">
+              <HelixMark size={25} />
+            </span>
+            <div className="min-w-0">
+              <h1 className="truncate text-sm font-semibold tracking-tight text-fg">
+                {t("helix:normalCommandView.commandTitle")}
+              </h1>
+              <p className="mt-0.5 truncate text-[10px] text-mute">
+                {t("helix:normalCommandView.commandDescription")}
+              </p>
+            </div>
+          </div>
+          <kbd className="shrink-0 rounded-md border border-line bg-white/[0.025] px-2 py-1 text-[8px] font-mono text-faint">
+            {GLOBAL_SHORTCUT_GLYPH}
+          </kbd>
+        </div>
+
         <Composer
           query={p.query}
           setQuery={p.setQuery}
@@ -277,12 +314,52 @@ function CommandHome(p: Props) {
           ignoreClipboard={p.ignoreClipboard}
           setIgnoreClipboard={p.setIgnoreClipboard}
           textareaRef={p.textareaRef}
-          starterChips={p.starterChips}
           clipboardActions={p.clipboardActions}
           onChipClick={p.onChipClick}
           onReloadClipboard={p.onReloadClipboard}
           onExecute={p.onExecute}
         />
+
+        <section aria-label={t("helix:normalCommandView.primaryActions")}>
+          <div className="mb-2 flex items-center justify-between px-1">
+            <h2 className="text-[9px] font-mono uppercase tracking-[0.16em] text-faint">
+              {t("helix:normalCommandView.primaryActions")}
+            </h2>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {HELIX_ACTIONS.map((action) => {
+              const Icon = HELIX_ACTION_ICONS[action.icon];
+              if (!Icon) return null;
+              return (
+                <button
+                  key={action.id}
+                  type="button"
+                  onClick={() => handlePrimaryAction(action)}
+                  className="group flex min-h-[58px] items-center gap-3 rounded-xl border border-line bg-white/[0.025] px-3 text-left transition-colors hover:border-line-strong hover:bg-white/[0.05]"
+                >
+                  <span
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border"
+                    style={{
+                      color: action.color,
+                      borderColor: `${action.color}30`,
+                      backgroundColor: `${action.color}0f`,
+                    }}
+                  >
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[11px] font-semibold text-fg">
+                      {t(`helix:radialActions.${action.id}.title`)}
+                    </span>
+                    <span className="mt-0.5 block truncate text-[9px] text-mute">
+                      {t(`helix:radialActions.${action.id}.description`)}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
       </div>
     </div>
   );

@@ -107,7 +107,7 @@ const defaultSettings: AppSettings = {
   lastWindowMode: "normal",
   timeout: 120,
   windowOpacity: 0.72,
-  petSize: 72,
+  petSize: 56,
   language: "pt-BR",
 };
 

@@ -148,7 +148,7 @@ export function ExpandedView(p: Props) {
 
   return (
     <div
-      className={`h-full w-full overflow-hidden grid text-fg ${
+      className={`helix-view-enter h-full w-full overflow-hidden grid text-fg ${
         showInspector ? "grid-cols-[1fr_260px]" : "grid-cols-1"
       }`}
     >

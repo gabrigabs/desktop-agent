@@ -19,7 +19,7 @@ export function useSettingsForm(
   const [formHidePet, setFormHidePet] = useState(settings.hidePet);
   const [formTimeout, setFormTimeout] = useState(settings.timeout || 120);
   const [formWindowOpacity, setFormWindowOpacity] = useState(settings.windowOpacity ?? 0.72);
-  const [formPetSize, setFormPetSize] = useState(settings.petSize ?? 58);
+  const [formPetSize, setFormPetSize] = useState(settings.petSize ?? 56);
   const [formLanguage, setFormLanguage] = useState(settings.language ?? "pt-BR");
   const [showKey, setShowKey] = useState(false);
   const [fetchedModels, setFetchedModels] = useState<string[]>([]);
@@ -35,7 +35,7 @@ export function useSettingsForm(
       setFormHidePet(settings.hidePet);
       setFormTimeout(settings.timeout || 120);
       setFormWindowOpacity(settings.windowOpacity ?? 0.72);
-      setFormPetSize(settings.petSize ?? 58);
+      setFormPetSize(settings.petSize ?? 56);
       setFormLanguage(settings.language ?? "pt-BR");
     }
   }, [showSettings, settings]);
