@@ -2,7 +2,7 @@
 
 > Fonte principal do produto. `BACKLOG.md` fica como histórico/status resumido.
 > Última atualização: 2026-07-10.
-> Foco atual: consolidar o Helix como camada de ação do desktop, abrir a fundação de Artifacts e transformar Configurações em um centro de controle.
+> Foco atual: consolidar a nova identidade Helix, transformar Artifacts em Workspaces contínuos e abrir a fundação segura de Follow-up Sessions.
 
 ---
 
@@ -15,7 +15,7 @@
 | Runtime       | Bun sidecar via kkrpc stdio                                                                               |
 | Providers     | Pinstripes primário; OpenAI-compatible e Mock suportados; Gemini bloqueado até contrato real ser validado |
 | Plataforma    | macOS Apple Silicon                                                                                       |
-| Idioma UI     | Português PT-BR                                                                                           |
+| Idioma UI     | Português PT-BR e inglês                                                                                  |
 | Atalho global | `Control+Shift+Space`                                                                                     |
 | Janela        | Collapsed `120x120`, Normal `520x820`, Expanded até `1180x820`                                              |
 | Produto       | Copilot macOS leve, keyboard-first, com pet launcher, home minimalista, navegação lateral e permissões explícitas |
@@ -34,13 +34,13 @@ Os três modos têm contratos diferentes e não devem repetir a mesma interface 
 | ---------- | ------------------------ | --------------------------------------------------------------------- |
 | Collapsed  | Presença e launcher      | Estado do pet, radial, gesto, acesso imediato                         |
 | Normal     | Painel rápido de ação    | Context Bar, composer, sugestões e resultado compacto                 |
-| Expanded   | Workspace de profundidade | Navegação, histórico, Artifacts, Workflows, Skills, Connectors e inspector |
+| Expanded   | Workspace de profundidade | Navegação, histórico, Espaços, fontes, configurações e inspector            |
 
 ### Linguagem "Orbital Command System"
 
 - Helix é o núcleo.
 - Ações são órbitas acionáveis.
-- Artifacts são satélites especializados.
+- Workspaces são ambientes contínuos; Artifacts permanece como nome interno temporário do catálogo legado.
 - Contextos são sinais capturados e sempre visíveis para o usuário.
 - Roxo identifica o Helix; ciano identifica web; âmbar identifica clipboard; amarelo identifica leitura de tela; verde identifica workflow; vermelho identifica erro ou risco.
 - Glow, partículas e blur apoiam estado e profundidade, sem competir com texto, composer ou controles.
@@ -53,8 +53,10 @@ Os três modos têm contratos diferentes e não devem repetir a mesma interface 
 - **Action:** uma operação reutilizável, consumida por radial, composer, workflow ou Artifact.
 - **Profile:** estilo e instruções de resposta.
 - **Skill:** capacidade isolada.
-- **Workflow:** sequência de passos e ferramentas.
-- **Artifact:** assistente ou objeto especializado com identidade, ações, política de contexto e evolução própria.
+- **Workflow:** sequência executável e finita, normalmente vinculada a uma ação ou Workspace.
+- **Workspace:** ambiente persistente com identidade, memória editável, contexto fixado, histórico e ações próprias.
+- **Artifact:** contrato interno legado usado para iniciar a migração para Workspace; não é um destino concorrente na UI.
+- **Follow-up Session:** sessão contínua, pausável e explicitamente visível que acompanha um objetivo em modo `vision`, `debug`, `writing`, `research` ou `workflow`.
 
 ## Estado Auditado Do Worktree
 
@@ -68,7 +70,7 @@ Os três modos têm contratos diferentes e não devem repetir a mesma interface 
 - Migrations versionadas de storage estão em produção (`001_initial`, `002_turns`, `003_settings_v2`, `004_mcp_env`, `005_ui_preferences`, `006_prompt_library`, `007_agent_profiles_fields`, `008_workflows_and_skills`, `009_skill_metadata`).
 - Superfície Helix extraída em `apps/desktop/src/surfaces/helix/`.
 - Design system base em `apps/desktop/src/components/ui/` com tokens em `index.css`.
-- Navegação lateral/drawer inclui Nova conversa, Histórico, Artefatos, Perfis, Conectores, Workflows, Skills e Config.
+- Navegação lateral/drawer prioriza Nova conversa, Histórico, Espaços, Conectores e Config; Workflows continuam acionáveis e Profiles continuam contextuais.
 - Biblioteca inicial de Artifacts (Finanças, Código, Estudos, Escrita, Produto) com cards e quick actions.
 - Settings Center responsivo com seções segmentadas.
 
@@ -78,24 +80,27 @@ Resolvido nesta rodada:
 
 - Header virou um trilho de comando compacto; workspace, recolher para o pet e encerrar usam ícones e labels distintos.
 - Drawer normal deixou de ocupar a altura inteira e virou um popover flutuante com navegação agrupada.
-- Sidebar expandida foi reduzida e separa Trabalho, Construir, Fontes e Configurações.
+- Sidebar expandida foi reduzida e separa Trabalho, Fontes e Configurações.
 - Settings passa a ocupar somente o workspace; header e navegação principal permanecem visíveis.
 - Home vazia não mostra mais seletores Simples/Workflow e Skill/Workflow antes do composer.
-- Pet deixou de usar núcleo circular brilhante e círculos concêntricos; toda superfície usa o glifo "semente helicoidal".
-- Radial usa satélites quadrados, atalhos `1-6`, labels neutros e seleção funcional sem glow gamer excessivo.
+- A marca foi refeita como um `H` entrelaçado de duas fitas contínuas, legível no header e no pet sem losango ou satélite decorativo.
+- Pet collapsed ficou menor, com área clicável preservada; movimento e glow agora respondem ao estado em vez de decorar o idle.
+- Radial foi reduzido para `380x380`, ganhou preview central, transições curtas e mantém atalhos `1-6`, setas, `Enter` e `Escape`.
+- O modo normal virou uma command palette operacional: composer em primeiro foco e as seis intenções derivadas de `HELIX_ACTIONS`.
+- Profiles, Workflows e Skills saíram da navegação principal; Profiles permanecem estilo, Workflows permanecem sequência e Espaços viram o destino contínuo.
 
 Pontos ainda abertos:
 
-- Segunda camada do radial para quick actions de Clipboard, Tela, Workflow e Artifacts.
+- Segunda camada do radial para quick actions de Clipboard, Tela, Workflow e Espaços.
 - Inspector expandido ainda precisa de regra de visibilidade e densidade quando não há execução ativa.
 - Páginas Perfis, Connectors, Workflows e Skills ainda possuem composições internas mais densas que a home.
 - Validar o radial e o pet collapsed no bundle nativo em wallpapers claros e escuros; o browser não reproduz resize/transparência Tauri.
 
 ### Planejado (Redesign)
 
-- Home page minimalista: título/pet, composer, chips de sugestão contextual, clipboard preview colapsável.
-- Header/top bar unificada: pet mini + título + pin + expandir/minimizar/fechar.
-- Navegação lateral fixa no expandido, drawer overlay no normal: Nova conversa, Histórico, Perfis, Conectores, Config.
+- Command palette minimalista: marca, composer, contexto explícito e índice compacto das seis intenções.
+- Header/top bar unificada: marca Helix + título + pin + expandir/minimizar/fechar.
+- Navegação lateral fixa no expandido, drawer overlay no normal: Nova conversa, Histórico, Espaços, Conectores e Config.
 - Pet collapsed vira launcher (substitui modo mini): 1 clique menu rápido, 2 cliques modo normal.
 - Profiles evoluem de Prompts: system prompt evoluído + metadados (nome, descrição, ícone).
 - Design system mínimo: `Button`, `IconButton`, `Input`, `Card`, `Badge`, `Separator`, `HelixShell`.
@@ -116,13 +121,13 @@ Pontos ainda abertos:
 
 - Helix é um copilot de desktop, não uma landing page nem um terminal de debug.
 - A primeira tela deve ser minimalista, focada no composer, como ChatGPT/Claude/Grok.
-- Ações rápidas e contexto detectado aparecem como chips discretos, não como grid de cards.
+- As seis intenções primárias podem aparecer como índice compacto da command palette; subações e contexto detectado continuam como chips discretos.
 - Clipboard é contexto opcional. Quando usado, entra no fluxo normal de chat via composer com preview colapsável.
 - Pinstripes é o caminho feliz. OpenAI-compatible fica como opção avançada.
 - `Option+Space` não deve ser padrão, porque Raycast e ChatGPT Desktop ocupam esse espaço mental do macOS.
 - Pet collapsed é o launcher principal; o modo mini da janela principal é substituído pelo menu do pet.
 - Status é comunicado pela cor/animação do pet; o header não repete texto de status nem usa bolinhas desalinhadas.
-- Navegação para páginas secundárias (Histórico, Perfis, Conectores, Config) fica em sidebar/drawer, não em tabs do header.
+- Navegação principal fica em Nova conversa, Histórico, Espaços, Conectores e Config. Profiles são estilos contextuais; Workflows são acessados por ação ou dentro de um Workspace.
 - Profiles evoluem de Prompts: system prompt evoluído + metadados (nome, descrição, ícone). Memória e skills ficam fora desta fase.
 - Profiles permanecem estilos de resposta; não são renomeados silenciosamente para Artifacts.
 - Artifacts podem consumir Profiles, Skills, Workflows e Connectors, mas mantêm identidade e contrato próprios.
@@ -135,7 +140,7 @@ Pontos ainda abertos:
 
 - `UiMode` oficial: `collapsed | normal | expanded`. O modo `mini` da janela principal é removido; o pet collapsed assume o papel de launcher rápido.
 - Tamanhos oficiais:
-  - `collapsed`: `104x104`
+  - `collapsed`: `120x120`, com glifo visual entre `48-58px`
   - `normal`: `520x820`
   - `expanded`: até `1180x820`, centralizado e limitado pela work area.
 - `AppSettings` deve incluir `alwaysOnTop` e `lastWindowMode`.
@@ -198,10 +203,10 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 - Arquivos: `apps/desktop/src/surfaces/helix/NormalCommandView.tsx`, `apps/desktop/src/surfaces/helix/ExpandedView.tsx`, `apps/desktop/src/surfaces/helix/index.tsx`, `apps/desktop/src/index.css`.
 - Implementação:
   1. Remover do header interno: "Modelo ativo" com barra de progresso, tabs (Perguntar/Histórico/Prompts/Conectores), botão "Configurar" textual e botão settings duplicado.
-  2. Remover da home vazia: seletor Simples/Workflow, seletores de Skill/Workflow, seção MCPs, cards de input mode (Clipboard/Conteúdo avulso) e grid de ações livres/clipboard.
-  3. Manter na home vazia: pet mini + título "Helix", composer, linha horizontal de 4-6 chips de sugestão contextual, clipboard preview colapsável.
+  2. Remover da home vazia: seletor Simples/Workflow, seletores de Skill/Workflow, seção MCPs, cards de input mode (Clipboard/Conteúdo avulso) e grids concorrentes de ações livres/clipboard.
+  3. Manter na home vazia: marca Helix, composer, clipboard preview colapsável e índice compacto das seis intenções derivadas de `HELIX_ACTIONS`.
 - Aceite:
-  - Home vazia não mostra tabs, seletor Simples/Workflow, seletores de Skill/Workflow, seção MCPs, input mode cards nem grid de ações.
+  - Home vazia não mostra tabs, seletor Simples/Workflow, seletores de Skill/Workflow, seção MCPs nem catálogos de ações concorrentes.
   - `bun run typecheck` e `bun run lint` passam.
 
 #### H02 — Reposicionar o composer
@@ -220,7 +225,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 #### H03 — Chips de sugestão contextual
 
 - Status: concluído.
-- Objetivo: substituir o grid de ações por uma linha discreta de chips.
+- Objetivo: usar chips para subações e sugestões contextuais, sem duplicar as seis intenções da command palette.
 - Arquivos: `apps/desktop/src/surfaces/helix/ContextChipBar.tsx`, `apps/desktop/src/surfaces/helix/hooks/useContextChips.ts`, `apps/desktop/src/surfaces/helix/constants.tsx`.
 - Implementação:
   1. Renderizar 4-6 chips em linha horizontal abaixo do composer.
@@ -253,25 +258,25 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 - Objetivo: unificar controles de janela, título e status em uma única top bar limpa.
 - Arquivos: `apps/desktop/src/components/ui/helix-header.tsx`, `apps/desktop/src/surfaces/helix/index.tsx`, `apps/desktop/src/surfaces/helix/NormalCommandView.tsx`, `apps/desktop/src/surfaces/helix/ExpandedView.tsx`.
 - Implementação:
-  1. Criar `HelixHeader` com: pet mini alinhado + título "Helix" + `IconButton` de pin/always-on-top + expandir + minimizar + fechar.
+  1. Criar `HelixHeader` com: marca Helix alinhada + título "Helix" + `IconButton` de pin/always-on-top + expandir + minimizar + fechar.
   2. Remover botão "Configurar" textual, botão settings duplicado, tabs e barra de progresso do header.
-  3. Status transmitido apenas pela cor/animação do pet.
+  3. Status do pet permanece nas superfícies de presença; a execução ativa usa estado explícito no conteúdo.
 - Aceite:
-  - Header contém apenas pet mini, título, pin, expandir, minimizar, fechar.
+  - Header contém apenas marca, título, pin, expandir, minimizar e fechar.
   - Sem texto de status na top bar.
 
 #### P02 — Redesign do pet
 
-- Status: concluído e substituído pela identidade "semente helicoidal" em header, home, boot, chat e radial.
+- Status: concluído nesta rodada — identidade anterior substituída pelo monograma Helix entrelaçado em header, boot, pet e radial.
 - Objetivo: corrigir alinhamento e fazer o pet comunicar estado de forma limpa.
 - Arquivos: `apps/desktop/src/components/ui/pet.tsx`, `apps/desktop/src/index.css`.
 - Implementação:
   1. Ajustar `PetDot` para alinhamento perfeito ao texto (vertical-align center).
-  2. Definir tamanhos: header `16-18px`, collapsed `64px`.
-  3. Manter estados por cor e animações suaves.
+  2. Definir tamanhos: header `20px`, collapsed visual `48-58px` dentro da janela clicável de `120x120`.
+  3. Manter estados por cor e animações suaves para `connecting`, `thinking`, `using_tool`, `waiting_approval`, `success`, `error` e `idle`.
   4. Remover indicadores de status separados desalinhados.
 - Aceite:
-  - Pet não aparece desalinhado no header.
+  - Marca não aparece desalinhada no header; pet preserva proporção em collapsed, boot e avatares.
   - Estados por cor funcionam em idle, thinking, success, error, connecting.
 
 #### P03 — Pet collapsed como launcher
@@ -290,18 +295,19 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### P04 — Navegação lateral e drawer
 
-- Status: concluído e revisado — sidebar agrupada no expanded e popover flutuante no normal.
+- Status: concluído e simplificado nesta rodada — sidebar agrupada no expanded e popover flutuante no normal, sem tratar entidades técnicas como destinos equivalentes.
 - Objetivo: mover navegação secundária para fora do header.
 - Arquivos: `apps/desktop/src/components/ui/helix-sidebar.tsx`, `apps/desktop/src/components/ui/helix-drawer.tsx`, `apps/desktop/src/surfaces/helix/ExpandedView.tsx`, `apps/desktop/src/surfaces/helix/NormalCommandView.tsx`.
 - Implementação:
   1. Criar `HelixSidebar` fixa no modo expandido (largura `200px`).
   2. Criar `HelixDrawer` overlay no modo normal.
-  3. Itens: Nova conversa, Histórico, Artefatos, Perfis, Conectores, Workflows, Skills, Config.
-  4. Cada item aciona `setMode` ou abre settings.
+  3. Itens principais: Nova conversa, Histórico, Espaços, Conectores e Config.
+  4. Profiles permanecem seletores de estilo no contexto da conversa; Workflows permanecem ações/rotinas; Skills aparecem somente onde uma capacidade é configurada.
+  5. Cada item aciona `setMode` ou abre settings.
 - Aceite:
   - Sidebar fixa funciona no expandido; drawer funciona no normal.
   - Navegação não usa mais tabs no header.
-  - Itens Workflows e Skills aparecem como entradas reais (não como placeholders).
+  - Profiles, Workflows e Skills continuam acessíveis no contexto correto sem competir na navegação principal.
 
 ### Fase 3 — Design System e Componentes Reutilizáveis
 
@@ -428,11 +434,11 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### A02 — Evoluir radial para seis intenções
 
-- Status: parcialmente concluído — primeira órbita redesenhada, com seis intenções, atalhos `1-6` e navegação por teclado; segunda camada continua pendente.
+- Status: parcialmente concluído — primeira órbita compacta, preview central, seis intenções, atalhos `1-6` e navegação por teclado; segunda camada continua pendente.
 - Objetivo: fazer o radial representar o modelo mental principal do produto.
 - Arquivos: `apps/desktop/src/components/ui/helix-launcher.tsx`, `apps/desktop/src/app.tsx`, `apps/desktop/src/index.css`.
 - Implementação:
-  1. Primeira órbita: Perguntar, Clipboard, Ler tela, Web, Workflow e Artifacts.
+  1. Primeira órbita: Perguntar, Clipboard, Ler tela, Web, Workflow e Espaços.
   2. Resolver label, cor e ícone pelo Action Registry.
   3. Preservar clique simples, duplo clique, drag do pet e navegação por teclado.
   4. Segunda camada: mostrar quick actions/contextuais ao selecionar uma intenção; não implementar automações reais sem permissão.
@@ -444,7 +450,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
   - As seis intenções ficam legíveis em wallpaper claro e escuro.
   - Teclado, mouse, drag e duplo clique continuam funcionando.
 
-### Fase 6 — Artifact Foundation
+### Fase 6 — Artifact Foundation (compatibilidade)
 
 #### AR01 — Criar contrato e catálogo inicial
 
@@ -464,17 +470,17 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 #### AR02 — Criar biblioteca de Artifacts
 
 - Status: concluído na fundação — biblioteca read-only e quick actions funcionais; edição e fixação continuam futuras.
-- Objetivo: educar o usuário sobre o conceito e oferecer uma entrada real para uso dos mocks.
+- Objetivo: oferecer uma entrada real para uso do catálogo durante a migração visual para Espaços.
 - Arquivos: `apps/desktop/src/surfaces/helix/ArtifactsPanel.tsx`, `ExpandedView.tsx`, `NormalCommandView.tsx`, `types.ts`, `helix-sidebar.tsx`, `helix-drawer.tsx`.
 - Implementação:
-  1. Adicionar Artefatos na navegação expandida e no drawer normal.
+  1. Expor o catálogo como Espaços na navegação expandida e no drawer normal, mantendo os tipos internos por compatibilidade.
   2. Criar cards com nome, ícone, descrição, quick actions, modo preferido e capacidades.
   3. `Usar` abre o modo normal com uma ação inicial; `Fixar no radial`, `Editar` e `Duplicar` aparecem somente quando tiverem estado real ou indicação experimental honesta.
   4. Finanças deve ser o primeiro Artifact destacado, sem prometer importação de PDF/CSV ainda inexistente.
 - Aceite:
   - Biblioteca funciona nos modos normal e expanded.
   - Uma quick action preenche o composer e retorna para `command`.
-  - O usuário distingue Profile de Artifact pela linguagem da UI.
+  - O usuário distingue Profile, Workflow e Espaço pela linguagem da UI.
 
 ### Fase 7 — Settings Center
 
@@ -526,36 +532,182 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 - Aceite:
   - Nenhum contexto sensível é enviado sem indicação visual e política aplicável.
 
-## Fora do Escopo
+### Fase 9 — Workspaces Contínuos
 
-- Memória persistente entre conversas.
+#### W01 — Criar contrato persistente de Workspace
+
+- Status: pendente.
+- Objetivo: substituir o catálogo read-only por uma entidade persistente, customizável e explicitamente separada de Profile e Workflow.
+- Arquivos: `packages/shared/src/workspace.ts`, `packages/shared/src/index.ts`, nova migration em `packages/storage/src/migrations/`, `packages/storage/src/repositories/workspaces.ts`, `packages/agent-runtime/src/api.ts`.
+- Contrato mínimo:
+  - identidade: `id`, `name`, `icon`, `color`, `purpose`;
+  - composição: `profileId`, `quickActions`, `workflowIds`, `connectedSources`;
+  - memória: fatos editáveis, notas fixadas e política de retenção;
+  - contexto: arquivos, conversas relacionadas, objetivos e fontes vinculadas;
+  - UI: `preferredMode` e layout `chat | dashboard | document | kanban | debug`.
+- Implementação:
+  1. Criar tipos compartilhados sem dependência de React e mapear `HelixArtifact` para um template inicial de Workspace.
+  2. Adicionar migration nova e idempotente; não alterar migrations `001-009`.
+  3. Criar repository com `create`, `get`, `list`, `update`, `archive` e ordenação por `updatedAt`.
+  4. Expor RPCs tipadas e testes de round-trip no banco.
+- Edge cases:
+  - Renomear ou arquivar um Workspace não pode apagar conversas, memória ou execuções vinculadas.
+  - Um Profile removido deve cair para o perfil padrão sem invalidar o Workspace.
+  - Templates do catálogo não podem reaparecer duplicados a cada boot.
+- Aceite:
+  - Um Workspace criado sobrevive ao restart do sidecar.
+  - O catálogo legado migra uma única vez e continua utilizável.
+  - Testes cobrem criação, atualização, arquivamento e compatibilidade sem alterar migrations antigas.
+
+#### W02 — Criar shell e navegação própria de Workspace
+
+- Status: pendente.
+- Objetivo: fazer Espaços abrirem uma superfície contínua, não apenas preencherem o composer global.
+- Arquivos: novo diretório `apps/desktop/src/surfaces/workspace/`, `ArtifactsPanel.tsx`, `ExpandedView.tsx`, `NormalCommandView.tsx`, `stores/agent.ts`.
+- Implementação:
+  1. Transformar a biblioteca atual em lista de Workspaces recentes + templates para criar um novo.
+  2. Criar `WorkspaceShell` com resumo, atividade recente, ações rápidas, memória e contexto visíveis.
+  3. Preservar `workspaceId` ao alternar normal/expanded e ao abrir uma conversa relacionada.
+  4. Suportar layouts declarados sem criar renderers falsos: somente `chat` e `dashboard` entram primeiro; outros mostram fallback honesto.
+- Aceite:
+  - Abrir um Espaço restaura seu último contexto e sua última atividade.
+  - Alternar normal/expanded não perde o Workspace ativo.
+  - A UI não chama templates read-only de memória persistente.
+
+#### W03 — Memória e contexto editáveis
+
+- Status: pendente.
+- Objetivo: tornar visível e controlável tudo o que o Workspace sabe.
+- Arquivos: `packages/shared/src/workspace.ts`, repository de memória, `WorkspaceMemoryPanel.tsx`, `WorkspaceContextPanel.tsx`, inspector do expanded.
+- Implementação:
+  1. Modelar `MemoryFact` com origem, data, confiança opcional, status `active | archived` e edição manual.
+  2. Permitir adicionar, editar, arquivar, remover e promover uma resposta para memória.
+  3. Mostrar contexto fixado separado do contexto efêmero da sessão.
+  4. Registrar qual memória/contexto entrou em cada execução para auditoria.
+- Edge cases:
+  - Memória sensível deve poder ser removida definitivamente e não reaparecer por resumo automático.
+  - Duplicatas devem ser sugeridas para merge, nunca mescladas silenciosamente.
+  - Memória de um Workspace não vaza para outro sem vínculo explícito.
+- Aceite:
+  - O usuário consegue responder “o que este Espaço sabe?” pela própria UI.
+  - Cada execução mostra as fontes de contexto usadas.
+  - Limpar memória atualiza storage, runtime e UI sem restart.
+
+#### W04 — Financeiro como Workspace de referência
+
+- Status: pendente.
+- Objetivo: provar a arquitetura com um caso contínuo e altamente customizável.
+- Superfície: resumo mensal, dívidas, orçamento, compras em análise, objetivos, simulações salvas e decisões recentes.
+- Implementação:
+  1. Criar schema leve para `Debt`, `BudgetItem`, `PurchaseDecision`, `Goal` e `Scenario`, sem transformar o produto em app bancário.
+  2. Permitir entrada manual e por clipboard; importação de arquivo fica condicionada ao pipeline real de anexos.
+  3. Reutilizar workflows de fechamento mensal, plano de quitação e análise de compra como rotinas vinculadas.
+  4. Tornar premissas, riscos e datas sempre visíveis no renderer.
+- Aceite:
+  - Dívidas do mês persistem e podem ser atualizadas sem reconstruir o contexto no chat.
+  - Simulações registram premissas e não são apresentadas como garantia.
+  - O Workspace continua útil sem connector bancário.
+
+### Fase 10 — Follow-up Sessions
+
+#### FUP01 — Criar contrato, storage e ciclo de vida
+
+- Status: pendente.
+- Objetivo: criar o background real do Helix como sessão explícita, pausável e retomável.
+- Arquivos: `packages/shared/src/follow-up.ts`, nova migration, `packages/storage/src/repositories/follow-up-sessions.ts`, `packages/agent-runtime/src/follow-up-runner.ts`, RPC e store desktop.
+- Contrato mínimo:
+  - `mode`: `vision | debug | writing | research | workflow`;
+  - `status`: `active | paused | waiting_approval | completed | failed`;
+  - `objective`, `workspaceId`, `memoryScope`, `contextPolicy`;
+  - `observations`, `hypotheses`, `nextActions`, timestamps e motivo de encerramento.
+- Implementação:
+  1. Persistir sessão e eventos como append-only onde a ordem importa.
+  2. Implementar `start`, `pause`, `resume`, `stop`, `addObservation` e `complete` com transições validadas.
+  3. Garantir uma sessão ativa por escopo de captura; múltiplas sessões de escrita/research podem coexistir se não observarem recursos exclusivos.
+  4. Recuperar sessões `active` após crash como `paused`, nunca reativá-las silenciosamente.
+- Aceite:
+  - Pause/stop interrompem trabalho futuro e sobrevivem ao restart.
+  - Estado inválido retorna erro tipado.
+  - Nenhuma captura começa somente porque uma sessão foi restaurada.
+
+#### FUP02 — Indicadores e controles sempre visíveis
+
+- Status: pendente.
+- Objetivo: impedir que follow-up pareça vigilância invisível.
+- Arquivos: `pet.tsx`, `HelixHeader.tsx`, `NormalCommandView.tsx`, `ExpandedView.tsx`, novo `FollowUpBanner.tsx`.
+- Implementação:
+  1. Pet usa sinal orbital discreto quando há sessão ativa; cor diferencia ativo, pausado e aprovação.
+  2. Normal mostra faixa com nome, modo, duração, `Pausar`, `Encerrar` e `Expandir`.
+  3. Expanded mostra timeline, contexto observado, hipóteses, ações sugeridas e auditoria de permissões.
+  4. Tray/menu bar oferece pausa e encerramento sem abrir o workspace.
+- Aceite:
+  - Não existe follow-up ativo sem pelo menos um indicador persistente.
+  - Pausar/encerrar exige no máximo um clique na janela aberta.
+  - Reduced motion preserva estado sem depender de animação.
+
+#### FUP03 — MVP de escrita e debug manual
+
+- Status: pendente.
+- Objetivo: validar continuidade antes de automatizar captura de tela.
+- Implementação:
+  1. Writing mantém objetivo, destinatário, tom, restrições e versões anteriores.
+  2. Debug mantém erro inicial, hipóteses, tentativas, evidências e conclusão.
+  3. Observações entram manualmente por composer, clipboard ou arquivo explicitamente anexado.
+  4. O usuário escolhe se uma conclusão vira memória do Workspace ou permanece na sessão.
+- Aceite:
+  - Uma sessão pode ser retomada sem repetir o briefing.
+  - Hipóteses e evidências são entidades separadas na UI.
+  - Encerrar produz resumo e próximos passos sem gravar memória automaticamente.
+
+#### FUP04 — Vision follow-up com permissão e diff
+
+- Status: futuro, condicionado às dependências de permissão e captura nativa.
+- Objetivo: observar mudanças visuais dentro de um escopo explícito e revogável.
+- Dependências: disclosure de Screen Recording/Accessibility, captura nativa validada, política de retenção, diff visual/OCR e controles FUP02 prontos.
+- Implementação:
+  1. Mostrar preview exato do escopo antes da primeira captura.
+  2. Capturar por ação do usuário ou intervalo configurado; default seguro é manual/pausado.
+  3. Persistir metadados e observações derivadas; imagem bruta segue retenção explícita e pode ser descartada imediatamente.
+  4. Comparar observações e só notificar mudança relevante segundo o objetivo da sessão.
+- Aceite:
+  - O usuário vê quando, o que e por que a tela foi capturada.
+  - Revogar permissão pausa a sessão e remove acesso imediatamente.
+  - Nenhuma captura ocorre após pause, stop, crash ou restore.
+
+## Fora Da Rodada Visual Atual
+
 - Skills customizadas.
 - Profiles avançados (voz, idioma e modelos preferenciais).
-- Persistência/edição completa de Artifacts, memória própria e UI customizada por Artifact.
-- Leitura contínua de tela ou clipboard sem contrato de permissão e implementação ponta a ponta.
 - Anexos de arquivo.
 - Voz/áudio.
 - Novas ferramentas de runtime/backend.
-- Redesign estrutural das páginas Config, Prompts/Profiles e Connectors (apenas tokens/componentes reutilizáveis).
+- Captura contínua de tela antes de FUP01-FUP03, disclosure e validação nativa.
+- Automação silenciosa ou reativação automática de qualquer Follow-up Session.
 
 ## Ordem Recomendada De Commits (atualizada)
 
-1. `docs: sync PLANO.md with current worktree state`
-2. `feat: finalize minimal home page (H01)`
-3. `feat: apply design system to internal panels (D03)`
-4. `fix: active profile must not affect existing conversations (PR03)`
-5. `feat: persist clipboard as explicit message block (PR04)`
-6. `feat: compact result card for normal mode (R01)`
-7. `feat: permission-oriented context bar (C01)`
-8. `feat: radial V2 second orbit (A02)`
-9. `feat: evolve persisted settings (S02)`
+1. `feat: refine Helix identity, pet and command palette`
+2. `docs: define continuous workspaces and follow-up backlog`
+3. `feat: persist workspace domain and migrate artifact templates (W01)`
+4. `feat: add continuous workspace shell (W02)`
+5. `feat: expose editable workspace memory and context (W03)`
+6. `feat: ship finance reference workspace (W04)`
+7. `feat: persist follow-up session lifecycle (FUP01)`
+8. `feat: add visible follow-up controls and timeline (FUP02)`
+9. `feat: add writing and debug follow-up modes (FUP03)`
+10. `feat: add consent-driven vision follow-up (FUP04)`
+11. `feat: compact result card for normal mode (R01)`
+12. `feat: permission-oriented context bar (C01)`
+13. `feat: radial V2 second orbit (A02)`
 
 ## Critérios Gerais de Aceite do Redesign
 
 - Não há mais botões repetidos no header.
-- Pet está alinhado e comunica status por cor/animação.
-- Home page é minimalista: título/pet, composer, chips, clipboard colapsável.
-- Navegação lateral/drawer acessa Nova conversa, Histórico, Artefatos, Perfis, Conectores, Workflows, Skills, Config.
+- A marca Helix é legível em `20px` e no pet collapsed, sem depender de glow.
+- Pet está alinhado e comunica status por cor/animação, com fallback estático em reduced motion.
+- Command palette prioriza composer, contexto e as seis intenções do Action Registry.
+- Navegação lateral/drawer prioriza Nova conversa, Histórico, Espaços, Conectores e Config.
+- Profiles, Workflows e Skills aparecem no contexto certo sem competir como produtos equivalentes.
 - Pet collapsed substituiu o modo mini e oferece menu rápido.
 - Páginas Config, Prompts/Profiles e Connectors usam tokens e componentes reutilizáveis.
 - Profile ativo aplica system prompt sem afetar conversas já abertas.
@@ -563,6 +715,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 - Resultado curto é exibido como card compacto no modo normal (Copiar/Refinar/Expandir).
 - `bun run typecheck` e `bun run lint` passam em todas as fases.
 - Screenshots comparativas antes/depois documentam cada modo (normal, expandido, pet collapsed).
+- Workspaces e Follow-up só podem ser marcados como concluídos depois de validação de storage, restart, permissões e controles ponta a ponta.
 
 ## Verificação
 
@@ -579,8 +732,9 @@ Testes manuais obrigatórios:
 2. Clicar no pet collapsed e usar menu rápido.
 3. Duplo clique no pet para abrir modo normal.
 4. Usar chip de contexto com clipboard detectado.
-5. Navegar para Histórico, Perfis, Conectores, Config via sidebar/drawer.
-6. Criar e ativar um profile; iniciar conversa e confirmar system prompt aplicado.
+5. Navegar para Histórico, Espaços, Conectores e Config via sidebar/drawer.
+6. Abrir Workflow pela command palette e trocar Profile dentro de uma conversa.
+7. Validar a marca em `20px`, `48px` e `58px`, com reduced motion e estados de execução.
 
 ## Referências
 

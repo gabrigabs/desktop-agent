@@ -90,6 +90,27 @@ Após conclusão do backlog anterior, a próxima onda de trabalho foca em melhor
 - O novo backlog prioriza limpeza visual, fluxo de entrada e consistência de system design.
 - Detalhes, fases e critérios de aceite estão em [PLANO.md](/Users/gabrielbezerrarodrigues/dev/desktop-agent/PLANO.md).
 
+## Identidade, Espaços Contínuos e Follow-up (2026-07-10)
+
+Esta rodada refinou o Helix de um conjunto de páginas para um sistema com três níveis claros:
+
+```text
+Pet discreto -> command palette/ação -> Espaço ou Follow-up quando o trabalho precisa continuar
+```
+
+Decisões consolidadas no plano canônico:
+
+- A identidade visual usa um monograma Helix entrelaçado, legível em tamanhos pequenos e animado por estado, sem depender de glow decorativo.
+- O radial e a command palette derivam as seis intenções de `HELIX_ACTIONS`; subações continuam uma segunda camada contextual.
+- A navegação principal fica em Nova conversa, Histórico, Espaços, Conectores e Config.
+- Profiles são estilos de resposta; Workflows são sequências executáveis; Skills são capacidades; nenhum deles compete com Espaços na navegação principal.
+- Artifacts permanece como contrato interno de compatibilidade enquanto a UI migra para Espaços/Workspaces.
+- Workspaces terão memória editável, contexto fixado, histórico, quick actions, workflows vinculados e layouts próprios.
+- Follow-up Sessions serão o background explícito e pausável para escrita, debug, pesquisa, workflows e visão.
+- Vision follow-up depende de disclosure, permissão, captura nativa e controles de pausa/stop já validados; não será ativado silenciosamente.
+
+As unidades executáveis, dependências, edge cases, critérios de aceite e ordem de commits estão em `W01-W04` e `FUP01-FUP04` no [PLANO.md](/Users/gabrielbezerrarodrigues/dev/desktop-agent/PLANO.md).
+
 ## Próximo Uso Deste Arquivo
 
 - Registrar contexto histórico que explique por que uma decisão foi tomada.
