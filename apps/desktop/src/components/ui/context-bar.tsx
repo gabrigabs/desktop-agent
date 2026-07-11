@@ -1,5 +1,4 @@
-import { Clipboard, Code, Eye, FileText, Globe, RefreshCw, Type, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Clipboard, Code, FileText, Globe, RefreshCw, Type } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { ContextChipItem } from "../../surfaces/helix/hooks/useContextChips";
 
@@ -42,18 +41,8 @@ export function ContextBar({
   onClipboardAction,
 }: ContextBarProps) {
   const { t } = useTranslation("helix");
-  const [open, setOpen] = useState(false);
   const hasText = text.trim().length > 0;
   const Icon = detectIcon(text);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [open]);
 
   if (!hasText) {
     return (
@@ -65,123 +54,72 @@ export function ContextBar({
   }
 
   return (
-    <>
-      <div
-        className={`rounded-lg border p-1.5 transition-colors ${
-          enabled ? "bg-signal/[0.04] border-signal/20" : "bg-transparent border-line"
-        }`}
-      >
-        <div className="flex items-center gap-2">
-          <Icon className={`w-3.5 h-3.5 shrink-0 ${enabled ? "text-signal" : "text-faint"}`} />
-          <div className="flex-1 min-w-0 flex items-center gap-2">
-            <span className={`text-[10px] font-medium ${enabled ? "text-signal" : "text-faint"}`}>
-              {t("helix:contextBar.clipboard")}
-            </span>
-            <span className="text-[10px] text-faint font-mono">
-              {text.length} {t("helix:contextBar.characters")}
-            </span>
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            <button
-              type="button"
-              onClick={() => setOpen(true)}
-              className="flex items-center gap-1 px-1.5 py-1 rounded-md text-[10px] font-medium text-mute hover:text-fg hover:bg-white/5 transition-colors"
-              title={t("helix:contextBar.viewClipboard")}
-              aria-label={t("helix:contextBar.viewClipboard")}
-            >
-              <Eye className="w-3 h-3" />
-              {t("helix:contextBar.view")}
-            </button>
-            <button
-              type="button"
-              onClick={onReload}
-              className="p-1 rounded-md text-faint hover:text-fg hover:bg-white/5 transition-colors"
-              title={t("helix:contextBar.reloadClipboard")}
-              aria-label={t("helix:contextBar.reloadClipboard")}
-            >
-              <RefreshCw className="w-3 h-3" />
-            </button>
-            {enabled ? (
-              <button
-                type="button"
-                onClick={onDisable}
-                className="text-[10px] font-medium px-2 py-1 rounded-md bg-signal/10 text-signal hover:bg-signal/20 transition-colors"
-                title={t("helix:contextBar.removeClipboard")}
-              >
-                {t("helix:contextBar.included")}
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={onEnable}
-                className="text-[10px] font-medium px-2 py-1 rounded-md bg-white/[0.04] text-mute hover:bg-white/[0.08] hover:text-fg transition-colors"
-                title={t("helix:contextBar.includeClipboard")}
-              >
-                {t("helix:contextBar.include")}
-              </button>
-            )}
-          </div>
+    <div
+      className={`rounded-lg border p-1.5 transition-colors ${
+        enabled ? "bg-signal/[0.04] border-signal/20" : "bg-transparent border-line"
+      }`}
+    >
+      <div className="flex items-center gap-2">
+        <Icon className={`w-3.5 h-3.5 shrink-0 ${enabled ? "text-signal" : "text-faint"}`} />
+        <div className="flex-1 min-w-0 flex items-center gap-2">
+          <span className={`text-[10px] font-medium ${enabled ? "text-signal" : "text-faint"}`}>
+            {t("helix:contextBar.clipboard")}
+          </span>
+          <span className="text-[10px] text-faint font-mono">
+            {text.length} {t("helix:contextBar.characters")}
+          </span>
         </div>
-
-        {clipboardActions && clipboardActions.length > 0 && onClipboardAction && (
-          <div className="mt-1.5 pt-1.5 border-t border-line/40 flex flex-wrap items-center gap-1.5">
-            {clipboardActions.map((action) => {
-              const ActionIcon = action.icon;
-              return (
-                <button
-                  key={action.id}
-                  type="button"
-                  onClick={() => onClipboardAction(action)}
-                  className="flex items-center gap-1 px-2 py-1 rounded-full border border-line bg-white/[0.03] text-[10px] text-mute hover:text-fg hover:border-signal/30 hover:bg-white/[0.06] transition-colors"
-                  title={action.prompt}
-                >
-                  <ActionIcon className={`w-3 h-3 ${action.accent}`} />
-                  {action.label}
-                </button>
-              );
-            })}
-          </div>
-        )}
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            type="button"
+            onClick={onReload}
+            className="p-1 rounded-md text-faint hover:text-fg hover:bg-white/5 transition-colors"
+            title={t("helix:contextBar.reloadClipboard")}
+            aria-label={t("helix:contextBar.reloadClipboard")}
+          >
+            <RefreshCw className="w-3 h-3" />
+          </button>
+          {enabled ? (
+            <button
+              type="button"
+              onClick={onDisable}
+              className="text-[10px] font-medium px-2 py-1 rounded-md bg-signal/10 text-signal hover:bg-signal/20 transition-colors"
+              title={t("helix:contextBar.removeClipboard")}
+            >
+              {t("helix:contextBar.included")}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onEnable}
+              className="text-[10px] font-medium px-2 py-1 rounded-md bg-white/[0.04] text-mute hover:bg-white/[0.08] hover:text-fg transition-colors"
+              title={t("helix:contextBar.includeClipboard")}
+            >
+              {t("helix:contextBar.include")}
+            </button>
+          )}
+        </div>
       </div>
 
-      {open && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setOpen(false);
-          }}
-          aria-hidden="true"
-        >
-          <div
-            className="w-full max-w-xl max-h-[80vh] flex flex-col rounded-2xl border border-line bg-ink shadow-2xl overflow-hidden"
-            role="dialog"
-            aria-modal="true"
-            aria-label={t("helix:contextBar.viewClipboard")}
-          >
-            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-line bg-white/[0.03]">
-              <div className="flex items-center gap-2">
-                <Icon className={`w-4 h-4 ${enabled ? "text-signal" : "text-faint"}`} />
-                <span className="text-sm font-semibold text-fg">{t("helix:contextBar.clipboard")}</span>
-                <span className="text-[10px] text-faint font-mono">
-                  {text.length} {t("helix:contextBar.charactersFull")}
-                </span>
-              </div>
+      {clipboardActions && clipboardActions.length > 0 && onClipboardAction && (
+        <div className="mt-1.5 pt-1.5 border-t border-line/40 flex flex-wrap items-center gap-1.5">
+          {clipboardActions.map((action) => {
+            const ActionIcon = action.icon;
+            return (
               <button
+                key={action.id}
                 type="button"
-                onClick={() => setOpen(false)}
-                className="p-1.5 rounded-lg text-faint hover:text-fg hover:bg-white/5 transition-colors"
-                title={t("helix:contextBar.close")}
-                aria-label={t("helix:contextBar.close")}
+                onClick={() => onClipboardAction(action)}
+                className="flex items-center gap-1 px-2 py-1 rounded-full border border-line bg-white/[0.03] text-[10px] text-mute hover:text-fg hover:border-signal/30 hover:bg-white/[0.06] transition-colors"
+                title={action.prompt}
               >
-                <X className="w-4 h-4" />
+                <ActionIcon className={`w-3 h-3 ${action.accent}`} />
+                {action.label}
               </button>
-            </div>
-            <div className="p-4 overflow-y-auto">
-              <p className="text-sm text-fg leading-relaxed whitespace-pre-wrap select-text">{text}</p>
-            </div>
-          </div>
+            );
+          })}
         </div>
       )}
-    </>
+    </div>
   );
 }

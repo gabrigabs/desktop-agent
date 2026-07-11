@@ -1,4 +1,4 @@
-import { ArrowUp, ChevronDown, ChevronUp, Clipboard, X } from "lucide-react";
+import { ArrowUp, ChevronDown, ChevronUp, Clipboard } from "lucide-react";
 import { type RefObject, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ContextBar } from "../../components/ui/context-bar";
@@ -172,37 +172,26 @@ export function Composer({
         </button>
       </div>
       {hasClipboardMarker && (
-        <div className="overflow-hidden rounded-xl border border-signal/20 bg-signal/[0.035] shadow-[inset_3px_0_0_rgba(196,153,244,0.45)]">
-          <div className="flex items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={() => setClipboardExpanded((v) => !v)}
-              className="flex flex-1 items-center gap-2.5 px-3 py-2.5 text-left text-xs text-mute transition-colors hover:bg-white/[0.025] hover:text-fg"
-            >
-              <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-signal/15 bg-signal/10 text-signal">
-                <Clipboard className="h-3.5 w-3.5" />
-              </span>
-              <span className="min-w-0 flex-1">
-                {clipboardExpanded
-                  ? t("helix:composer.hideClipboard")
-                  : t("helix:composer.showClipboard", { count: clipboardText.length })}
-              </span>
-              {clipboardExpanded ? (
-                <ChevronUp className="h-3.5 w-3.5" />
-              ) : (
-                <ChevronDown className="h-3.5 w-3.5" />
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={removeClipboardMarker}
-              className="mr-2 rounded-lg p-1.5 text-faint transition-colors hover:bg-white/[0.06] hover:text-fg"
-              title={t("helix:composer.removeClipboard")}
-              aria-label={t("helix:composer.removeClipboard")}
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
+        <div className="overflow-hidden rounded-xl border border-signal/20 border-l-2 border-l-signal/50 bg-signal/[0.035]">
+          <button
+            type="button"
+            onClick={() => setClipboardExpanded((v) => !v)}
+            className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-xs text-mute transition-colors hover:bg-white/[0.04] hover:text-fg"
+          >
+            <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-signal/15 bg-signal/10 text-signal">
+              <Clipboard className="h-3.5 w-3.5" />
+            </span>
+            <span className="min-w-0 flex-1">
+              {clipboardExpanded
+                ? t("helix:composer.hideClipboard")
+                : t("helix:composer.showClipboard", { count: clipboardText.length })}
+            </span>
+            {clipboardExpanded ? (
+              <ChevronUp className="h-3.5 w-3.5 shrink-0" />
+            ) : (
+              <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+            )}
+          </button>
           {clipboardExpanded && (
             <div className="border-t border-signal/10 bg-black/10 px-3 py-2.5">
               <p className="max-h-36 overflow-y-auto whitespace-pre-wrap font-mono text-[10px] leading-relaxed text-mute select-text">
