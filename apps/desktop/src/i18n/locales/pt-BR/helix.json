@@ -84,7 +84,19 @@
     "include": "Incluir",
     "includeClipboard": "Incluir [CLIPBOARD] na mensagem",
     "removeClipboard": "Remover [CLIPBOARD] da mensagem",
-    "close": "Fechar"
+    "close": "Fechar",
+    "activeApp": "App ativo",
+    "connector": "Conector",
+    "sensitive": "Requer permissão",
+    "soon": "Em breve",
+    "allow": "Permitir",
+    "disable": "Desativar",
+    "enable": "Ativar",
+    "remove": "Remover",
+    "preview": "Visualizar",
+    "emptyHint": "Nenhum contexto ativo — copie um texto ou anexe um arquivo.",
+    "add": "Adicionar",
+    "comingSoon": "Funcionalidade em desenvolvimento"
   },
   "contextChips": {
     "summarizeText": "Resumir texto",
@@ -483,6 +495,20 @@
     "copy": "Copiar",
     "resultPlaceholder": "A resposta aparece aqui assim que o agente começar a escrever."
   },
+  "compactResult": {
+    "title": "Resultado",
+    "emptyHint": "A resposta compacta aparecerá aqui.",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "expand": "Expandir",
+    "refine": "Refinar",
+    "refineConcise": "Seja mais conciso",
+    "refineConcisePrompt": "Seja mais conciso e direto.",
+    "refineDetail": "Explique mais",
+    "refineDetailPrompt": "Explique com mais detalhes.",
+    "refineExamples": "Dê exemplos",
+    "refineExamplesPrompt": "Inclua exemplos práticos."
+  },
   "historyList": {
     "archive": "Arquivo de conversas",
     "description": "Retome uma conversa anterior com o contexto e as respostas preservados.",
@@ -621,7 +647,9 @@
     "closeMenu": "Fechar menu",
     "openHelix": "Abrir Helix",
     "closeMenuHint": "Clique para fechar menu",
-    "openMenuHint": "Clique para abrir menu, arraste para mover"
+    "openMenuHint": "Clique para abrir menu, arraste para mover",
+    "back": "Voltar",
+    "secondaryActions": "Ações secundárias"
   },
   "sidebar": {
     "newConversation": "Nova conversa",

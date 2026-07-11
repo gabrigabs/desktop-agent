@@ -5,6 +5,7 @@ import remarkGfm from "remark-gfm";
 import { prepareMarkdown } from "../../lib/markdown";
 import { isTauriRuntime } from "../../lib/window";
 import { CodeBlock } from "./code-block";
+import { MermaidBlock } from "./mermaid-block";
 
 interface MarkdownRendererProps {
   content: string;
@@ -110,7 +111,12 @@ function codeComponent({ className, children, ...props }: ComponentPropsWithoutR
     (typeof children === "string" ? children.includes("\n") : String(children ?? "").includes("\n"));
 
   if (isBlock) {
-    return <CodeBlock language={match?.[1] ?? ""}>{children as ReactNode}</CodeBlock>;
+    const language = match?.[1] ?? "";
+    const code = typeof children === "string" ? children : String(children ?? "");
+    if (language === "mermaid") {
+      return <MermaidBlock code={code} />;
+    }
+    return <CodeBlock language={language}>{children as ReactNode}</CodeBlock>;
   }
 
   return (

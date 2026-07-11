@@ -1,0 +1,136 @@
+import { Check, Copy, ZoomIn, ZoomOut } from "lucide-react";
+import mermaid from "mermaid";
+import { useEffect, useRef, useState } from "react";
+import { Button } from "./button";
+import { CodeBlock } from "./code-block";
+
+interface MermaidBlockProps {
+  code: string;
+}
+
+let mermaidInitialized = false;
+
+function initMermaid() {
+  if (mermaidInitialized) return;
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: "dark",
+    securityLevel: "strict",
+    suppressErrorRendering: true,
+  });
+  mermaidInitialized = true;
+}
+
+export function MermaidBlock({ code }: MermaidBlockProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [svg, setSvg] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [scale, setScale] = useState(1);
+  const [copied, setCopied] = useState(false);
+  const diagramId = useRef(`mermaid-${Math.random().toString(36).slice(2)}`);
+
+  useEffect(() => {
+    initMermaid();
+    let cancelled = false;
+
+    const render = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const { svg: rendered } = await mermaid.render(diagramId.current, code);
+        if (!cancelled) {
+          setSvg(rendered);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void render();
+    return () => {
+      cancelled = true;
+    };
+  }, [code]);
+
+  const handleCopyCode = async () => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (err) {
+      console.error("Failed to copy mermaid code:", err);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="rounded-xl border border-line bg-white/[0.02] p-4">
+        <div className="h-32 w-full animate-pulse rounded-lg bg-white/[0.05]" />
+      </div>
+    );
+  }
+
+  if (error || !svg) {
+    return (
+      <div className="flex flex-col gap-2 rounded-xl border border-line bg-white/[0.02] p-3">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-medium text-bad">Mermaid</span>
+          <Button variant="ghost" size="sm" onClick={handleCopyCode}>
+            {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+            {copied ? "Copied" : "Copy"}
+          </Button>
+        </div>
+        {error && <p className="text-[10px] text-bad/80">{error}</p>}
+        <CodeBlock language="mermaid">{code}</CodeBlock>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2 rounded-xl border border-line bg-white/[0.02] p-3">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-medium text-signal">Diagram</span>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setScale((s) => Math.max(0.5, s - 0.25))}
+            className="rounded-md p-1 text-faint transition-colors hover:bg-white/5 hover:text-fg"
+            title="Zoom out"
+            aria-label="Zoom out"
+          >
+            <ZoomOut className="h-3.5 w-3.5" />
+          </button>
+          <span className="min-w-[3ch] text-center text-[10px] text-mute">{Math.round(scale * 100)}%</span>
+          <button
+            type="button"
+            onClick={() => setScale((s) => Math.min(2, s + 0.25))}
+            className="rounded-md p-1 text-faint transition-colors hover:bg-white/5 hover:text-fg"
+            title="Zoom in"
+            aria-label="Zoom in"
+          >
+            <ZoomIn className="h-3.5 w-3.5" />
+          </button>
+          <Button variant="ghost" size="sm" onClick={handleCopyCode}>
+            {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+            {copied ? "Copied" : "Copy"}
+          </Button>
+        </div>
+      </div>
+      <div ref={containerRef} className="overflow-auto rounded-lg bg-black/20 p-2">
+        <div
+          className="mermaid-diagram min-w-0 origin-top-left transition-transform"
+          style={{ transform: `scale(${scale})`, transformOrigin: "top left" }}
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: trusted mermaid svg
+          dangerouslySetInnerHTML={{ __html: svg }}
+        />
+      </div>
+    </div>
+  );
+}

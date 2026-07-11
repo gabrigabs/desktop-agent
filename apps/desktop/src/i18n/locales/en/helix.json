@@ -84,7 +84,19 @@
     "include": "Include",
     "includeClipboard": "Include [CLIPBOARD] in message",
     "removeClipboard": "Remove [CLIPBOARD] from message",
-    "close": "Close"
+    "close": "Close",
+    "activeApp": "Active app",
+    "connector": "Connector",
+    "sensitive": "Requires permission",
+    "soon": "Soon",
+    "allow": "Allow",
+    "disable": "Disable",
+    "enable": "Enable",
+    "remove": "Remove",
+    "preview": "Preview",
+    "emptyHint": "No active context — copy text or attach a file.",
+    "add": "Add",
+    "comingSoon": "Feature under development"
   },
   "contextChips": {
     "summarizeText": "Summarize text",
@@ -483,6 +495,20 @@
     "copy": "Copy",
     "resultPlaceholder": "The response appears here as soon as the agent starts writing."
   },
+  "compactResult": {
+    "title": "Result",
+    "emptyHint": "The compact response will appear here.",
+    "copy": "Copy",
+    "copied": "Copied",
+    "expand": "Expand",
+    "refine": "Refine",
+    "refineConcise": "Be more concise",
+    "refineConcisePrompt": "Be more concise and direct.",
+    "refineDetail": "Explain more",
+    "refineDetailPrompt": "Explain in more detail.",
+    "refineExamples": "Give examples",
+    "refineExamplesPrompt": "Include practical examples."
+  },
   "historyList": {
     "archive": "Conversation archive",
     "description": "Resume a previous conversation with its context and responses preserved.",
@@ -621,7 +647,9 @@
     "closeMenu": "Close menu",
     "openHelix": "Open Helix",
     "closeMenuHint": "Click to close menu",
-    "openMenuHint": "Click to open menu, drag to move"
+    "openMenuHint": "Click to open menu, drag to move",
+    "back": "Back",
+    "secondaryActions": "Secondary actions"
   },
   "sidebar": {
     "newConversation": "New conversation",

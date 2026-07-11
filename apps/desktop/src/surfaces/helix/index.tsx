@@ -160,25 +160,41 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
   }, []);
 
   useEffect(() => {
-    const actionId = sessionStorage.getItem("helix.pending-action");
-    if (!actionId) return;
+    const raw = sessionStorage.getItem("helix.pending-action");
+    if (!raw) return;
 
     sessionStorage.removeItem("helix.pending-action");
-    if (actionId === "artifacts") {
+
+    let pending: { actionId: string; secondaryId?: string } | null = null;
+    try {
+      pending = JSON.parse(raw) as { actionId: string; secondaryId?: string };
+    } catch {
+      pending = { actionId: raw };
+    }
+
+    if (!pending?.actionId) return;
+
+    if (pending.actionId === "artifacts") {
       setMode("artifacts");
       return;
     }
-    if (actionId === "workflow") {
+    if (pending.actionId === "workflow") {
       setMode("workflows");
       return;
     }
 
-    const action = getHelixAction(actionId);
+    const action = getHelixAction(pending.actionId);
     if (!action) return;
+
+    const secondary = pending.secondaryId
+      ? action.secondaryActions?.find((s) => s.id === pending.secondaryId)
+      : undefined;
+
     setMode("command");
-    setExecutionMode(action.executionMode ?? "simple");
-    setIgnoreClipboard(!action.requiredContext?.includes("clipboard"));
-    setQuery(action.prompt);
+    setExecutionMode(secondary?.executionMode ?? action.executionMode ?? "simple");
+    const requiredContext = secondary?.requiredContext ?? action.requiredContext;
+    setIgnoreClipboard(!requiredContext?.includes("clipboard"));
+    setQuery(secondary?.prompt ?? action.prompt);
     requestAnimationFrame(() => textareaRef.current?.focus());
   }, [setExecutionMode, setIgnoreClipboard, setQuery]);
 
@@ -308,6 +324,7 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     onExecute: exec.handleExecute,
     onAbort: onAbort,
     onCopy: exec.handleCopyResult,
+    onRefine: onEditPrompt,
     onNewTask: handleNewTask,
     onStarterAction,
     onEditPrompt,

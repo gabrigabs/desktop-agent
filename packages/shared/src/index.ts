@@ -28,6 +28,7 @@ export {
   type HelixActionCategory,
   type HelixArtifact,
   type HelixContextSource,
+  type HelixSecondaryAction,
 } from "./helix";
 export type {
   AgentEvent,

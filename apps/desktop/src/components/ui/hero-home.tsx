@@ -27,7 +27,7 @@ export function HeroHome({ expanded, footer, profiles, activeProfileId, onSetAct
       />
 
       <div className="hero-enter relative flex items-center justify-center">
-        <Pet size={expanded ? 166 : 126} variant="hero" glow />
+        <Pet size={expanded ? 142 : 126} variant="hero" glow />
       </div>
 
       {/* Profile switch */}

@@ -1,7 +1,7 @@
 # Plano Helix
 
 > Fonte principal do produto. `BACKLOG.md` fica como histórico/status resumido.
-> Última atualização: 2026-07-10.
+> Última atualização: 2026-07-11.
 > Foco atual: fechar pendências do redesign, consolidar Settings e contexto explícito, adicionar trabalho seguro com arquivos e ferramentas nativas e manter Workspaces contínuos e Follow-up Sessions no roadmap ativo.
 
 ---
@@ -91,10 +91,26 @@ Resolvido nesta rodada:
 
 Pontos ainda abertos:
 
-- Segunda camada do radial para quick actions de Clipboard, Tela, Workflow e Espaços.
 - Inspector expandido ainda precisa de regra de visibilidade e densidade quando não há execução ativa.
 - Páginas Perfis, Connectors, Workflows e Skills ainda possuem composições internas mais densas que a home.
 - Validar o radial e o pet collapsed no bundle nativo em wallpapers claros e escuros; o browser não reproduz resize/transparência Tauri.
+
+### Auditoria Visual De 2026-07-11
+
+Resolvido nesta rodada:
+
+- Segunda camada do radial implementada com quick actions declarativas para Clipboard, Tela, Workflow e Espaços.
+- Submenu secundário trava a intenção primária depois do clique; atravessar o radial com o mouse não troca conteúdo nem dispara resize concorrente.
+- Painel secundário abre no lado da intenção selecionada e cresce verticalmente conforme a quantidade de itens, preservando o radial em `380x380`.
+- Ações sensíveis do radial apenas preenchem o composer; não executam automaticamente.
+- Context Bar unificada em uma única régua; capacidades mockadas aparecem como `Em breve` e não oferecem botões de permissão sem implementação.
+- Home normal e expandida compartilham a mesma Action Rail derivada de `HELIX_ACTIONS`.
+- Resultado compacto e Mermaid no chat possuem componentes dedicados e cobertura de testes focada.
+
+Pontos ainda abertos:
+
+- Substituir os mocks de Tela, App ativo, Arquivo e Connector por contextos reais com ciclo Ver, Usar/Não usar e Remover.
+- Validar pet e radial sobre wallpapers claros e escuros em mais de uma escala de monitor.
 
 ### Planejado (Redesign)
 
@@ -434,7 +450,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### A02 — Evoluir radial para seis intenções
 
-- Status: parcialmente concluído — primeira órbita compacta, preview central, seis intenções, atalhos `1-6` e navegação por teclado; segunda camada continua pendente.
+- Status: concluído — primeira órbita compacta, seis intenções, preview central, segunda camada responsiva, atalhos `1-6` e navegação por teclado validados no bundle nativo.
 - Objetivo: fazer o radial representar o modelo mental principal do produto.
 - Arquivos: `apps/desktop/src/components/ui/helix-launcher.tsx`, `apps/desktop/src/app.tsx`, `apps/desktop/src/index.css`.
 - Implementação:
@@ -516,7 +532,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### R01 — Card de resultado rápido
 
-- Status: pendente — `CompactResultCard.tsx` não existe; o modo normal ainda usa a área grande de resultado (`TaskActive`/`ChatActive`).
+- Status: concluído — `CompactResultCard.tsx` fornece preview truncado, Copiar, Refinar e Expandir no modo normal.
 - Objetivo: permitir ação rápida sem transformar toda interação em conversa longa.
 - Arquivos: novo `CompactResultCard.tsx`, `NormalCommandView.tsx`, `ChatView.tsx`.
 - Implementação: preview do resultado, Copiar, Refinar e Expandir; Inserir e Salvar como Artifact ficam condicionados a integração real.
@@ -525,7 +541,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### C01 — Context Bar orientada a permissões
 
-- Status: parcialmente concluído — `ContextBar` mostra apenas clipboard; tela, app ativo, arquivo e connectors ainda não estão consolidados.
+- Status: parcialmente concluído — Clipboard está funcional; Tela, App ativo, Arquivo e Connector estão consolidados visualmente como mocks honestos, ainda sem captura ou permissão real.
 - Objetivo: mostrar claramente o que o Helix está vendo e o que será enviado.
 - Arquivos: `ContextBar.tsx`, `ContextChipBar.tsx`, `useContextChips.ts`, `Composer.tsx`, inspector do expanded.
 - Implementação: consolidar Clipboard, Tela, App ativo, arquivo e connectors; cada origem oferece Ver, Usar/Não usar e Remover quando aplicável.
@@ -736,7 +752,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### CL04 — Concluir radial, resultado e Context Bar (`A02`, `R01`, `C01`)
 
-- Status: pendente.
+- Status: parcialmente concluído — `A02` e `R01` concluídos; `C01` depende da integração real de Tela, App ativo, Arquivo e Connector.
 - Objetivo: concluir a segunda órbita, o resultado compacto e o contexto orientado a permissões como uma experiência coerente.
 - Implementação:
   1. Segunda órbita para Clipboard, Tela, Workflow e Espaços.

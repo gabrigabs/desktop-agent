@@ -1,6 +1,7 @@
 import type {
   AgentProfile,
   ConnectorConfig,
+  HelixAction,
   McpTestResult,
   PromptTemplate,
   Skill,
@@ -10,27 +11,16 @@ import type {
   WorkflowTemplate,
   WorkflowTemplateSettings,
 } from "@desktop-agent/shared";
-import { HELIX_ACTIONS } from "@desktop-agent/shared";
-import {
-  AlertCircle,
-  ArrowLeft,
-  Check,
-  Clipboard,
-  Maximize2,
-  RefreshCw,
-  Sparkles,
-  Workflow,
-  X,
-} from "lucide-react";
+import { AlertCircle, ArrowLeft, Check, Maximize2, RefreshCw, Sparkles, Workflow, X } from "lucide-react";
 import type { RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { AgentIdentity } from "../../components/ui/agent-identity";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
-import { HELIX_ACTION_ICONS } from "../../components/ui/helix-action-icon";
+import { CompactResultCard } from "../../components/ui/compact-result-card";
+import { HelixActionRail } from "../../components/ui/helix-action-rail";
 import { HelixMark } from "../../components/ui/helix-mark";
 import { IconButton } from "../../components/ui/icon-button";
-import { MarkdownRenderer } from "../../components/ui/markdown-renderer";
 import { Separator } from "../../components/ui/separator";
 import { ArtifactsPanel } from "./ArtifactsPanel";
 import { ChatView } from "./ChatView";
@@ -83,6 +73,7 @@ type Props = {
   onCopy: () => void;
   onNewTask: () => void;
   onExpandedMode: () => void;
+  onRefine?: (text: string) => void;
   onToastSuccess?: (message: string, duration?: number) => void;
   onToastError?: (message: string, duration?: number) => void;
   onStarterAction: (prompt: string, modeOverride?: "simple" | "workflow") => void;
@@ -268,7 +259,7 @@ function PanelWrapper({
 function CommandHome(p: Props) {
   const { t } = useTranslation("helix");
 
-  const handlePrimaryAction = (action: (typeof HELIX_ACTIONS)[number]) => {
+  const handlePrimaryAction = (action: HelixAction) => {
     if (action.id === "artifacts") {
       p.setMode("artifacts");
       return;
@@ -284,7 +275,7 @@ function CommandHome(p: Props) {
   };
 
   return (
-    <div className="min-h-full w-full flex flex-col items-center justify-center py-5">
+    <div className="min-h-full w-full flex flex-col items-center justify-start pt-[clamp(64px,12vh,100px)] pb-8">
       <div className="w-full max-w-md flex flex-col gap-4 px-5">
         <div className="flex items-center justify-between gap-4 px-1">
           <div className="flex min-w-0 items-center gap-2.5">
@@ -323,46 +314,9 @@ function CommandHome(p: Props) {
           onExecute={p.onExecute}
         />
 
-        <section aria-label={t("helix:normalCommandView.primaryActions")}>
-          <div className="mb-2 flex items-center justify-between px-1">
-            <h2 className="text-[9px] font-mono uppercase tracking-[0.16em] text-faint">
-              {t("helix:normalCommandView.primaryActions")}
-            </h2>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {HELIX_ACTIONS.map((action) => {
-              const Icon = HELIX_ACTION_ICONS[action.icon];
-              if (!Icon) return null;
-              return (
-                <button
-                  key={action.id}
-                  type="button"
-                  onClick={() => handlePrimaryAction(action)}
-                  className="group flex min-h-[58px] items-center gap-3 rounded-xl border border-line bg-white/[0.025] px-3 text-left transition-colors hover:border-line-strong hover:bg-white/[0.05]"
-                >
-                  <span
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border"
-                    style={{
-                      color: action.color,
-                      borderColor: `${action.color}30`,
-                      backgroundColor: `${action.color}0f`,
-                    }}
-                  >
-                    <Icon className="h-4 w-4" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[11px] font-semibold text-fg">
-                      {t(`helix:radialActions.${action.id}.title`)}
-                    </span>
-                    <span className="mt-0.5 block truncate text-[9px] text-mute">
-                      {t(`helix:radialActions.${action.id}.description`)}
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
+        <div className="px-1">
+          <HelixActionRail onAction={handlePrimaryAction} />
+        </div>
       </div>
     </div>
   );
@@ -568,31 +522,14 @@ function TaskActive(p: Props) {
         </section>
       )}
 
-      <section className="flex-1 min-h-[200px] rounded-2xl bg-white/[0.03] overflow-hidden flex flex-col border border-line">
-        <div className="px-4 py-3 flex items-center justify-between bg-white/[0.03]">
-          <span className="text-[10px] text-mute font-medium tracking-tight">
-            {t("helix:normalCommandView.result")}
-          </span>
-          {p.result && (
-            <Button variant="ghost" size="sm" onClick={p.onCopy}>
-              {p.copied ? <Check className="w-3.5 h-3.5" /> : <Clipboard className="w-3.5 h-3.5" />}
-              {p.copied ? t("helix:normalCommandView.copied") : t("helix:normalCommandView.copy")}
-            </Button>
-          )}
-        </div>
-        <div className="flex-1 p-4 text-sm text-fg leading-relaxed overflow-y-auto select-text">
-          {p.result ? (
-            <>
-              <MarkdownRenderer content={p.result} />
-              {p.streaming && (
-                <span className="inline-block w-1.5 h-4 ml-1 align-[-2px] rounded-sm bg-warn animate-pulse" />
-              )}
-            </>
-          ) : (
-            <span className="text-faint">{t("helix:normalCommandView.resultPlaceholder")}</span>
-          )}
-        </div>
-      </section>
+      <CompactResultCard
+        result={p.result}
+        streaming={p.streaming}
+        copied={p.copied}
+        onCopy={p.onCopy}
+        onRefine={(text) => p.onRefine?.(text)}
+        onExpand={p.onExpandedMode}
+      />
 
       <div className="shrink-0">
         <Composer

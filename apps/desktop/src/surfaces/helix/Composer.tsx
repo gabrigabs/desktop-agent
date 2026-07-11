@@ -1,7 +1,7 @@
 import { ArrowUp, ChevronDown, ChevronUp, Clipboard } from "lucide-react";
 import { type RefObject, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ContextBar } from "../../components/ui/context-bar";
+import { ContextBar, type ContextItem } from "../../components/ui/context-bar";
 import { ContextChipBar } from "./ContextChipBar";
 import type { ContextChipItem } from "./hooks/useContextChips";
 
@@ -60,6 +60,56 @@ export function Composer({
   const hasClipboardMarker = query.includes(CLIPBOARD_MARKER);
   const activePlaceholder = streaming ? t("helix:composer.waiting") : placeholder;
   const clipboardEnabled = hasClipboard && !ignoreClipboard;
+
+  const contextItems: ContextItem[] = [];
+  if (hasClipboard && clipboardText.trim().length > 0) {
+    contextItems.push({
+      id: "clipboard",
+      source: "clipboard",
+      label: t("helix:contextBar.clipboard"),
+      preview: clipboardText.slice(0, 180),
+      enabled: clipboardEnabled,
+      sensitive: false,
+    });
+  }
+  contextItems.push(
+    {
+      id: "screen-mock",
+      source: "screen",
+      label: t("helix:contextBar.screen"),
+      preview: t("helix:contextBar.emptyHint"),
+      enabled: false,
+      sensitive: true,
+      mock: true,
+    },
+    {
+      id: "active-app-mock",
+      source: "active_app",
+      label: t("helix:contextBar.activeApp"),
+      preview: "Helix",
+      enabled: false,
+      sensitive: true,
+      mock: true,
+    },
+    {
+      id: "file-mock",
+      source: "file",
+      label: t("helix:contextBar.file"),
+      preview: t("helix:contextBar.emptyHint"),
+      enabled: false,
+      sensitive: true,
+      mock: true,
+    },
+    {
+      id: "connector-mock",
+      source: "connector",
+      label: t("helix:contextBar.connector"),
+      preview: "Notion, Linear, GitHub",
+      enabled: false,
+      sensitive: false,
+      mock: true,
+    },
+  );
 
   const insertClipboardMarker = () => {
     const el = textareaRef.current;
@@ -133,11 +183,23 @@ export function Composer({
   return (
     <div className="w-full flex flex-col gap-2.5">
       <ContextBar
-        text={clipboardText}
-        enabled={clipboardEnabled}
-        onEnable={insertClipboardMarker}
-        onDisable={removeClipboardMarker}
+        items={contextItems}
+        onToggle={(id) => {
+          if (id === "clipboard") {
+            if (clipboardEnabled) {
+              removeClipboardMarker();
+            } else {
+              insertClipboardMarker();
+            }
+          }
+        }}
+        onRemove={(id) => {
+          if (id === "clipboard") {
+            removeClipboardMarker();
+          }
+        }}
         onReload={onReloadClipboard}
+        onShowPreview={() => setClipboardExpanded((v) => !v)}
         clipboardActions={clipboardActions}
         onClipboardAction={handleClipboardAction}
       />

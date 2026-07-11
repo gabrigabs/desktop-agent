@@ -141,8 +141,11 @@ export function App() {
             <HelixLauncher
               petSize={settings.petSize ?? 56}
               onOpenNormal={() => applyWindowMode("normal")}
-              onAction={(action) => {
-                sessionStorage.setItem("helix.pending-action", action.id);
+              onAction={(action, secondaryAction) => {
+                const pending = secondaryAction
+                  ? { actionId: action.id, secondaryId: secondaryAction.id }
+                  : { actionId: action.id };
+                sessionStorage.setItem("helix.pending-action", JSON.stringify(pending));
                 void applyWindowMode("normal");
               }}
             />

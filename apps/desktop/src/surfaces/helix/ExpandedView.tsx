@@ -1,6 +1,7 @@
 import type {
   AgentProfile,
   ConnectorConfig,
+  HelixAction,
   McpTestResult,
   PromptTemplate,
   Skill,
@@ -16,6 +17,7 @@ import { useTranslation } from "react-i18next";
 import { AgentIdentity } from "../../components/ui/agent-identity";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
+import { HelixActionRail } from "../../components/ui/helix-action-rail";
 import { HeroHome } from "../../components/ui/hero-home";
 import { ArtifactsPanel } from "./ArtifactsPanel";
 import { ChatView } from "./ChatView";
@@ -310,11 +312,26 @@ export function ExpandedView(p: Props) {
 }
 
 function CommandHome(p: Props) {
+  const handlePrimaryAction = (action: HelixAction) => {
+    if (action.id === "artifacts") {
+      p.setMode("artifacts");
+      return;
+    }
+    if (action.id === "workflow") {
+      p.setMode("workflows");
+      return;
+    }
+    if (action.requiredContext?.includes("clipboard")) {
+      p.setIgnoreClipboard(false);
+    }
+    p.onStarterAction(action.prompt, action.executionMode);
+  };
+
   return (
-    <div className="min-h-full w-full flex flex-col items-center justify-center gap-4 py-2">
+    <div className="min-h-full w-full flex flex-col items-center justify-center gap-2 pb-[6vh] py-2">
       <HeroHome expanded />
 
-      <div className="w-full max-w-xl flex flex-col gap-3 px-6">
+      <div className="w-full max-w-[600px] flex flex-col gap-3 px-6">
         <Composer
           query={p.query}
           setQuery={p.setQuery}
@@ -327,12 +344,12 @@ function CommandHome(p: Props) {
           setIgnoreClipboard={p.setIgnoreClipboard}
           onPasteClipboard={p.onPasteClipboard}
           textareaRef={p.textareaRef}
-          starterChips={p.starterChips}
           clipboardActions={p.clipboardActions}
           onChipClick={p.onChipClick}
           onReloadClipboard={p.onReloadClipboard}
           onExecute={p.onExecute}
         />
+        <HelixActionRail onAction={handlePrimaryAction} />
       </div>
     </div>
   );

@@ -9,6 +9,20 @@ export const WINDOW_SIZES = {
 };
 
 export const LAUNCHER_MENU_SIZE = 380;
+export const LAUNCHER_SECONDARY_WIDTH = 224;
+export type LauncherSecondarySide = "left" | "right";
+
+function getLauncherMenuSize(secondaryItemCount = 0) {
+  if (secondaryItemCount === 0) {
+    return { width: LAUNCHER_MENU_SIZE, height: LAUNCHER_MENU_SIZE };
+  }
+
+  const panelHeight = 66 + secondaryItemCount * 40 + Math.max(0, secondaryItemCount - 1) * 6 + 24;
+  return {
+    width: LAUNCHER_MENU_SIZE + LAUNCHER_SECONDARY_WIDTH - 10,
+    height: Math.max(LAUNCHER_MENU_SIZE, Math.min(560, panelHeight)),
+  };
+}
 
 export function isTauriRuntime() {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -38,7 +52,11 @@ async function getExpandedWindowBounds() {
  * Expande ou recolhe a janela no modo collapsed para acomodar o menu circular
  * do launcher, mantendo o centro do pet no mesmo lugar da tela.
  */
-export async function setLauncherMenuOpen(open: boolean) {
+export async function setLauncherMenuOpen(
+  open: boolean,
+  secondaryItemCount = 0,
+  secondarySide: LauncherSecondarySide = "right",
+) {
   if (!isTauriRuntime()) return;
 
   try {
@@ -51,12 +69,26 @@ export async function setLauncherMenuOpen(open: boolean) {
     const logicalPos = position.toLogical(scaleFactor);
     const logicalSize = size.toLogical(scaleFactor);
 
-    const centerX = logicalPos.x + logicalSize.width / 2;
+    const centerX =
+      logicalSize.width > LAUNCHER_MENU_SIZE
+        ? secondarySide === "right"
+          ? logicalPos.x + LAUNCHER_MENU_SIZE / 2
+          : logicalPos.x + logicalSize.width - LAUNCHER_MENU_SIZE / 2
+        : logicalPos.x + logicalSize.width / 2;
     const centerY = logicalPos.y + logicalSize.height / 2;
-    const targetSize = open ? LAUNCHER_MENU_SIZE : WINDOW_SIZES.collapsed.width;
+    const target = open
+      ? getLauncherMenuSize(secondaryItemCount)
+      : { width: WINDOW_SIZES.collapsed.width, height: WINDOW_SIZES.collapsed.height };
 
-    let targetX = Math.round(centerX - targetSize / 2);
-    let targetY = Math.round(centerY - targetSize / 2);
+    let targetX = Math.round(centerX - target.width / 2);
+    if (open && secondaryItemCount > 0) {
+      targetX = Math.round(
+        secondarySide === "right"
+          ? centerX - LAUNCHER_MENU_SIZE / 2
+          : centerX - target.width + LAUNCHER_MENU_SIZE / 2,
+      );
+    }
+    let targetY = Math.round(centerY - target.height / 2);
 
     if (monitor) {
       const workPos = monitor.workArea.position.toLogical(scaleFactor);
@@ -64,11 +96,11 @@ export async function setLauncherMenuOpen(open: boolean) {
       const margin = 16;
       targetX = Math.min(
         Math.max(targetX, workPos.x + margin),
-        workPos.x + workSize.width - targetSize - margin,
+        workPos.x + workSize.width - target.width - margin,
       );
       targetY = Math.min(
         Math.max(targetY, workPos.y + margin),
-        workPos.y + workSize.height - targetSize - margin,
+        workPos.y + workSize.height - target.height - margin,
       );
     }
 
@@ -78,7 +110,7 @@ export async function setLauncherMenuOpen(open: boolean) {
     await appWindow.setFullscreen(false);
     await appWindow.setSimpleFullscreen(false);
     await appWindow.unmaximize();
-    await appWindow.setSize(new LogicalSize(targetSize, targetSize));
+    await appWindow.setSize(new LogicalSize(target.width, target.height));
     await appWindow.setPosition(new LogicalPosition(targetX, targetY));
     await appWindow.show();
     await appWindow.setShadow(false);
