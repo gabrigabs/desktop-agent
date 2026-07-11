@@ -706,7 +706,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### CL01 — Corrigir interação de Settings no expanded
 
-- Status: pendente.
+- Status: concluído — Settings expandido ocupa somente o workspace e a troca de destino pela sidebar fecha o painel.
 - Objetivo: manter a navegação principal clicável quando Settings estiver aberto no modo expanded.
 - Implementação:
   1. Isolar o overlay de `SettingsPanel` ao workspace de conteúdo, sem cobrir `HelixSidebar`.

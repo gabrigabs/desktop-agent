@@ -134,6 +134,7 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
       setShowSettings(true);
       return;
     }
+    setShowSettings(false);
     setMode(next);
   }, []);
 

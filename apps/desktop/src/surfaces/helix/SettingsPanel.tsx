@@ -211,7 +211,9 @@ export function SettingsPanel(p: SettingsPanelProps) {
   const compact = p.variant !== "expanded";
 
   return (
-    <div className="absolute inset-0 z-30 flex select-none bg-ink/96 backdrop-blur-xl">
+    <div
+      className={`flex select-none bg-ink/96 backdrop-blur-xl ${compact ? "absolute inset-0 z-30" : "relative h-full w-full z-10"}`}
+    >
       <form
         onSubmit={submitSettings}
         className={`grid h-full w-full ${
