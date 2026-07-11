@@ -53,7 +53,7 @@ describe("Storage Package Tests", () => {
     const migrations = db.query("SELECT version FROM _migrations ORDER BY version").all() as {
       version: number;
     }[];
-    expect(migrations.map((migration) => migration.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(migrations.map((migration) => migration.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
 
     const settings = db.query("SELECT key, value FROM app_settings ORDER BY key").all() as {
       key: string;
@@ -202,34 +202,61 @@ describe("Storage Package Tests", () => {
   });
 
   test("Should upsert conversation turns", () => {
-    const conversationId = createConversation(db, { title: "Test" });
+    const conversationId = createConversation(db, { title: "Test", profileId: "profile-editor" });
     const turnId = "turn-1";
     upsertTurn(db, {
       id: turnId,
       conversationId,
       role: "user",
-      blocks: [{ type: "text", content: "hello" }],
+      blocks: [
+        { type: "text", content: "hello" },
+        {
+          type: "context",
+          source: "clipboard",
+          preview: "context preview",
+          content: "full clipboard context",
+          policy: "include",
+        },
+      ],
       status: "complete",
       timestamp: "2026-07-05T12:00:00.000Z",
       sourceMode: "free",
       executionMode: "simple",
+      profileId: "profile-editor",
     });
 
     upsertTurn(db, {
       id: turnId,
       conversationId,
       role: "user",
-      blocks: [{ type: "text", content: "hello world" }],
+      blocks: [
+        { type: "text", content: "hello world" },
+        {
+          type: "context",
+          source: "clipboard",
+          preview: "context preview",
+          content: "full clipboard context",
+          policy: "include",
+        },
+      ],
       status: "complete",
       timestamp: "2026-07-05T12:00:00.000Z",
       sourceMode: "free",
       executionMode: "simple",
+      profileId: "profile-editor",
     });
 
     const turns = listTurns(db, conversationId);
     expect(turns.length).toBe(1);
     const block = turns[0]?.blocks[0];
     expect(block?.type === "text" ? block.content : "").toBe("hello world");
+    expect(turns[0]?.blocks[1]).toMatchObject({
+      type: "context",
+      source: "clipboard",
+      content: "full clipboard context",
+    });
+    expect(turns[0]?.profileId).toBe("profile-editor");
+    expect(getConversation(db, conversationId)?.profileId).toBe("profile-editor");
   });
 
   test("Should find a conversation by id outside the recent list", () => {

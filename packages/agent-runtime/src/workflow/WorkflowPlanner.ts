@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { LlmProvider } from "@desktop-agent/provider-gateway";
 import type {
+  AgentProfile,
   ExecutionMode,
   Skill,
   WorkflowStepTemplate,
@@ -35,6 +36,16 @@ export class WorkflowPlanner {
     return this.config.getLanguage();
   }
 
+  private buildProfilePrompt(profile?: AgentProfile): string {
+    if (!profile) return "";
+    const parts: string[] = [];
+    if (profile.systemPrompt) parts.push(profile.systemPrompt);
+    if (profile.tone) parts.push(`Tom: ${profile.tone}.`);
+    if (profile.responseStyle) parts.push(`Estilo de resposta: ${profile.responseStyle}.`);
+    if (profile.constraints) parts.push(`Restrições: ${profile.constraints}.`);
+    return parts.join("\n");
+  }
+
   async plan(input: {
     prompt: string;
     clipboard: string;
@@ -43,6 +54,7 @@ export class WorkflowPlanner {
     maxSteps?: number;
     settings?: WorkflowTemplateSettings;
     skill?: Skill | null;
+    profile?: AgentProfile;
   }): Promise<WorkflowTemplate> {
     const settings = input.settings ?? {};
     const mode = input.mode;
@@ -52,10 +64,11 @@ export class WorkflowPlanner {
     const temperature = settings.temperature ?? 0.3;
     const model = settings.model ?? (this.config.getActiveModel() || "gpt-4o");
     const providerId = settings.providerId ?? this.config.getLlmProvider().name;
-    const systemPrompt = settings.systemPrompt ?? "";
+    const profilePrompt = this.buildProfilePrompt(input.profile);
+    const systemPrompt = settings.systemPrompt ?? profilePrompt;
 
     if (input.skill) {
-      return this.planFromSkill(input, input.skill, settings);
+      return this.planFromSkill(input, input.skill, settings, input.profile);
     }
 
     if (mode === "simple") {
@@ -158,10 +171,15 @@ export class WorkflowPlanner {
     },
     skill: Skill,
     settings: WorkflowTemplateSettings,
+    profile?: AgentProfile,
   ): Promise<WorkflowTemplate> {
     const temperature = settings.temperature ?? 0.3;
     const model = settings.model ?? (this.config.getActiveModel() || "gpt-4o");
     const providerId = settings.providerId ?? this.config.getLlmProvider().name;
+    const profilePrompt = this.buildProfilePrompt(profile);
+    const skillPrompt = skill.systemPrompt ?? settings.systemPrompt ?? "";
+    const combinedPrompt =
+      skillPrompt && profilePrompt ? `${profilePrompt}\n\n${skillPrompt}` : skillPrompt || profilePrompt;
 
     return this.createTemplate({
       settings: {
@@ -172,7 +190,7 @@ export class WorkflowPlanner {
         temperature,
         model,
         providerId,
-        systemPrompt: skill.systemPrompt ?? settings.systemPrompt,
+        systemPrompt: combinedPrompt,
       },
       steps: [
         {

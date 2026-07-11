@@ -161,7 +161,15 @@ export type MessageBlock =
       input?: unknown;
       output?: unknown;
     }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string }
+  | {
+      type: "context";
+      source: "clipboard" | "screen" | "file" | "active_app" | "web" | "connector";
+      preview: string;
+      content?: string;
+      policy: "include" | "reference" | "summary";
+      metadata?: Record<string, unknown>;
+    };
 
 export type Turn = {
   id: string;
@@ -171,11 +179,13 @@ export type Turn = {
   timestamp: number;
   sourceMode: "free" | "clipboard";
   executionMode: ExecutionMode;
+  profileId?: string;
 };
 
 export type Conversation = {
   id: string;
   title: string;
+  profileId?: string;
   createdAt: string;
   updatedAt: string;
 };

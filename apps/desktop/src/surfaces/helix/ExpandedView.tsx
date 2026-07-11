@@ -38,6 +38,7 @@ type Props = {
   hasClipboard: boolean;
   ignoreClipboard: boolean;
   setIgnoreClipboard: (v: boolean) => void;
+  onPasteClipboard: (text: string) => void;
   onReloadClipboard: () => void;
   taskActive: boolean;
   taskStatus: string;
@@ -324,6 +325,7 @@ function CommandHome(p: Props) {
           hasClipboard={p.hasClipboard}
           ignoreClipboard={p.ignoreClipboard}
           setIgnoreClipboard={p.setIgnoreClipboard}
+          onPasteClipboard={p.onPasteClipboard}
           textareaRef={p.textareaRef}
           starterChips={p.starterChips}
           clipboardActions={p.clipboardActions}
@@ -389,6 +391,7 @@ function ChatActive(p: Props) {
           hasClipboard={p.hasClipboard}
           ignoreClipboard={p.ignoreClipboard}
           setIgnoreClipboard={p.setIgnoreClipboard}
+          onPasteClipboard={p.onPasteClipboard}
           textareaRef={p.textareaRef}
           starterChips={p.starterChips}
           clipboardActions={p.clipboardActions}
@@ -534,6 +537,7 @@ function TaskActive(p: Props) {
           hasClipboard={p.hasClipboard}
           ignoreClipboard={p.ignoreClipboard}
           setIgnoreClipboard={p.setIgnoreClipboard}
+          onPasteClipboard={p.onPasteClipboard}
           textareaRef={p.textareaRef}
           starterChips={p.starterChips}
           clipboardActions={p.clipboardActions}

@@ -242,6 +242,7 @@ function createQueuedRun(input: {
   maxSteps?: number;
   workflowTemplateId?: string;
   history?: { role: "user" | "assistant" | "system"; content: string }[];
+  profileId?: string;
 }) {
   const db = getDb();
   const config = getActiveProviderConfig();
@@ -259,6 +260,7 @@ function createQueuedRun(input: {
     metadata: {
       createdBy: "helix",
       timeoutSeconds: config.timeout,
+      profileId: input.profileId,
     },
   });
 
@@ -354,6 +356,7 @@ export const agentApi: AgentApi = {
       maxSteps,
       workflowTemplateId,
       history: input.history,
+      profileId: input.profileId,
     });
 
     const controller = new AbortController();
@@ -378,6 +381,7 @@ export const agentApi: AgentApi = {
         clipboardText: input.clipboardText ?? "",
         history: input.history ?? [],
         skillId: input.skillId,
+        profileId: input.profileId,
         signal: controller.signal,
       });
       return { run: completedRun, events };
@@ -810,11 +814,17 @@ export const agentApi: AgentApi = {
     const db = getDb();
     const existing = getConversation(db, conversationId);
     const title = conversationTitleFromTurns(turns);
+    const profileId = existing?.profileId ?? turns.find((t) => t.profileId)?.profileId;
 
     if (!existing) {
-      createConversation(db, { id: conversationId, title });
-    } else if (title !== existing.title) {
-      updateConversationTitle(db, conversationId, title);
+      createConversation(db, { id: conversationId, title, profileId });
+    } else {
+      if (title !== existing.title) {
+        updateConversationTitle(db, conversationId, title);
+      }
+      if (profileId && !existing.profileId) {
+        db.run(`UPDATE conversations SET profile_id = ? WHERE id = ?`, [profileId, conversationId]);
+      }
     }
 
     for (const turn of turns) {
@@ -828,6 +838,7 @@ export const agentApi: AgentApi = {
         timestamp: new Date(turn.timestamp).toISOString(),
         sourceMode: turn.sourceMode,
         executionMode: turn.executionMode,
+        profileId: turn.profileId,
       });
     }
   },

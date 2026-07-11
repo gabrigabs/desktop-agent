@@ -17,10 +17,17 @@ function parseJson<T>(value: unknown, fallback: T): T {
   }
 }
 
-export function createConversation(db: Database, params: { id?: string; title?: string }): string {
+export function createConversation(
+  db: Database,
+  params: { id?: string; title?: string; profileId?: string },
+): string {
   const id = params.id ?? randomUUID();
   const title = params.title ?? "Nova conversa";
-  db.run(`INSERT INTO conversations (id, title) VALUES (?, ?)`, [id, title]);
+  db.run(`INSERT INTO conversations (id, title, profile_id) VALUES (?, ?, ?)`, [
+    id,
+    title,
+    params.profileId ?? null,
+  ]);
   return id;
 }
 
@@ -35,12 +42,13 @@ export function createTurn(
     timestamp: string;
     sourceMode: "free" | "clipboard";
     executionMode: ExecutionMode;
+    profileId?: string;
   },
 ): string {
   const id = params.id ?? randomUUID();
   db.run(
-    `INSERT INTO turns (id, conversation_id, role, blocks_json, status, timestamp, source_mode, execution_mode)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO turns (id, conversation_id, role, blocks_json, status, timestamp, source_mode, execution_mode, profile_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       params.conversationId,
@@ -50,6 +58,7 @@ export function createTurn(
       params.timestamp,
       params.sourceMode,
       params.executionMode,
+      params.profileId ?? null,
     ],
   );
   return id;
@@ -66,11 +75,12 @@ export function upsertTurn(
     timestamp: string;
     sourceMode: "free" | "clipboard";
     executionMode: ExecutionMode;
+    profileId?: string;
   },
 ): void {
   db.run(
-    `INSERT INTO turns (id, conversation_id, role, blocks_json, status, timestamp, source_mode, execution_mode)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO turns (id, conversation_id, role, blocks_json, status, timestamp, source_mode, execution_mode, profile_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        conversation_id = excluded.conversation_id,
        role = excluded.role,
@@ -78,7 +88,8 @@ export function upsertTurn(
        status = excluded.status,
        timestamp = excluded.timestamp,
        source_mode = excluded.source_mode,
-       execution_mode = excluded.execution_mode`,
+       execution_mode = excluded.execution_mode,
+       profile_id = excluded.profile_id`,
     [
       params.id,
       params.conversationId,
@@ -88,6 +99,7 @@ export function upsertTurn(
       params.timestamp,
       params.sourceMode,
       params.executionMode,
+      params.profileId ?? null,
     ],
   );
 
@@ -96,10 +108,13 @@ export function upsertTurn(
 
 export function listConversations(db: Database, limit = 20): Conversation[] {
   const rows = db
-    .query("SELECT id, title, created_at, updated_at FROM conversations ORDER BY updated_at DESC LIMIT ?")
+    .query(
+      "SELECT id, title, profile_id, created_at, updated_at FROM conversations ORDER BY updated_at DESC LIMIT ?",
+    )
     .all(limit) as Array<{
     id: string;
     title: string;
+    profile_id: string | null;
     created_at: string;
     updated_at: string;
   }>;
@@ -107,6 +122,7 @@ export function listConversations(db: Database, limit = 20): Conversation[] {
   return rows.map((row) => ({
     id: row.id,
     title: row.title,
+    profileId: row.profile_id ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }));
@@ -114,10 +130,11 @@ export function listConversations(db: Database, limit = 20): Conversation[] {
 
 export function getConversation(db: Database, id: string): Conversation | null {
   const row = db
-    .query("SELECT id, title, created_at, updated_at FROM conversations WHERE id = ?")
+    .query("SELECT id, title, profile_id, created_at, updated_at FROM conversations WHERE id = ?")
     .get(id) as {
     id: string;
     title: string;
+    profile_id: string | null;
     created_at: string;
     updated_at: string;
   } | null;
@@ -126,6 +143,7 @@ export function getConversation(db: Database, id: string): Conversation | null {
   return {
     id: row.id,
     title: row.title,
+    profileId: row.profile_id ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -134,7 +152,7 @@ export function getConversation(db: Database, id: string): Conversation | null {
 export function listTurns(db: Database, conversationId: string): Turn[] {
   const rows = db
     .query(
-      "SELECT id, conversation_id, role, blocks_json, status, timestamp, source_mode, execution_mode FROM turns WHERE conversation_id = ? ORDER BY timestamp ASC",
+      "SELECT id, conversation_id, role, blocks_json, status, timestamp, source_mode, execution_mode, profile_id FROM turns WHERE conversation_id = ? ORDER BY timestamp ASC",
     )
     .all(conversationId) as Array<{
     id: string;
@@ -145,6 +163,7 @@ export function listTurns(db: Database, conversationId: string): Turn[] {
     timestamp: string;
     source_mode: string;
     execution_mode: string;
+    profile_id: string | null;
   }>;
 
   return rows.map((row) => ({
@@ -155,6 +174,7 @@ export function listTurns(db: Database, conversationId: string): Turn[] {
     timestamp: new Date(row.timestamp).getTime(),
     sourceMode: row.source_mode as Turn["sourceMode"],
     executionMode: row.execution_mode as Turn["executionMode"],
+    profileId: row.profile_id ?? undefined,
   }));
 }
 

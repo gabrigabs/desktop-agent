@@ -14,6 +14,7 @@ import type {
 } from "@desktop-agent/shared";
 import {
   createWorkflowStep,
+  getAgentProfile,
   getDb,
   getSkill,
   getWorkflowRun,
@@ -47,6 +48,7 @@ export type RunInput = {
   clipboardText: string;
   history?: { role: "user" | "assistant" | "system"; content: string }[];
   skillId?: string;
+  profileId?: string;
   signal?: AbortSignal;
 };
 
@@ -155,6 +157,9 @@ export class WorkflowRunner {
     const provider = this.getLlmProvider();
     const model = this.getActiveModel() || "gpt-4o";
 
+    const profileId = input.profileId ?? (run.metadata.profileId as string | undefined);
+    const profile = profileId ? getAgentProfile(db, profileId) : null;
+
     let template: WorkflowTemplate | null = null;
     if (run.workflowTemplateId) {
       template = getWorkflowTemplate(db, run.workflowTemplateId);
@@ -169,6 +174,7 @@ export class WorkflowRunner {
         mode: run.mode as ExecutionMode,
         maxSteps: run.maxSteps,
         skill: skill ?? undefined,
+        profile: profile ?? undefined,
       });
     }
 

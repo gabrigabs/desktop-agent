@@ -19,8 +19,11 @@ export type OrchestratorConfig = {
   dbPath?: string;
 };
 
-function loadActiveProfile() {
+function loadProfile(profileId?: string) {
   const db = getDb();
+  if (profileId) {
+    return getAgentProfile(db, profileId);
+  }
   const id = getSetting(db, "activeProfileId");
   if (!id) return null;
   return getAgentProfile(db, id);
@@ -213,6 +216,7 @@ export class Orchestrator {
     getActiveModelFn: () => string,
     lang: SupportedLanguage,
     signal?: AbortSignal,
+    profileId?: string,
   ): Promise<string> {
     emit({ type: "agent.started", requestId });
     throwIfAborted(signal, lang);
@@ -223,7 +227,7 @@ export class Orchestrator {
     const tools = registry.list();
     const toolsList = tools.map((t) => `- ${t.name}: ${t.description}`).join("\n");
 
-    const profile = loadActiveProfile();
+    const profile = loadProfile(profileId);
     const profileParts: string[] = [];
     if (profile) {
       if (profile.systemPrompt) profileParts.push(profile.systemPrompt);

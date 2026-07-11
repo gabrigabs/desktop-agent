@@ -1,5 +1,5 @@
 import type { Turn } from "@desktop-agent/shared";
-import { Check, Clipboard, Pencil } from "lucide-react";
+import { Check, Clipboard, Paperclip, Pencil } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -13,6 +13,12 @@ interface QueryBubbleProps {
 function getPromptText(turn: Turn): string {
   const textBlock = turn.blocks.find((b) => b.type === "text");
   return textBlock?.type === "text" ? textBlock.content : "";
+}
+
+function getContextBlocks(turn: Turn): Extract<Turn["blocks"][number], { type: "context" }>[] {
+  return turn.blocks.filter(
+    (b): b is Extract<Turn["blocks"][number], { type: "context" }> => b.type === "context",
+  );
 }
 
 function useRelativeTime(): (timestamp: number) => string {
@@ -32,7 +38,9 @@ export function QueryBubble({ turn, onEditPrompt, onToastSuccess, onToastError }
   const { t } = useTranslation("helix");
   const relativeTime = useRelativeTime();
   const [copied, setCopied] = useState(false);
+  const [expandedContexts, setExpandedContexts] = useState<Record<string, boolean>>({});
   const text = getPromptText(turn);
+  const contextBlocks = getContextBlocks(turn);
 
   const handleCopy = async () => {
     try {
@@ -56,6 +64,33 @@ export function QueryBubble({ turn, onEditPrompt, onToastSuccess, onToastError }
         </div>
         <div className="bg-white/[0.05] rounded-2xl rounded-br-sm px-3.5 py-2.5 border border-line">
           <p className="text-sm leading-relaxed text-fg whitespace-pre-wrap select-text">{text}</p>
+          {contextBlocks.length > 0 && (
+            <div className="mt-2.5 flex flex-col gap-1.5">
+              {contextBlocks.map((block, index) => {
+                const key = `${block.source}-${index}`;
+                const expanded = expandedContexts[key] ?? false;
+                const preview = block.preview;
+                const content = block.content ?? preview;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setExpandedContexts((prev) => ({ ...prev, [key]: !prev[key] }))}
+                    className="flex flex-col gap-1 rounded-lg border border-line bg-white/[0.03] px-2.5 py-2 text-left transition-colors hover:bg-white/[0.05]"
+                  >
+                    <div className="flex items-center gap-2 text-[10px] font-medium text-mute">
+                      <Paperclip className="h-3 w-3 text-signal" />
+                      <span className="uppercase tracking-wide">{block.source}</span>
+                      <span className="ml-auto text-faint">{content.length} car.</span>
+                    </div>
+                    <p className="line-clamp-2 text-[11px] leading-relaxed text-faint">
+                      {expanded ? content : preview}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
         <div className="flex items-center justify-end gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <button

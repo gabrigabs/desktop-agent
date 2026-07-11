@@ -56,6 +56,7 @@ export type AgentApi = {
     clipboardText?: string;
     maxSteps?: number;
     history?: { role: "user" | "assistant" | "system"; content: string }[];
+    profileId?: string;
   }): Promise<{
     run: WorkflowRun;
     events: AgentEvent[];

@@ -8,6 +8,8 @@ import { runMigration as runPromptLibraryMigration } from "./006_prompt_library"
 import { runMigration as runAgentProfilesFieldsMigration } from "./007_agent_profiles_fields";
 import { runMigration as runWorkflowsAndSkillsMigration } from "./008_workflows_and_skills";
 import { runMigration as runSkillMetadataMigration } from "./009_skill_metadata";
+import { runMigration as runConversationProfileIdMigration } from "./010_conversation_profile_id";
+import { runMigration as runTurnProfileIdMigration } from "./011_turn_profile_id";
 
 const MIGRATION_TABLE = `
   CREATE TABLE IF NOT EXISTS _migrations (
@@ -35,4 +37,6 @@ export function runMigrations(db: Database): void {
   applyMigration(db, 7, runAgentProfilesFieldsMigration);
   applyMigration(db, 8, runWorkflowsAndSkillsMigration);
   applyMigration(db, 9, runSkillMetadataMigration);
+  applyMigration(db, 10, runConversationProfileIdMigration);
+  applyMigration(db, 11, runTurnProfileIdMigration);
 }

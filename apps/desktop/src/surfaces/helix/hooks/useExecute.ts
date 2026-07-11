@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import {
   clearActiveRequestId as clearRpcActiveRequestId,
   getAgent,
+  restartRpc,
   setActiveRequestId as setRpcActiveRequestId,
 } from "../../../lib/rpc";
 import { isTauriRuntime } from "../../../lib/window";
@@ -19,6 +20,21 @@ import {
 
 const CLIPBOARD_MARKER = /[ \t]*\\?\[CLIPBOARD\][ \t]*/g;
 
+class RuntimeRequestTimeoutError extends Error {}
+
+async function withRuntimeTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new RuntimeRequestTimeoutError(message)), timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
+
 function buildHistory(
   messages: Turn[],
   limit = 10,
@@ -26,13 +42,19 @@ function buildHistory(
   const history: { role: "user" | "assistant" | "system"; content: string }[] = [];
   for (const turn of messages) {
     if (turn.status !== "complete") continue;
-    const text = turn.blocks
-      .filter((b) => b.type === "text")
-      .map((b) => (turn.role === "assistant" ? unwrapAgentResponse(b.content) : b.content))
-      .join("\n")
-      .trim();
-    if (!text) continue;
-    history.push({ role: turn.role, content: text });
+    const textParts: string[] = turn.blocks
+      .filter((b): b is { type: "text"; content: string } => b.type === "text")
+      .map((b) => (turn.role === "assistant" ? unwrapAgentResponse(b.content) : b.content));
+    const contextParts: string[] = turn.blocks
+      .filter((b) => b.type === "context")
+      .map(
+        (b) =>
+          (b as Extract<Turn["blocks"][number], { type: "context" }>).content ??
+          (b as Extract<Turn["blocks"][number], { type: "context" }>).preview,
+      );
+    const parts = [...textParts, ...contextParts].filter(Boolean);
+    if (parts.length === 0) continue;
+    history.push({ role: turn.role, content: parts.join("\n\n").trim() });
   }
   return history.slice(-limit);
 }
@@ -44,7 +66,7 @@ function cleanPrompt(text: string): string {
     .trim();
 }
 
-export function useExecute() {
+export function useExecute(activeProfileId?: string | null) {
   const { t } = useTranslation("helix");
   const quickActions = useQuickActions();
   const staleMessage = useStaleRuntimeMessage();
@@ -96,7 +118,22 @@ export function useExecute() {
         const resolvedPrompt = cleanPrompt(activeQuery);
         if (!resolvedPrompt) return;
         const history = buildHistory(store.messages);
-        store.startUserTurn(resolvedPrompt, sourceMode);
+        const userBlocks: Turn["blocks"] = [{ type: "text", content: resolvedPrompt }];
+        if (hasClipboard) {
+          userBlocks.push({
+            type: "context",
+            source: "clipboard",
+            preview: rawClipboardText.slice(0, 500),
+            content: rawClipboardText,
+            policy: "include",
+          });
+        }
+        store.startUserTurn({
+          prompt: resolvedPrompt,
+          sourceMode,
+          blocks: userBlocks,
+          profileId: store.currentProfileId ?? activeProfileId ?? undefined,
+        });
         store.setQuery("");
         store.setIgnoreClipboard(true);
 
@@ -116,20 +153,26 @@ export function useExecute() {
           clipboardText,
           maxSteps: store.executionMode === "workflow" ? 8 : undefined,
           history,
+          profileId: store.currentProfileId ?? activeProfileId ?? undefined,
         };
 
-        const res = await callAgentWithRuntimeRefresh(
-          "startRun",
-          (runtimeApi) => runtimeApi.startRun(runInput),
-          staleMessage,
-        ).catch(async (err) => {
-          if (isStaleRuntimeError(err, staleMessage)) {
-            const fallbackApi = await getAgent();
-            const fallback = await fallbackApi.startRun(runInput);
-            return fallback;
-          }
-          throw err;
-        });
+        const timeoutMs = Math.max(store.settings.timeout, 10) * 1000 + 5000;
+        const res = await withRuntimeTimeout(
+          callAgentWithRuntimeRefresh(
+            "startRun",
+            (runtimeApi) => runtimeApi.startRun(runInput),
+            staleMessage,
+          ).catch(async (err) => {
+            if (isStaleRuntimeError(err, staleMessage)) {
+              const fallbackApi = await getAgent();
+              const fallback = await fallbackApi.startRun(runInput);
+              return fallback;
+            }
+            throw err;
+          }),
+          timeoutMs,
+          t("helix:errors.runtimeTimeout"),
+        );
 
         runId = res.run.id;
         setActiveRunId(runId);
@@ -142,6 +185,11 @@ export function useExecute() {
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : t("helix:errors.executeError");
+        if (err instanceof RuntimeRequestTimeoutError) {
+          void restartRpc().catch((restartError) => {
+            console.error("Failed to restart unresponsive runtime:", restartError);
+          });
+        }
         store.finalizeAssistantTurn("error", msg);
         store.setError(msg);
         store.addAgentLog({ type: "tool_fail", text: msg });
@@ -153,7 +201,7 @@ export function useExecute() {
         void saveConversationToStorage();
       }
     },
-    [saveConversationToStorage, t, staleMessage],
+    [saveConversationToStorage, t, staleMessage, activeProfileId],
   );
 
   const handleCopyResult = useCallback(async () => {

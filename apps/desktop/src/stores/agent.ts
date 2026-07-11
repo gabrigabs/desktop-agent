@@ -40,6 +40,7 @@ type State = {
   messages: Turn[];
   assistantDraft: string;
   currentConversationId: string | null;
+  currentProfileId: string | null;
   result: string | null;
   streaming: boolean;
   events: AgentEvent[];
@@ -74,7 +75,13 @@ type State = {
   updateLastTurn: (update: Partial<Turn>) => void;
   clearMessages: () => void;
   setCurrentConversationId: (id: string | null) => void;
-  startUserTurn: (prompt: string, sourceMode: "free" | "clipboard") => void;
+  setCurrentProfileId: (id: string | null) => void;
+  startUserTurn: (params: {
+    prompt: string;
+    sourceMode: "free" | "clipboard";
+    blocks?: Turn["blocks"];
+    profileId?: string;
+  }) => void;
   appendAssistantChunk: (chunk: string) => void;
   finalizeAssistantTurn: (status: "complete" | "error" | "cancelled", errorMessage?: string) => void;
   setResult: (r: string | null) => void;
@@ -185,6 +192,7 @@ export const useAgentStore = create<State>((set) => ({
   messages: [],
   assistantDraft: "",
   currentConversationId: null,
+  currentProfileId: null,
   result: null,
   streaming: false,
   events: [],
@@ -219,18 +227,22 @@ export const useAgentStore = create<State>((set) => ({
     }),
   clearMessages: () => set({ messages: [], assistantDraft: "" }),
   setCurrentConversationId: (currentConversationId) => set({ currentConversationId }),
-  startUserTurn: (prompt, sourceMode) =>
+  setCurrentProfileId: (currentProfileId) => set({ currentProfileId }),
+  startUserTurn: ({ prompt, sourceMode, blocks, profileId }) =>
     set((s) => {
       const now = Date.now();
       const executionMode = s.executionMode;
+      const currentConversationId = s.currentConversationId ?? crypto.randomUUID();
+      const currentProfileId = s.currentProfileId ?? profileId ?? null;
       const userTurn: Turn = {
         id: crypto.randomUUID(),
         role: "user",
-        blocks: [{ type: "text", content: prompt }],
+        blocks: blocks ?? [{ type: "text", content: prompt }],
         status: "complete",
         timestamp: now,
         sourceMode,
         executionMode,
+        profileId: currentProfileId ?? undefined,
       };
       const assistantTurn: Turn = {
         id: crypto.randomUUID(),
@@ -240,12 +252,13 @@ export const useAgentStore = create<State>((set) => ({
         timestamp: now + 1,
         sourceMode,
         executionMode,
+        profileId: currentProfileId ?? undefined,
       };
-      const currentConversationId = s.currentConversationId ?? crypto.randomUUID();
       return {
         messages: [...s.messages, userTurn, assistantTurn],
         assistantDraft: "",
         currentConversationId,
+        currentProfileId,
         result: "",
       };
     }),
@@ -354,6 +367,7 @@ export const useAgentStore = create<State>((set) => ({
       messages: [],
       assistantDraft: "",
       currentConversationId: null,
+      currentProfileId: null,
       result: null,
       streaming: false,
       events: [],

@@ -1,5 +1,5 @@
-import { ArrowUp } from "lucide-react";
-import { type RefObject, useEffect } from "react";
+import { ArrowUp, ChevronDown, ChevronUp, Clipboard, X } from "lucide-react";
+import { type RefObject, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ContextBar } from "../../components/ui/context-bar";
 import { ContextChipBar } from "./ContextChipBar";
@@ -17,6 +17,7 @@ interface ComposerProps {
   hasClipboard: boolean;
   ignoreClipboard: boolean;
   setIgnoreClipboard: (v: boolean) => void;
+  onPasteClipboard: (text: string) => void;
   textareaRef: RefObject<HTMLTextAreaElement | null>;
   chips?: ContextChipItem[];
   starterChips?: ContextChipItem[];
@@ -36,6 +37,7 @@ export function Composer({
   hasClipboard,
   ignoreClipboard,
   setIgnoreClipboard,
+  onPasteClipboard,
   textareaRef,
   chips,
   starterChips,
@@ -45,6 +47,7 @@ export function Composer({
   onExecute,
 }: ComposerProps) {
   const { t } = useTranslation("helix");
+  const [clipboardExpanded, setClipboardExpanded] = useState(false);
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
@@ -54,6 +57,7 @@ export function Composer({
   }, [textareaRef, query]);
 
   const canSend = !streaming && query.trim().length > 0;
+  const hasClipboardMarker = query.includes(CLIPBOARD_MARKER);
   const activePlaceholder = streaming ? t("helix:composer.waiting") : placeholder;
   const clipboardEnabled = hasClipboard && !ignoreClipboard;
 
@@ -89,6 +93,28 @@ export function Composer({
     }
   };
 
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const pastedText = e.clipboardData.getData("text/plain");
+    if (!pastedText.trim()) return;
+
+    e.preventDefault();
+    onPasteClipboard(pastedText);
+    const el = textareaRef.current;
+    const start = e.currentTarget.selectionStart;
+    const end = e.currentTarget.selectionEnd;
+    const before = query.slice(0, start).trimEnd();
+    const after = query.slice(end).trimStart();
+    const next = [before, CLIPBOARD_MARKER, after].filter(Boolean).join(" ");
+    setQuery(next);
+    setIgnoreClipboard(false);
+    requestAnimationFrame(() => {
+      if (!el) return;
+      const markerEnd = next.indexOf(CLIPBOARD_MARKER) + CLIPBOARD_MARKER.length;
+      el.focus();
+      el.setSelectionRange(markerEnd, markerEnd);
+    });
+  };
+
   const handleClipboardAction = (chip: ContextChipItem) => {
     const el = textareaRef.current;
     const prefix = chip.prompt ? `${chip.prompt} ` : "";
@@ -120,6 +146,7 @@ export function Composer({
           ref={textareaRef}
           value={query}
           onChange={handleChange}
+          onPaste={handlePaste}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
@@ -144,6 +171,47 @@ export function Composer({
           <ArrowUp className="w-5 h-5 stroke-[2.5]" />
         </button>
       </div>
+      {hasClipboardMarker && (
+        <div className="overflow-hidden rounded-xl border border-signal/20 bg-signal/[0.035] shadow-[inset_3px_0_0_rgba(196,153,244,0.45)]">
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => setClipboardExpanded((v) => !v)}
+              className="flex flex-1 items-center gap-2.5 px-3 py-2.5 text-left text-xs text-mute transition-colors hover:bg-white/[0.025] hover:text-fg"
+            >
+              <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-signal/15 bg-signal/10 text-signal">
+                <Clipboard className="h-3.5 w-3.5" />
+              </span>
+              <span className="min-w-0 flex-1">
+                {clipboardExpanded
+                  ? t("helix:composer.hideClipboard")
+                  : t("helix:composer.showClipboard", { count: clipboardText.length })}
+              </span>
+              {clipboardExpanded ? (
+                <ChevronUp className="h-3.5 w-3.5" />
+              ) : (
+                <ChevronDown className="h-3.5 w-3.5" />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={removeClipboardMarker}
+              className="mr-2 rounded-lg p-1.5 text-faint transition-colors hover:bg-white/[0.06] hover:text-fg"
+              title={t("helix:composer.removeClipboard")}
+              aria-label={t("helix:composer.removeClipboard")}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          {clipboardExpanded && (
+            <div className="border-t border-signal/10 bg-black/10 px-3 py-2.5">
+              <p className="max-h-36 overflow-y-auto whitespace-pre-wrap font-mono text-[10px] leading-relaxed text-mute select-text">
+                {clipboardText}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
       {visibleStarterChips && visibleStarterChips.length > 0 && onChipClick && (
         <div className="flex flex-col items-center gap-1.5">
           <span className="text-[10px] text-faint uppercase tracking-wider font-medium">

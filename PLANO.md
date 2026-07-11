@@ -718,7 +718,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### CL02 — Concluir Profile snapshot (`PR03`)
 
-- Status: pendente, complementa `PR03` sem substituí-lo.
+- Status: concluído — `profileId` é persistido por conversa/turn e restaurado do histórico antes de novas execuções.
 - Objetivo: impedir que a troca de profile altere uma conversa já iniciada.
 - Implementação: persistir `profileId` na Conversation ou no primeiro turn e fazer o runtime usar esse snapshot durante todo o histórico relacionado.
 - Aceite:
@@ -727,7 +727,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### CL03 — Concluir clipboard estruturado (`PR04`)
 
-- Status: pendente, complementa `PR04` sem substituí-lo.
+- Status: concluído — clipboard e paste manual viram blocos `context`, permanecem visíveis, persistem no histórico e são restaurados na regeneração.
 - Objetivo: persistir clipboard como contexto explícito do turn `user`.
 - Implementação: remover o `inputMode` legado do fluxo principal e persistir blocos `text` + `context` com origem, preview e política de uso.
 - Aceite:

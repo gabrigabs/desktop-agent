@@ -62,9 +62,10 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
   const promptsHook = usePrompts();
   const workflows = useWorkflows();
   const skills = useSkills();
-  const exec = useExecute();
+  const exec = useExecute(promptsHook.activeProfileId);
   const ignoreClipboard = useAgentStore((s) => s.ignoreClipboard);
   const setIgnoreClipboard = useAgentStore((s) => s.setIgnoreClipboard);
+  const setClipboardText = useAgentStore((s) => s.setClipboardText);
   const contextChips = useContextChips(clipboard.hasClipboard, ignoreClipboard);
   const settingsForm = useSettingsForm(showSettings, onToastSuccess, onToastError);
 
@@ -224,9 +225,18 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
 
     const promptText = lastUserTurn.blocks.find((b) => b.type === "text");
     if (promptText?.type !== "text") return;
+    const clipboardContext = lastUserTurn.blocks.find(
+      (b) => b.type === "context" && b.source === "clipboard",
+    );
 
     const newMessages = store.messages.slice(0, lastUserIndex);
     store.setMessages(newMessages);
+    if (clipboardContext?.type === "context") {
+      store.setClipboardText(clipboardContext.content ?? clipboardContext.preview);
+      store.setIgnoreClipboard(false);
+    } else {
+      store.setIgnoreClipboard(true);
+    }
     store.setResult(null);
     store.setError(null);
     onToastSuccess?.(t("helix:helixIndex.regenerating"));
@@ -268,6 +278,7 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     hasClipboard: clipboard.hasClipboard,
     ignoreClipboard,
     setIgnoreClipboard,
+    onPasteClipboard: setClipboardText,
     onReloadClipboard: clipboard.checkClipboard,
     taskActive,
     taskStatus,

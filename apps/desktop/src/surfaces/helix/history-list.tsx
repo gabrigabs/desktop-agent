@@ -101,6 +101,8 @@ export function HistoryList({ onSelectConversation, variant = "embedded" }: Hist
         .map((block) => (block.type === "text" ? block.content : ""))
         .join("");
 
+      const profileId = turns.find((turn) => turn.profileId)?.profileId ?? null;
+      store.setCurrentProfileId(profileId);
       store.setCurrentConversationId(id);
       store.setMessages(turns);
       store.setResult(result || null);

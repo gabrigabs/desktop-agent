@@ -63,7 +63,10 @@
     "submit": "Send",
     "waiting": "Waiting for response...",
     "message": "Message",
-    "startLikeThis": "Start like this"
+    "startLikeThis": "Start like this",
+    "showClipboard": "View clipboard ({{count}} characters)",
+    "hideClipboard": "Hide clipboard",
+    "removeClipboard": "Remove clipboard"
   },
   "contextBar": {
     "clipboard": "Clipboard",
@@ -173,6 +176,7 @@
   "errors": {
     "staleRuntime": "Old runtime detected. Restart the app to load updated workflows and MCPs.",
     "executeError": "Error executing command",
+    "runtimeTimeout": "The agent stopped responding. Helix restarted the connection; try sending the message again.",
     "resumeError": "Error resuming workflow",
     "workflowEndedNoResult": "Workflow ended with no result.",
     "workflowEnded": "Workflow ended.",

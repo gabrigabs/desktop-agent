@@ -63,7 +63,10 @@
     "submit": "Enviar",
     "waiting": "Aguardando resposta...",
     "message": "Mensagem",
-    "startLikeThis": "Começar assim"
+    "startLikeThis": "Começar assim",
+    "showClipboard": "Ver clipboard ({{count}} caracteres)",
+    "hideClipboard": "Ocultar clipboard",
+    "removeClipboard": "Remover clipboard"
   },
   "contextBar": {
     "clipboard": "Clipboard",
@@ -173,6 +176,7 @@
   "errors": {
     "staleRuntime": "Runtime antigo detectado. Reinicie o app para carregar workflows e MCPs atualizados.",
     "executeError": "Erro ao executar comando",
+    "runtimeTimeout": "O agente parou de responder. O Helix reiniciou a conexão; tente enviar a mensagem novamente.",
     "resumeError": "Erro ao retomar workflow",
     "workflowEndedNoResult": "Workflow encerrado sem resultado.",
     "workflowEnded": "Workflow encerrado.",
