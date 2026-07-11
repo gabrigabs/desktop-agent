@@ -47,12 +47,12 @@ export function ClipboardModal({ text, open, onClose, onRemove }: ClipboardModal
       <button
         type="button"
         onClick={onClose}
-        className="absolute inset-0 bg-ink/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-ink/60 backdrop-blur-sm animate-backdrop-fade"
         aria-label={t("helix:clipboardModal.close")}
       />
       <div
         ref={panelRef}
-        className="relative w-full max-w-lg rounded-2xl border border-line-strong bg-ink/95 p-4 shadow-2xl shadow-black/40 backdrop-blur-xl"
+        className="relative w-full max-w-lg rounded-2xl border border-line-strong bg-ink/95 p-4 shadow-2xl shadow-black/40 backdrop-blur-xl animate-modal-enter"
       >
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-sm font-semibold text-fg">
@@ -83,7 +83,7 @@ export function ClipboardModal({ text, open, onClose, onRemove }: ClipboardModal
           <button
             type="button"
             onClick={handleCopy}
-            className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-fg transition-colors hover:bg-white/[0.06]"
+            className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-fg transition-all hover:bg-white/[0.06] active:scale-95"
           >
             <Copy className="h-3.5 w-3.5" />
             {t("helix:clipboardModal.copyAgain")}
@@ -91,7 +91,7 @@ export function ClipboardModal({ text, open, onClose, onRemove }: ClipboardModal
           <button
             type="button"
             onClick={handleRemove}
-            className="flex items-center gap-1.5 rounded-lg border border-bad/30 bg-bad/10 px-3 py-2 text-xs font-medium text-bad transition-colors hover:bg-bad/20"
+            className="flex items-center gap-1.5 rounded-lg border border-bad/30 bg-bad/10 px-3 py-2 text-xs font-medium text-bad transition-all hover:bg-bad/20 active:scale-95"
           >
             <Trash2 className="h-3.5 w-3.5" />
             {t("helix:clipboardModal.removeContext")}

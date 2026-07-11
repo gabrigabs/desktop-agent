@@ -57,6 +57,7 @@
     "placeholder": "Digite um comando ou pergunta...",
     "placeholderDefault": "Pergunte algo, cole um texto ou escolha uma ação...",
     "placeholderClipboard": "Pergunte o que deseja fazer com este conteúdo...",
+    "clipboardOnlyPrompt": "Me ajude com este conteúdo da área de transferência.",
     "placeholderTranslate": "Traduza mantendo o tom original...",
     "placeholderExplain": "Explique de forma simples e contextualizada...",
     "placeholderSummarize": "Resuma mantendo os pontos principais...",

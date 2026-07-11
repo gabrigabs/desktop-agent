@@ -216,7 +216,7 @@ export function Composer({
             return (
               <div
                 key={src.id}
-                className={`group flex items-center gap-1.5 rounded-lg border border-signal/25 bg-signal/10 pl-2 pr-1 ${mode === "expanded" ? "h-7" : "h-6"} shrink-0 transition-all hover:border-signal/40 hover:bg-signal/15`}
+                className={`group flex items-center gap-1.5 rounded-lg border border-signal/25 bg-signal/10 pl-2 pr-1 ${mode === "expanded" ? "h-7" : "h-6"} shrink-0 transition-all hover:border-signal/40 hover:bg-signal/15 animate-chip-enter`}
               >
                 <Icon className="h-3 w-3 text-signal shrink-0" />
                 {isClipboard ? (
@@ -312,7 +312,7 @@ export function Composer({
                 />
               </button>
               {!contextMenuOpen && (
-                <span className="text-[10px] text-mute truncate hidden sm:inline">
+                <span className="text-[10px] text-mute truncate hidden sm:inline animate-fade-in">
                   {t("helix:composer.contextMenu.title")}
                 </span>
               )}

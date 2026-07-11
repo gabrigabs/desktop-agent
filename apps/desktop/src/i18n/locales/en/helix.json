@@ -57,6 +57,7 @@
     "placeholder": "Type a command or question...",
     "placeholderDefault": "Ask something, paste text, or choose an action...",
     "placeholderClipboard": "Ask what you want to do with this content...",
+    "clipboardOnlyPrompt": "Help me with this content from my clipboard.",
     "placeholderTranslate": "Translate while keeping the original tone...",
     "placeholderExplain": "Explain in a simple, contextualized way...",
     "placeholderSummarize": "Summarize keeping the main points...",

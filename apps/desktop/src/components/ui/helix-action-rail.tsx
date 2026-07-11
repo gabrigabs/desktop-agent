@@ -21,7 +21,7 @@ export function HelixActionRail({ onAction }: HelixActionRailProps) {
               <button
                 type="button"
                 onClick={() => onAction(action)}
-                className="group flex w-full min-w-0 flex-col items-center gap-1 rounded-xl px-1.5 py-2 transition-colors"
+                className="group flex w-full min-w-0 flex-col items-center gap-1 rounded-xl px-1.5 py-2 transition-all active:scale-95"
                 title={t(`helix:radialActions.${action.id}.description`)}
               >
                 <span

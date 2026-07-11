@@ -204,7 +204,7 @@ export function ContextMenuPopup({
               }}
             >
               <span
-                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition-all ${
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition-all duration-200 group-hover:scale-110 ${
                   isActive
                     ? "border-signal/30 bg-signal/10 text-signal"
                     : isFocused
@@ -227,7 +227,7 @@ export function ContextMenuPopup({
                     {t("helix:contextBar.soon")}
                   </span>
                 )}
-                {isActive && !src.mock && <Check className="h-3 w-3 text-signal" />}
+                {isActive && !src.mock && <Check className="h-3 w-3 text-signal animate-check-pop" />}
               </div>
             </button>
           );

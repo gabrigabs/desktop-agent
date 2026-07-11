@@ -115,8 +115,11 @@ export function useExecute(activeProfileId?: string | null) {
         const rawClipboardText = store.clipboardText || "";
         const hasClipboard = rawClipboardText.trim().length > 0 && !store.ignoreClipboard;
         const sourceMode: "free" | "clipboard" = hasClipboard ? "clipboard" : "free";
-        const resolvedPrompt = cleanPrompt(activeQuery);
-        if (!resolvedPrompt) return;
+        let resolvedPrompt = cleanPrompt(activeQuery);
+        if (!resolvedPrompt) {
+          if (!hasClipboard) return;
+          resolvedPrompt = t("helix:composer.clipboardOnlyPrompt");
+        }
         const history = buildHistory(store.messages);
         const userBlocks: Turn["blocks"] = [{ type: "text", content: resolvedPrompt }];
         if (hasClipboard) {

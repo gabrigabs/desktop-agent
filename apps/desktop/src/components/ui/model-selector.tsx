@@ -122,7 +122,7 @@ export function ModelSelector({
       {open && (
         <div
           ref={popupRef}
-          className="fixed z-50 min-w-[220px] rounded-xl border border-line-strong bg-ink/95 p-2 shadow-2xl shadow-black/30 backdrop-blur-xl"
+          className="fixed z-50 min-w-[220px] rounded-xl border border-line-strong bg-ink/95 p-2 shadow-2xl shadow-black/30 backdrop-blur-xl animate-popup-enter"
           style={{ top: position.top, left: position.left, width: position.width }}
           role="dialog"
           aria-label={t("helix:providerModelSelect.modelLabel")}
@@ -143,7 +143,7 @@ export function ModelSelector({
                   }`}
                 >
                   <span className="truncate flex-1">{opt.label}</span>
-                  {isSelected && <Check className="h-3.5 w-3.5 shrink-0" />}
+                  {isSelected && <Check className="h-3.5 w-3.5 shrink-0 animate-check-pop" />}
                 </button>
               );
             })}
@@ -166,7 +166,7 @@ export function ModelSelector({
                     }`}
                   >
                     <span className="truncate flex-1">{opt.label}</span>
-                    {isSelected && <Check className="h-3.5 w-3.5 shrink-0" />}
+                    {isSelected && <Check className="h-3.5 w-3.5 shrink-0 animate-check-pop" />}
                   </button>
                 );
               })

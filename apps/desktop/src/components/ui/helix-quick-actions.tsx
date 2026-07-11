@@ -47,7 +47,7 @@ export function HelixQuickActions({ actions, disabled, mode = "normal", onAction
             type="button"
             onClick={() => onAction(action)}
             disabled={disabled}
-            className="group flex h-7 items-center gap-1.5 rounded-full border border-white/[0.06] bg-white/[0.025] px-2.5 text-[11px] font-medium text-mute transition-all hover:border-signal/25 hover:bg-white/[0.06] hover:text-fg disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
+            className="group flex h-7 items-center gap-1.5 rounded-full border border-white/[0.06] bg-white/[0.025] px-2.5 text-[11px] font-medium text-mute transition-all hover:border-signal/25 hover:bg-white/[0.06] hover:text-fg active:scale-95 disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
             title={action.prompt}
           >
             <Icon className={`w-3 h-3 ${action.accent}`} />
@@ -64,7 +64,7 @@ export function HelixQuickActions({ actions, disabled, mode = "normal", onAction
         <button
           type="button"
           onClick={() => setExpanded((prev) => !prev)}
-          className="flex h-7 items-center gap-1 rounded-full border border-white/[0.06] bg-white/[0.02] px-2.5 text-[10px] text-faint transition-colors hover:bg-white/[0.05] hover:text-mute"
+          className="flex h-7 items-center gap-1 rounded-full border border-white/[0.06] bg-white/[0.02] px-2.5 text-[10px] text-faint transition-all hover:bg-white/[0.05] hover:text-mute active:scale-95"
         >
           <span>{expanded ? t("helix:quickActions.less") : t("helix:quickActions.more")}</span>
           <ChevronDown className={`w-3 h-3 transition-transform ${expanded ? "rotate-180" : ""}`} />

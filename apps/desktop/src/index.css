@@ -110,6 +110,7 @@ select:focus-visible {
 
 .composer-field {
   position: relative;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
 }
 .composer-field textarea:focus,
 .composer-field textarea:focus-visible {
@@ -500,6 +501,52 @@ select:focus-visible {
   animation: fade-in-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+@keyframes modal-enter {
+  from { opacity: 0; transform: scale(0.96) translateY(4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes backdrop-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes check-pop {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.15); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes chip-enter {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes popup-enter {
+  from { opacity: 0; transform: scale(0.96) translateY(4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.animate-modal-enter {
+  animation: modal-enter 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-backdrop-fade {
+  animation: backdrop-fade-in 0.2s ease-out both;
+}
+
+.animate-check-pop {
+  animation: check-pop 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-chip-enter {
+  animation: chip-enter 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-popup-enter {
+  animation: popup-enter 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 .pet-status-dot {
   animation: pet-scan 2.8s ease-in-out infinite;
   transform-origin: center;
@@ -613,7 +660,12 @@ select:focus-visible {
   .radial-preview,
   .radial-arc g,
   .helix-view-enter,
-  .animate-fade-in {
+  .animate-fade-in,
+  .animate-modal-enter,
+  .animate-backdrop-fade,
+  .animate-check-pop,
+  .animate-chip-enter,
+  .animate-popup-enter {
     animation: none;
   }
 }
