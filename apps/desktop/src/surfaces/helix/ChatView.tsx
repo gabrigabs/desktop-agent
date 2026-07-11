@@ -56,7 +56,11 @@ export function ChatView({
 
   return (
     <div className="relative flex-1 min-h-0">
-      <div ref={containerRef} onScroll={handleScroll} className="h-full overflow-y-auto px-4 py-3 space-y-4">
+      <div
+        ref={containerRef}
+        onScroll={handleScroll}
+        className="h-full overflow-y-auto px-4 py-3 space-y-4 mx-auto max-w-[var(--composer-expanded-width)] w-full"
+      >
         {visibleTurns.map((turn, i) => {
           const isLastAssistant = streaming && turn.role === "assistant" && i === visibleTurns.length - 1;
 
@@ -90,7 +94,7 @@ export function ChatView({
         <button
           type="button"
           onClick={scrollToBottom}
-          className="absolute bottom-3 left-1/2 -translate-x-1/2 h-8 px-3 rounded-full bg-glass border border-line-strong text-[10px] font-semibold text-mute hover:text-fg shadow-lg transition-all cursor-pointer flex items-center gap-1.5 z-10"
+          className="absolute bottom-3 left-1/2 -translate-x-1/2 h-8 px-3 rounded-full bg-glass border border-line-strong text-[10px] font-semibold text-mute hover:text-fg shadow-lg transition-all cursor-pointer flex items-center gap-1.5 z-10 animate-status-enter hover:scale-105 active:scale-95"
         >
           <ArrowDown className="w-3 h-3" />
           Ir para o final

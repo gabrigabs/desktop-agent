@@ -19,6 +19,32 @@ let sidecarVersion: string | null = null;
 let bootAttempt = 0;
 
 const BOOT_TIMEOUT_MS = 10000;
+const CHUNK_FLUSH_MS = 40;
+
+let chunkBuffer = "";
+let chunkFlushTimer: ReturnType<typeof setTimeout> | null = null;
+
+function flushChunkBuffer() {
+  if (chunkBuffer) {
+    useAgentStore.getState().appendAssistantChunk(chunkBuffer);
+    chunkBuffer = "";
+  }
+  chunkFlushTimer = null;
+}
+
+function queueChunk(chunk: string) {
+  chunkBuffer += chunk;
+  if (!chunkFlushTimer) {
+    chunkFlushTimer = setTimeout(flushChunkBuffer, CHUNK_FLUSH_MS);
+  }
+}
+
+function flushChunksNow() {
+  if (chunkFlushTimer) {
+    clearTimeout(chunkFlushTimer);
+    flushChunkBuffer();
+  }
+}
 
 export function setActiveRequestId(id: string | null) {
   activeRequestId = id;
@@ -96,7 +122,7 @@ async function doInitializeRpc(attempt: number): Promise<AgentApi> {
             store.addAgentLog({ type: "thought", text: event.thought });
             break;
           case "agent.chunk": {
-            store.appendAssistantChunk(event.chunk);
+            queueChunk(event.chunk);
             break;
           }
           case "workflow.started":
@@ -170,12 +196,14 @@ async function doInitializeRpc(attempt: number): Promise<AgentApi> {
             });
             break;
           case "agent.cancelled":
+            flushChunksNow();
             if (event.requestId === activeRequestId) activeRequestId = null;
             store.finalizeAssistantTurn("cancelled");
             store.addAgentLog({ type: "tool_fail", text: i18n.t("helix:rpcLogs.executionAbortedByUser") });
             store.setError(i18n.t("helix:rpcLogs.executionAbortedByUserWithPeriod"));
             break;
           case "agent.completed":
+            flushChunksNow();
             store.finalizeAssistantTurn("complete");
             store.addAgentLog({ type: "info", text: i18n.t("helix:rpcLogs.responseReady") });
             break;

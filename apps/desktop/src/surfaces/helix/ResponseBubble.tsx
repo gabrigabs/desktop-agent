@@ -1,7 +1,7 @@
 import type { MessageBlock, Turn } from "@desktop-agent/shared";
 import { unwrapAgentResponse } from "@desktop-agent/shared";
 import { AlertCircle, Check, Clipboard, ExternalLink, RefreshCw, Sparkles, Wrench } from "lucide-react";
-import { useState } from "react";
+import { memo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { MarkdownRenderer } from "../../components/ui/markdown-renderer";
 import { Pet } from "../../components/ui/pet";
@@ -60,7 +60,11 @@ export function ResponseBubble({
   const [copied, setCopied] = useState(false);
   const isStreaming = turn.status === "streaming";
   const text = getResponseText(turn);
-  const hasThinkingBlock = turn.blocks.some((block) => block.type === "thinking");
+
+  const lastBlock = turn.blocks[turn.blocks.length - 1];
+  const lastBlockType = lastBlock?.type;
+  const isThinkingPhase = isStreaming && (lastBlockType === "thinking" || !lastBlockType);
+  const isTypingPhase = isStreaming && lastBlockType === "text" && text !== "";
 
   const handleCopy = async () => {
     if (!text) return;
@@ -101,21 +105,28 @@ export function ResponseBubble({
 
         <div className="text-sm leading-relaxed text-fg">
           {turn.blocks.map((block, i) => (
-            <BlockRenderer
+            <MemoizedBlockRenderer
               key={blockKey(block, i)}
               block={block}
               isStreaming={isStreaming && i === turn.blocks.length - 1}
             />
           ))}
 
-          {isStreaming && text === "" && !hasThinkingBlock && (
-            <div className="flex items-center gap-1.5 text-mute py-1">
-              <span className="text-xs">{t("helix:responseBubble.thinking")}</span>
+          {isThinkingPhase && (
+            <div className="flex items-center gap-1.5 text-mute py-1 animate-status-enter">
+              <span className="text-xs font-medium">{t("helix:responseBubble.thinkingLabel")}</span>
               <span className="flex items-center gap-0.5">
                 <span className="w-1 h-1 rounded-full bg-current animate-thinking-1" />
                 <span className="w-1 h-1 rounded-full bg-current animate-thinking-2" />
                 <span className="w-1 h-1 rounded-full bg-current animate-thinking-3" />
               </span>
+            </div>
+          )}
+
+          {isTypingPhase && (
+            <div className="flex items-center gap-1.5 text-signal/70 py-1 animate-status-enter">
+              <span className="text-[10px] font-medium">{t("helix:responseBubble.typingResponse")}</span>
+              <span className="inline-block w-[2px] h-3 bg-signal animate-typing-cursor rounded-sm" />
             </div>
           )}
         </div>
@@ -191,18 +202,27 @@ function WebSourceItem({ title, url, snippet }: { title?: string; url?: string; 
   );
 }
 
+function StreamingTextBlock({ content, isStreaming }: { content: string; isStreaming: boolean }) {
+  if (!isStreaming) {
+    return (
+      <div className="min-w-0 animate-fade-in">
+        <MarkdownRenderer content={unwrapAgentResponse(content)} />
+      </div>
+    );
+  }
+  return (
+    <div className="min-w-0 text-sm leading-relaxed text-fg break-words whitespace-pre-wrap animate-text-fade">
+      {unwrapAgentResponse(content)}
+      <span className="inline-block w-[2px] h-4 ml-0.5 bg-signal animate-typing-cursor align-text-bottom rounded-sm" />
+    </div>
+  );
+}
+
 function BlockRenderer({ block, isStreaming }: { block: MessageBlock; isStreaming: boolean }) {
   const { t } = useTranslation("helix");
   switch (block.type) {
     case "text":
-      return (
-        <div className="min-w-0 animate-fade-in">
-          <MarkdownRenderer content={unwrapAgentResponse(block.content)} />
-          {isStreaming && (
-            <span className="inline-block w-1.5 h-4 ml-0.5 align-[-2px] rounded-sm bg-signal animate-pulse" />
-          )}
-        </div>
-      );
+      return <StreamingTextBlock content={block.content} isStreaming={isStreaming} />;
     case "thinking":
       return <ThinkingBlock isStreaming={isStreaming} />;
     case "tool_call": {
@@ -288,16 +308,36 @@ function BlockRenderer({ block, isStreaming }: { block: MessageBlock; isStreamin
   }
 }
 
+const MemoizedBlockRenderer = memo(BlockRenderer, (prev, next) => {
+  if (prev.isStreaming !== next.isStreaming) return false;
+  if (prev.block === next.block) return true;
+  if (prev.block.type !== next.block.type) return false;
+  if (prev.block.type === "text" && next.block.type === "text") {
+    return prev.block.content === next.block.content;
+  }
+  if (prev.block.type === "thinking" && next.block.type === "thinking") {
+    return prev.block.content === next.block.content;
+  }
+  return false;
+});
+
 function ThinkingBlock({ isStreaming }: { isStreaming: boolean }) {
   const { t } = useTranslation("helix");
   return (
-    <div className="my-2 flex items-center gap-2 rounded-md border border-line bg-white/[0.025] px-2.5 py-1.5">
-      <Sparkles className={`w-3 h-3 ${isStreaming ? "text-signal animate-pulse" : "text-faint"}`} />
+    <div className="my-2 flex items-center gap-2 rounded-md border border-line bg-white/[0.025] px-2.5 py-1.5 animate-status-enter">
+      <Sparkles className={`w-3 h-3 ${isStreaming ? "text-signal" : "text-faint"}`} />
       <span className="text-[10px] text-mute">
         {isStreaming
           ? t("helix:responseBubble.analyzingContext")
           : t("helix:responseBubble.analysisComplete")}
       </span>
+      {isStreaming && (
+        <span className="flex items-center gap-0.5 ml-0.5">
+          <span className="w-1 h-1 rounded-full bg-signal animate-thinking-1" />
+          <span className="w-1 h-1 rounded-full bg-signal animate-thinking-2" />
+          <span className="w-1 h-1 rounded-full bg-signal animate-thinking-3" />
+        </span>
+      )}
     </div>
   );
 }

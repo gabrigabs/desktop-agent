@@ -19,6 +19,7 @@ export function parseAssistantContent(raw: string, streaming: boolean): MessageB
   const blocks: MessageBlock[] = [];
   let cursor = 0;
   let thinking = false;
+  let seenAnyTag = false;
   let match = THINKING_TAG.exec(raw);
 
   const push = (type: "text" | "thinking", value: string) => {
@@ -39,6 +40,7 @@ export function parseAssistantContent(raw: string, streaming: boolean): MessageB
   };
 
   while (match) {
+    seenAnyTag = true;
     const tag = match[0].toLowerCase();
     const isClosing = tag.startsWith("</");
     const before = raw.slice(cursor, match.index);
@@ -55,11 +57,20 @@ export function parseAssistantContent(raw: string, streaming: boolean): MessageB
   }
 
   let remainder = raw.slice(cursor);
+  let hadPartialTag = false;
   if (streaming) {
     const partialTagIndex = trailingPartialTagIndex(remainder);
-    if (partialTagIndex !== -1) remainder = remainder.slice(0, partialTagIndex);
+    if (partialTagIndex !== -1) {
+      remainder = remainder.slice(0, partialTagIndex);
+      hadPartialTag = true;
+    }
   }
-  push(thinking ? "thinking" : "text", remainder);
+
+  if (streaming && !seenAnyTag && !hadPartialTag) {
+    push("thinking", remainder);
+  } else {
+    push(thinking ? "thinking" : "text", remainder);
+  }
 
   return blocks;
 }

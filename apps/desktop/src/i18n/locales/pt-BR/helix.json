@@ -511,7 +511,9 @@
     "sources": "Fontes ({{count}})",
     "searchFailed": "Não foi possível pesquisar agora. Verifique sua conexão.",
     "analyzingContext": "Analisando contexto...",
-    "analysisComplete": "Análise concluída"
+    "analysisComplete": "Análise concluída",
+    "typingResponse": "Escrevendo resposta...",
+    "thinkingLabel": "Pensando"
   },
   "queryBubble": {
     "now": "agora",

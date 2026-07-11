@@ -511,7 +511,9 @@
     "sources": "Sources ({{count}})",
     "searchFailed": "Could not search right now. Check your connection.",
     "analyzingContext": "Analyzing context...",
-    "analysisComplete": "Analysis complete"
+    "analysisComplete": "Analysis complete",
+    "typingResponse": "Typing response...",
+    "thinkingLabel": "Thinking"
   },
   "queryBubble": {
     "now": "now",

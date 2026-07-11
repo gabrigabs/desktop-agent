@@ -391,7 +391,7 @@ function ChatActive(p: Props) {
         onToastError={p.onToastError}
       />
 
-      <div className="shrink-0">
+      <div className="shrink-0 w-full mx-auto max-w-[var(--composer-expanded-width)]">
         <Composer
           mode="expanded"
           query={p.query}
@@ -538,7 +538,7 @@ function TaskActive(p: Props) {
         </div>
       </section>
 
-      <div className="shrink-0">
+      <div className="shrink-0 w-full mx-auto max-w-[var(--composer-expanded-width)]">
         <Composer
           mode="expanded"
           query={p.query}

@@ -257,7 +257,7 @@ export function Composer({
       <div className="relative">
         <div
           ref={composerRef}
-          className={`composer-field flex flex-col rounded-xl border border-line bg-white/[0.04] transition-colors ${
+          className={`composer-field flex flex-col rounded-xl border border-line bg-white/[0.04] transition-all duration-200 ${
             clipboardEnabled ? "border-signal/30 bg-signal/[0.03]" : ""
           } ${shellClasses}`}
         >

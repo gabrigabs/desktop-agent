@@ -35,4 +35,22 @@ describe("parseAssistantContent", () => {
       { type: "text", content: "Resposta <thi" },
     ]);
   });
+
+  test("treats streaming content as thinking when no opening tag is sent (Pinstripes)", () => {
+    const streaming = parseAssistantContent("checando contexto", true);
+    expect(streaming).toEqual([
+      { type: "thinking", content: "checando contexto", collapsed: true },
+    ]);
+
+    const withClosing = parseAssistantContent("checando contexto</think>Resposta útil", true);
+    expect(withClosing).toEqual([
+      { type: "thinking", content: "checando contexto", collapsed: true },
+      { type: "text", content: "Resposta útil" },
+    ]);
+  });
+
+  test("keeps partial opening tag content as text during streaming", () => {
+    const partial = parseAssistantContent("Resposta inicial.<thi", true);
+    expect(partial).toEqual([{ type: "text", content: "Resposta inicial." }]);
+  });
 });
