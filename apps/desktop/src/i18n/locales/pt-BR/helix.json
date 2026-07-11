@@ -55,6 +55,14 @@
   },
   "composer": {
     "placeholder": "Digite um comando ou pergunta...",
+    "placeholderDefault": "Pergunte algo, cole um texto ou escolha uma ação...",
+    "placeholderClipboard": "Pergunte o que deseja fazer com este conteúdo...",
+    "placeholderTranslate": "Traduza mantendo o tom original...",
+    "placeholderExplain": "Explique de forma simples e contextualizada...",
+    "placeholderSummarize": "Resuma mantendo os pontos principais...",
+    "placeholderImprove": "Melhore clareza, tom e estrutura...",
+    "placeholderWebSearch": "O que você quer pesquisar?",
+    "modelNeedsKey": "API key necessária",
     "send": "Enviar",
     "cancel": "Cancelar",
     "clipboardHint": "Clipboard incluído",
@@ -66,7 +74,22 @@
     "startLikeThis": "Começar assim",
     "showClipboard": "Ver clipboard ({{count}} caracteres)",
     "hideClipboard": "Ocultar clipboard",
-    "removeClipboard": "Remover clipboard"
+    "removeClipboard": "Remover clipboard",
+    "loading": "Gerando resposta...",
+    "stop": "Parar",
+    "contextMenu": {
+      "title": "Adicionar contexto",
+      "clipboard": "Clipboard",
+      "clipboardDescription": "Incluir o conteúdo copiado na mensagem.",
+      "screen": "Tela",
+      "screenDescription": "Anexar uma captura da tela atual.",
+      "file": "Arquivo",
+      "fileDescription": "Anexar um arquivo do computador.",
+      "activeApp": "App ativo",
+      "activeAppDescription": "Incluir o contexto do aplicativo em foco.",
+      "connector": "Conector",
+      "connectorDescription": "Usar uma conexão ativa para buscar contexto."
+    }
   },
   "contextBar": {
     "clipboard": "Clipboard",
@@ -97,6 +120,34 @@
     "emptyHint": "Nenhum contexto ativo — copie um texto ou anexe um arquivo.",
     "add": "Adicionar",
     "comingSoon": "Funcionalidade em desenvolvimento"
+  },
+  "quickActions": {
+    "summarizeText": "Resumir texto",
+    "summarizeTextPrompt": "Resuma o texto em tópicos concisos.",
+    "explain": "Explicar",
+    "explainPrompt": "Explique este conteúdo de forma simples, com contexto e exemplos curtos.",
+    "translate": "Traduzir",
+    "translatePrompt": "Traduza este texto mantendo o tom original.",
+    "improveText": "Melhorar texto",
+    "improveTextPrompt": "Melhore a clareza, tom e legibilidade deste texto.",
+    "freeQuestion": "Pergunta livre",
+    "webSearch": "Pesquisar web",
+    "webSearchPrompt": "Pesquise na web com fontes e próximos passos sobre: ",
+    "makePlan": "Montar plano",
+    "makePlanPrompt": "Monte um plano prático para: ",
+    "exploreIdeas": "Explorar ideias",
+    "exploreIdeasPrompt": "Liste ideias práticas e diferentes para: ",
+    "draftText": "Rascunhar texto",
+    "draftTextPrompt": "Rascunhe um texto curto sobre: ",
+    "more": "Mais",
+    "less": "Menos"
+  },
+  "recentConversations": {
+    "title": "Recentes",
+    "empty": "Nenhuma conversa recente",
+    "refresh": "Atualizar",
+    "loadError": "Erro ao carregar conversas recentes",
+    "viewAll": "Ver tudo"
   },
   "contextChips": {
     "summarizeText": "Resumir texto",
@@ -158,6 +209,13 @@
     "thinkingDescription": "Raciocínio mais profundo",
     "pro": "Pro",
     "proDescription": "Respostas mais deliberadas"
+  },
+  "clipboardModal": {
+    "title": "Clipboard",
+    "close": "Fechar",
+    "characters": "caracteres",
+    "copyAgain": "Copiar novamente",
+    "removeContext": "Remover contexto"
   },
   "clipboardPreview": {
     "hint": "Copie um texto para ver ações de contexto",

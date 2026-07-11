@@ -1,7 +1,6 @@
 import type {
   AgentProfile,
   ConnectorConfig,
-  HelixAction,
   McpTestResult,
   PromptTemplate,
   Skill,
@@ -18,9 +17,9 @@ import { AgentIdentity } from "../../components/ui/agent-identity";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { CompactResultCard } from "../../components/ui/compact-result-card";
-import { HelixActionRail } from "../../components/ui/helix-action-rail";
 import { HelixMark } from "../../components/ui/helix-mark";
 import { IconButton } from "../../components/ui/icon-button";
+import { RecentConversations } from "../../components/ui/recent-conversations";
 import { Separator } from "../../components/ui/separator";
 import { ArtifactsPanel } from "./ArtifactsPanel";
 import { ChatView } from "./ChatView";
@@ -29,7 +28,7 @@ import { ConnectorsPanel } from "./ConnectorsPanel";
 import { GLOBAL_SHORTCUT_GLYPH } from "./constants";
 import { HistoryList } from "./history-list";
 import type { SaveConnectorInput } from "./hooks/useCapabilities";
-import type { ContextChipItem } from "./hooks/useContextChips";
+import type { QuickActionItem } from "./hooks/useQuickActions";
 import { PromptsPanel } from "./PromptsPanel";
 import { SkillsPanel } from "./SkillsPanel";
 import type { HelixMode } from "./types";
@@ -45,7 +44,6 @@ type Props = {
   ignoreClipboard: boolean;
   setIgnoreClipboard: (v: boolean) => void;
   onPasteClipboard: (text: string) => void;
-  onReloadClipboard: () => void;
   taskActive: boolean;
   taskStatus: string;
   messages: Turn[];
@@ -63,10 +61,8 @@ type Props = {
   selectedWorkflowId: string | null;
   selectedSkillId: string | null;
   composerPlaceholder: string;
-  chips?: ContextChipItem[];
-  starterChips?: ContextChipItem[];
-  clipboardActions?: ContextChipItem[];
-  onChipClick?: (chip: ContextChipItem) => void;
+  quickActions?: QuickActionItem[];
+  onQuickAction?: (action: QuickActionItem) => void;
   onExecute: () => void;
   onAbort: () => void;
   onApproval: (approved: boolean) => void;
@@ -150,6 +146,7 @@ type Props = {
     enabled?: boolean;
   }) => void;
   onDeleteSkill: (id: string) => void;
+  onSelectRecentConversation?: (conversationId: string) => void;
 };
 
 export function NormalCommandView(p: Props) {
@@ -259,24 +256,9 @@ function PanelWrapper({
 function CommandHome(p: Props) {
   const { t } = useTranslation("helix");
 
-  const handlePrimaryAction = (action: HelixAction) => {
-    if (action.id === "artifacts") {
-      p.setMode("artifacts");
-      return;
-    }
-    if (action.id === "workflow") {
-      p.setMode("workflows");
-      return;
-    }
-    if (action.requiredContext?.includes("clipboard")) {
-      p.setIgnoreClipboard(false);
-    }
-    p.onStarterAction(action.prompt, action.executionMode);
-  };
-
   return (
-    <div className="min-h-full w-full flex flex-col items-center justify-start pt-[clamp(64px,12vh,100px)] pb-8">
-      <div className="w-full max-w-md flex flex-col gap-4 px-5">
+    <div className="min-h-full w-full flex flex-col items-center justify-center py-8 px-5">
+      <div className="w-full max-w-lg flex flex-col gap-4">
         <div className="flex items-center justify-between gap-4 px-1">
           <div className="flex min-w-0 items-center gap-2.5">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-signal/15 bg-signal/[0.06]">
@@ -297,6 +279,7 @@ function CommandHome(p: Props) {
         </div>
 
         <Composer
+          mode="normal"
           query={p.query}
           setQuery={p.setQuery}
           placeholder={p.composerPlaceholder}
@@ -308,15 +291,13 @@ function CommandHome(p: Props) {
           setIgnoreClipboard={p.setIgnoreClipboard}
           onPasteClipboard={p.onPasteClipboard}
           textareaRef={p.textareaRef}
-          clipboardActions={p.clipboardActions}
-          onChipClick={p.onChipClick}
-          onReloadClipboard={p.onReloadClipboard}
+          quickActions={p.quickActions}
+          onQuickAction={p.onQuickAction}
           onExecute={p.onExecute}
+          onAbort={p.onAbort}
         />
 
-        <div className="px-1">
-          <HelixActionRail onAction={handlePrimaryAction} />
-        </div>
+        <RecentConversations limit={3} onSelect={p.onSelectRecentConversation} />
       </div>
     </div>
   );
@@ -369,6 +350,7 @@ function ChatActive(p: Props) {
 
       <div className="shrink-0">
         <Composer
+          mode="normal"
           query={p.query}
           setQuery={p.setQuery}
           placeholder={p.composerPlaceholder}
@@ -380,11 +362,11 @@ function ChatActive(p: Props) {
           setIgnoreClipboard={p.setIgnoreClipboard}
           onPasteClipboard={p.onPasteClipboard}
           textareaRef={p.textareaRef}
-          starterChips={p.starterChips}
-          clipboardActions={p.clipboardActions}
-          onChipClick={p.onChipClick}
-          onReloadClipboard={p.onReloadClipboard}
+          quickActions={p.quickActions}
+          onQuickAction={p.onQuickAction}
           onExecute={p.onExecute}
+          onAbort={p.onAbort}
+          showQuickActions={false}
         />
       </div>
     </div>
@@ -533,6 +515,7 @@ function TaskActive(p: Props) {
 
       <div className="shrink-0">
         <Composer
+          mode="normal"
           query={p.query}
           setQuery={p.setQuery}
           placeholder={p.composerPlaceholder}
@@ -544,11 +527,11 @@ function TaskActive(p: Props) {
           setIgnoreClipboard={p.setIgnoreClipboard}
           onPasteClipboard={p.onPasteClipboard}
           textareaRef={p.textareaRef}
-          starterChips={p.starterChips}
-          clipboardActions={p.clipboardActions}
-          onChipClick={p.onChipClick}
-          onReloadClipboard={p.onReloadClipboard}
+          quickActions={p.quickActions}
+          onQuickAction={p.onQuickAction}
           onExecute={p.onExecute}
+          onAbort={p.onAbort}
+          showQuickActions={false}
         />
       </div>
     </div>

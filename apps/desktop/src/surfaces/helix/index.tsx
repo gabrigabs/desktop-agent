@@ -1,19 +1,19 @@
 import { getHelixAction } from "@desktop-agent/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { HelixBottomNav } from "../../components/ui/helix-bottom-nav";
 import { HelixDrawer } from "../../components/ui/helix-drawer";
 import { HelixHeader } from "../../components/ui/helix-header";
-import { HelixSidebar } from "../../components/ui/helix-sidebar";
 import { getAgent } from "../../lib/rpc";
 import { closeApp, setWindowMode } from "../../lib/window";
 import { useAgentStore } from "../../stores/agent";
 import { ExpandedView } from "./ExpandedView";
 import { useCapabilities } from "./hooks/useCapabilities";
 import { useClipboard } from "./hooks/useClipboard";
-import { type ContextChipItem, useContextChips } from "./hooks/useContextChips";
 import { useExecute } from "./hooks/useExecute";
 import { useKeyboard } from "./hooks/useKeyboard";
 import { usePrompts } from "./hooks/usePrompts";
+import { type QuickActionItem, useQuickActions } from "./hooks/useQuickActions";
 import { useSettingsForm } from "./hooks/useSettingsForm";
 import { useSkills } from "./hooks/useSkills";
 import { useWorkflows } from "./hooks/useWorkflows";
@@ -66,32 +66,22 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
   const ignoreClipboard = useAgentStore((s) => s.ignoreClipboard);
   const setIgnoreClipboard = useAgentStore((s) => s.setIgnoreClipboard);
   const setClipboardText = useAgentStore((s) => s.setClipboardText);
-  const contextChips = useContextChips(clipboard.hasClipboard, ignoreClipboard);
+  const quickActions = useQuickActions(clipboard.hasClipboard, ignoreClipboard);
   const settingsForm = useSettingsForm(showSettings, onToastSuccess, onToastError);
 
-  const handleChipClick = useCallback(
-    (chip: ContextChipItem) => {
-      if (chip.action === "ignore-clipboard") {
-        const currentQuery = useAgentStore.getState().query;
-        if (ignoreClipboard) {
-          setIgnoreClipboard(false);
-          const marker = currentQuery.includes("[CLIPBOARD]")
-            ? currentQuery
-            : `${currentQuery ? `${currentQuery} ` : ""}[CLIPBOARD]`;
-          setQuery(marker);
-        } else {
-          setIgnoreClipboard(true);
-          setQuery(currentQuery.replace(/\s?\[CLIPBOARD\]\s?/g, ""));
-        }
-        requestAnimationFrame(() => textareaRef.current?.focus());
-        return;
-      }
-      const next = chip.usesClipboard ? `${chip.prompt}${chip.prompt ? " " : ""}[CLIPBOARD]` : chip.prompt;
-      setIgnoreClipboard(!chip.usesClipboard);
+  const handleQuickAction = useCallback(
+    (action: QuickActionItem) => {
+      const usesClipboard = action.requiredContext?.includes("clipboard");
+      const prefix = action.prompt ? `${action.prompt} ` : "";
+      const next = usesClipboard ? `${prefix}[CLIPBOARD]`.trim() : action.prompt;
+      setIgnoreClipboard(!usesClipboard);
       setQuery(next);
+      if (action.executionMode) {
+        setExecutionMode(action.executionMode);
+      }
       requestAnimationFrame(() => textareaRef.current?.focus());
     },
-    [ignoreClipboard, setIgnoreClipboard, setQuery],
+    [setIgnoreClipboard, setQuery, setExecutionMode],
   );
 
   const persistWindowMode = useCallback(
@@ -264,6 +254,34 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     onToastSuccess?.(t("helix:helixIndex.responseCancelled"));
   }, [exec, onToastSuccess, t]);
 
+  const onSelectRecentConversation = useCallback(
+    async (id: string) => {
+      try {
+        const api = await getAgent();
+        const turns = await api.listTurns({ conversationId: id });
+        const store = useAgentStore.getState();
+        const lastAssistant = [...turns].reverse().find((turn) => turn.role === "assistant");
+        const result = lastAssistant?.blocks
+          .filter((block) => block.type === "text")
+          .map((block) => (block.type === "text" ? block.content : ""))
+          .join("");
+
+        const profileId = turns.find((turn) => turn.profileId)?.profileId ?? null;
+        store.setCurrentProfileId(profileId);
+        store.setCurrentConversationId(id);
+        store.setMessages(turns);
+        store.setResult(result || null);
+        store.setStreaming(false);
+        store.setError(null);
+        store.setWorkflowRun(null);
+      } catch (err) {
+        console.error("Failed to load recent conversation:", err);
+        onToastError?.(t("helix:helixIndex.openRecentError"));
+      }
+    },
+    [onToastError, t],
+  );
+
   const taskActive =
     streaming || result !== null || Boolean(error) || agentLogs.length > 0 || Boolean(workflowRun);
   const taskStatus =
@@ -295,7 +313,6 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     ignoreClipboard,
     setIgnoreClipboard,
     onPasteClipboard: setClipboardText,
-    onReloadClipboard: clipboard.checkClipboard,
     taskActive,
     taskStatus,
     messages,
@@ -317,15 +334,14 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     copied: exec.copied,
     executionMode,
     composerPlaceholder,
-    chips: contextChips.chips,
-    starterChips: contextChips.starterChips,
-    clipboardActions: contextChips.clipboardChips,
-    onChipClick: handleChipClick,
+    quickActions: quickActions,
+    onQuickAction: handleQuickAction,
     onExecute: exec.handleExecute,
     onAbort: onAbort,
     onCopy: exec.handleCopyResult,
     onRefine: onEditPrompt,
     onNewTask: handleNewTask,
+    onSelectRecentConversation,
     onStarterAction,
     onEditPrompt,
     onCopyResponse,
@@ -405,13 +421,7 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
           onMinimize={handleMinimize}
           onClose={handleClose}
         />
-        <div className="flex-1 min-h-0 flex">
-          <HelixSidebar
-            mode={showSettings ? "settings" : mode}
-            onChangeMode={handleChangeMode}
-            onNewTask={handleNewTask}
-            onToggleExpand={handleToggleExpand}
-          />
+        <div className="flex-1 min-h-0 flex flex-col">
           <main className="relative flex-1 min-h-0 overflow-hidden">
             {showSettings ? (
               <SettingsPanel variant="expanded" {...settingsPanelProps} />
@@ -419,6 +429,12 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
               <ExpandedView {...commonProps} />
             )}
           </main>
+          <HelixBottomNav
+            mode={showSettings ? "settings" : mode}
+            onChangeMode={handleChangeMode}
+            onNewTask={handleNewTask}
+            onToggleExpand={handleToggleExpand}
+          />
         </div>
       </div>
     );

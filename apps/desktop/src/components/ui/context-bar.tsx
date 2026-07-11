@@ -100,27 +100,29 @@ function ContextItemRow({
 
   return (
     <div
-      className={`group flex h-8 min-w-0 items-center gap-1.5 rounded-lg px-2 transition-colors ${
-        item.enabled ? "bg-signal/[0.08]" : "bg-transparent hover:bg-white/[0.035]"
+      className={`group flex h-7 min-w-0 items-center gap-1.5 rounded-full border px-2 pr-1.5 transition-all ${
+        item.enabled
+          ? "border-signal bg-signal text-ink shadow-[0_0_0_1px_rgba(196,153,244,0.25)]"
+          : "border-line bg-white/[0.03] text-mute hover:border-signal/30 hover:bg-white/[0.06] hover:text-fg"
       }`}
       title={item.preview}
     >
-      <ContentIcon className={`h-3.5 w-3.5 shrink-0 ${item.enabled ? "text-signal" : "text-faint"}`} />
-      <span className={`truncate text-[10px] font-medium ${item.enabled ? "text-signal" : "text-mute"}`}>
+      <ContentIcon className={`h-3.5 w-3.5 shrink-0 ${item.enabled ? "text-ink" : "text-faint"}`} />
+      <span className={`truncate text-[10px] font-semibold ${item.enabled ? "text-ink" : "text-mute"}`}>
         {item.label}
       </span>
-      {item.sensitive && (
+      {item.sensitive && !item.mock && !item.enabled && (
         <span title={t("contextBar.sensitive")}>
-          <ShieldAlert className="h-3 w-3 text-warn" />
+          <ShieldAlert className="h-3 w-3 shrink-0 text-warn" />
         </span>
       )}
       {item.mock && (
-        <span className="shrink-0 rounded-md bg-white/[0.045] px-1.5 py-0.5 text-[7px] font-medium uppercase tracking-wide text-faint">
+        <span className="shrink-0 rounded-md bg-white/[0.08] px-1 py-0 text-[7px] font-medium uppercase tracking-wide text-faint">
           {t("contextBar.soon")}
         </span>
       )}
       <div className="flex shrink-0 items-center gap-0.5">
-        {!item.mock && item.source === "clipboard" && (
+        {!item.mock && item.source === "clipboard" && item.enabled && (
           <>
             <button
               type="button"
@@ -128,7 +130,7 @@ function ContextItemRow({
                 e.stopPropagation();
                 onShowPreview?.();
               }}
-              className="rounded-full p-1 text-faint transition-colors hover:bg-white/5 hover:text-fg"
+              className="rounded-full p-1 text-ink/70 transition-colors hover:bg-ink/10 hover:text-ink"
               title={t("contextBar.preview")}
               aria-label={t("contextBar.preview")}
             >
@@ -140,7 +142,7 @@ function ContextItemRow({
                 e.stopPropagation();
                 onReload?.();
               }}
-              className="rounded-full p-1 text-faint transition-colors hover:bg-white/5 hover:text-fg"
+              className="rounded-full p-1 text-ink/70 transition-colors hover:bg-ink/10 hover:text-ink"
               title={t("contextBar.reloadClipboard")}
               aria-label={t("contextBar.reloadClipboard")}
             >
@@ -155,7 +157,7 @@ function ContextItemRow({
               e.stopPropagation();
               onToggle();
             }}
-            className="rounded-full bg-white/[0.04] px-1.5 py-0.5 text-[9px] text-mute transition-colors hover:bg-white/[0.08] hover:text-fg"
+            className="rounded-full bg-white/[0.06] px-1.5 py-0.5 text-[9px] text-mute transition-colors hover:bg-white/[0.12] hover:text-fg"
           >
             {t("contextBar.allow")}
           </button>
@@ -168,8 +170,8 @@ function ContextItemRow({
             }}
             className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium transition-colors ${
               item.enabled
-                ? "bg-signal/10 text-signal hover:bg-signal/20"
-                : "bg-white/[0.04] text-mute hover:bg-white/[0.08] hover:text-fg"
+                ? "bg-ink/10 text-ink hover:bg-ink/20"
+                : "bg-white/[0.06] text-mute hover:bg-white/[0.12] hover:text-fg"
             }`}
             title={item.enabled ? t("contextBar.disable") : t("contextBar.enable")}
           >
@@ -183,7 +185,7 @@ function ContextItemRow({
               e.stopPropagation();
               onRemove();
             }}
-            className="hidden rounded-full p-1 text-faint transition-colors hover:bg-bad/10 hover:text-bad group-hover:flex"
+            className="hidden rounded-full p-1 text-ink/70 transition-colors hover:bg-bad/10 hover:text-bad group-hover:flex"
             title={t("contextBar.remove")}
             aria-label={t("contextBar.remove")}
           >
@@ -287,7 +289,7 @@ export function ContextBar(props: ContextBarProps) {
     return <LegacyClipboardBar {...props} />;
   }
 
-  const { items, onToggle, onRemove, onReload, onShowPreview, clipboardActions, onClipboardAction } = props;
+  const { items, onToggle, onRemove, onReload, onShowPreview } = props;
 
   const handleAddMock = (e: MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
@@ -312,7 +314,7 @@ export function ContextBar(props: ContextBarProps) {
           </button>
         </div>
       ) : (
-        <div className="flex flex-wrap items-center gap-0.5 rounded-xl border border-line bg-white/[0.02] p-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           {items.map((item) => (
             <ContextItemRow
               key={item.id}
@@ -323,26 +325,6 @@ export function ContextBar(props: ContextBarProps) {
               onShowPreview={() => onShowPreview?.(item.id)}
             />
           ))}
-        </div>
-      )}
-
-      {clipboardActions && clipboardActions.length > 0 && onClipboardAction && (
-        <div className="flex flex-wrap items-center gap-1.5 border-t border-line/40 pt-1.5">
-          {clipboardActions.map((action) => {
-            const ActionIcon = action.icon;
-            return (
-              <button
-                key={action.id}
-                type="button"
-                onClick={() => onClipboardAction(action)}
-                className="flex items-center gap-1 rounded-full border border-line bg-white/[0.03] px-2 py-1 text-[10px] text-mute transition-colors hover:border-signal/30 hover:bg-white/[0.06] hover:text-fg"
-                title={action.prompt}
-              >
-                <ActionIcon className={`h-3 w-3 ${action.accent}`} />
-                {action.label}
-              </button>
-            );
-          })}
         </div>
       )}
     </div>

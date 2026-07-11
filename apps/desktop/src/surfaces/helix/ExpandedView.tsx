@@ -1,7 +1,6 @@
 import type {
   AgentProfile,
   ConnectorConfig,
-  HelixAction,
   McpTestResult,
   PromptTemplate,
   Skill,
@@ -13,19 +12,20 @@ import type {
 } from "@desktop-agent/shared";
 import { AlertCircle, ArrowLeft, Check, Clipboard, RefreshCw, Sparkles, Workflow, X } from "lucide-react";
 import type { RefObject } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AgentIdentity } from "../../components/ui/agent-identity";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
-import { HelixActionRail } from "../../components/ui/helix-action-rail";
 import { HeroHome } from "../../components/ui/hero-home";
+import { RecentConversations } from "../../components/ui/recent-conversations";
 import { ArtifactsPanel } from "./ArtifactsPanel";
 import { ChatView } from "./ChatView";
 import { Composer } from "./Composer";
 import { ConnectorsPanel } from "./ConnectorsPanel";
 import { HistoryList } from "./history-list";
 import type { SaveConnectorInput } from "./hooks/useCapabilities";
-import type { ContextChipItem } from "./hooks/useContextChips";
+import type { QuickActionItem } from "./hooks/useQuickActions";
 import { PromptsPanel } from "./PromptsPanel";
 import { SkillsPanel } from "./SkillsPanel";
 import type { HelixMode } from "./types";
@@ -41,7 +41,6 @@ type Props = {
   ignoreClipboard: boolean;
   setIgnoreClipboard: (v: boolean) => void;
   onPasteClipboard: (text: string) => void;
-  onReloadClipboard: () => void;
   taskActive: boolean;
   taskStatus: string;
   messages: Turn[];
@@ -59,15 +58,14 @@ type Props = {
   selectedWorkflowId: string | null;
   selectedSkillId: string | null;
   composerPlaceholder: string;
-  chips?: ContextChipItem[];
-  starterChips?: ContextChipItem[];
-  clipboardActions?: ContextChipItem[];
-  onChipClick?: (chip: ContextChipItem) => void;
+  quickActions?: QuickActionItem[];
+  onQuickAction?: (action: QuickActionItem) => void;
   onExecute: () => void;
   onAbort: () => void;
   onApproval: (approved: boolean) => void;
   onCopy: () => void;
   onNewTask: () => void;
+  onSelectRecentConversation?: (id: string) => void;
   onToastSuccess?: (message: string, duration?: number) => void;
   onToastError?: (message: string, duration?: number) => void;
   onStarterAction: (prompt: string, modeOverride?: "simple" | "workflow") => void;
@@ -312,27 +310,14 @@ export function ExpandedView(p: Props) {
 }
 
 function CommandHome(p: Props) {
-  const handlePrimaryAction = (action: HelixAction) => {
-    if (action.id === "artifacts") {
-      p.setMode("artifacts");
-      return;
-    }
-    if (action.id === "workflow") {
-      p.setMode("workflows");
-      return;
-    }
-    if (action.requiredContext?.includes("clipboard")) {
-      p.setIgnoreClipboard(false);
-    }
-    p.onStarterAction(action.prompt, action.executionMode);
-  };
-
+  const [menuOpen, setMenuOpen] = useState(false);
   return (
-    <div className="min-h-full w-full flex flex-col items-center justify-center gap-2 pb-[6vh] py-2">
-      <HeroHome expanded />
+    <div className="h-full w-full flex flex-col items-center justify-center px-6 py-4">
+      <div className="w-full max-w-[var(--composer-expanded-width)] flex flex-col gap-3">
+        <HeroHome expanded />
 
-      <div className="w-full max-w-[600px] flex flex-col gap-3 px-6">
         <Composer
+          mode="expanded"
           query={p.query}
           setQuery={p.setQuery}
           placeholder={p.composerPlaceholder}
@@ -344,12 +329,21 @@ function CommandHome(p: Props) {
           setIgnoreClipboard={p.setIgnoreClipboard}
           onPasteClipboard={p.onPasteClipboard}
           textareaRef={p.textareaRef}
-          clipboardActions={p.clipboardActions}
-          onChipClick={p.onChipClick}
-          onReloadClipboard={p.onReloadClipboard}
+          quickActions={p.quickActions}
+          onQuickAction={p.onQuickAction}
           onExecute={p.onExecute}
+          onAbort={p.onAbort}
+          onContextMenuOpenChange={setMenuOpen}
         />
-        <HelixActionRail onAction={handlePrimaryAction} />
+
+        {!menuOpen && p.onSelectRecentConversation && (
+          <RecentConversations
+            limit={3}
+            showViewAll
+            onSelect={p.onSelectRecentConversation}
+            onViewAll={() => p.setMode("history")}
+          />
+        )}
       </div>
     </div>
   );
@@ -399,6 +393,7 @@ function ChatActive(p: Props) {
 
       <div className="shrink-0">
         <Composer
+          mode="expanded"
           query={p.query}
           setQuery={p.setQuery}
           placeholder={p.composerPlaceholder}
@@ -410,11 +405,11 @@ function ChatActive(p: Props) {
           setIgnoreClipboard={p.setIgnoreClipboard}
           onPasteClipboard={p.onPasteClipboard}
           textareaRef={p.textareaRef}
-          starterChips={p.starterChips}
-          clipboardActions={p.clipboardActions}
-          onChipClick={p.onChipClick}
-          onReloadClipboard={p.onReloadClipboard}
+          quickActions={p.quickActions}
+          onQuickAction={p.onQuickAction}
           onExecute={p.onExecute}
+          onAbort={p.onAbort}
+          showQuickActions={false}
         />
       </div>
     </div>
@@ -545,6 +540,7 @@ function TaskActive(p: Props) {
 
       <div className="shrink-0">
         <Composer
+          mode="expanded"
           query={p.query}
           setQuery={p.setQuery}
           placeholder={p.composerPlaceholder}
@@ -556,11 +552,11 @@ function TaskActive(p: Props) {
           setIgnoreClipboard={p.setIgnoreClipboard}
           onPasteClipboard={p.onPasteClipboard}
           textareaRef={p.textareaRef}
-          starterChips={p.starterChips}
-          clipboardActions={p.clipboardActions}
-          onChipClick={p.onChipClick}
-          onReloadClipboard={p.onReloadClipboard}
+          quickActions={p.quickActions}
+          onQuickAction={p.onQuickAction}
           onExecute={p.onExecute}
+          onAbort={p.onAbort}
+          showQuickActions={false}
         />
       </div>
     </div>

@@ -24,6 +24,7 @@
   --radius-md: 10px;
   --radius-lg: 16px;
   --radius-xl: 20px;
+  --composer-expanded-width: 680px;
   --glow-idle: rgba(196, 153, 244, 0.2);
   --glow-connecting: rgba(240, 160, 64, 0.2);
   --glow-thinking: rgba(240, 200, 64, 0.3);
@@ -114,23 +115,9 @@ select:focus-visible {
 .composer-field textarea:focus-visible {
   outline: none;
 }
-.composer-field::after {
-  content: "";
-  position: absolute;
-  left: 12%;
-  right: 12%;
-  bottom: -1px;
-  height: 1.5px;
-  background: linear-gradient(90deg, transparent, var(--color-signal), transparent);
-  opacity: 0;
-  transition: opacity 0.25s ease;
-}
 .composer-field:focus-within {
-  border-color: rgba(196, 153, 244, 0.5);
-  background: rgba(255, 255, 255, 0.05);
-}
-.composer-field:focus-within::after {
-  opacity: 1;
+  border-color: rgba(196, 153, 244, 0.42);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .noise-overlay {

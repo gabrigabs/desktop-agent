@@ -55,6 +55,14 @@
   },
   "composer": {
     "placeholder": "Type a command or question...",
+    "placeholderDefault": "Ask something, paste text, or choose an action...",
+    "placeholderClipboard": "Ask what you want to do with this content...",
+    "placeholderTranslate": "Translate while keeping the original tone...",
+    "placeholderExplain": "Explain in a simple, contextualized way...",
+    "placeholderSummarize": "Summarize keeping the main points...",
+    "placeholderImprove": "Improve clarity, tone and structure...",
+    "placeholderWebSearch": "What do you want to search?",
+    "modelNeedsKey": "API key required",
     "send": "Send",
     "cancel": "Cancel",
     "clipboardHint": "Clipboard included",
@@ -66,7 +74,22 @@
     "startLikeThis": "Start like this",
     "showClipboard": "View clipboard ({{count}} characters)",
     "hideClipboard": "Hide clipboard",
-    "removeClipboard": "Remove clipboard"
+    "removeClipboard": "Remove clipboard",
+    "loading": "Generating response...",
+    "stop": "Stop",
+    "contextMenu": {
+      "title": "Add context",
+      "clipboard": "Clipboard",
+      "clipboardDescription": "Include copied content in the message.",
+      "screen": "Screen",
+      "screenDescription": "Attach a capture of the current screen.",
+      "file": "File",
+      "fileDescription": "Attach a file from your computer.",
+      "activeApp": "Active app",
+      "activeAppDescription": "Include context from the focused application.",
+      "connector": "Connector",
+      "connectorDescription": "Use an active connection to fetch context."
+    }
   },
   "contextBar": {
     "clipboard": "Clipboard",
@@ -97,6 +120,34 @@
     "emptyHint": "No active context — copy text or attach a file.",
     "add": "Add",
     "comingSoon": "Feature under development"
+  },
+  "quickActions": {
+    "summarizeText": "Summarize text",
+    "summarizeTextPrompt": "Summarize the text into concise bullet points.",
+    "explain": "Explain",
+    "explainPrompt": "Explain this content in simple terms, with context and short examples.",
+    "translate": "Translate",
+    "translatePrompt": "Translate this text keeping the original tone.",
+    "improveText": "Improve text",
+    "improveTextPrompt": "Improve the clarity, tone, and readability of this text.",
+    "freeQuestion": "Free question",
+    "webSearch": "Search web",
+    "webSearchPrompt": "Search the web with sources and next steps about: ",
+    "makePlan": "Make a plan",
+    "makePlanPrompt": "Build a practical plan for: ",
+    "exploreIdeas": "Explore ideas",
+    "exploreIdeasPrompt": "List practical and different ideas for: ",
+    "draftText": "Draft text",
+    "draftTextPrompt": "Draft a short text about: ",
+    "more": "More",
+    "less": "Less"
+  },
+  "recentConversations": {
+    "title": "Recent",
+    "empty": "No recent conversations",
+    "refresh": "Refresh",
+    "loadError": "Failed to load recent conversations",
+    "viewAll": "View all"
   },
   "contextChips": {
     "summarizeText": "Summarize text",
@@ -158,6 +209,13 @@
     "thinkingDescription": "Deeper reasoning",
     "pro": "Pro",
     "proDescription": "More deliberate answers"
+  },
+  "clipboardModal": {
+    "title": "Clipboard",
+    "close": "Close",
+    "characters": "characters",
+    "copyAgain": "Copy again",
+    "removeContext": "Remove context"
   },
   "clipboardPreview": {
     "hint": "Copy text to see context actions",
