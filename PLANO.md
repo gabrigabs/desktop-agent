@@ -807,7 +807,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### FILE02 — Parsers locais de documentos
 
-- Status: parcialmente concluído em 2026-07-12 (`515cada`) — parsing local base entregue; tabela Excel e indexação Markdown permanecem pendentes.
+- Status: parcialmente concluído em 2026-07-12 (`515cada`, `7b3c28c`) — parsing local base entregue; tabela Excel e indexação Markdown permanecem pendentes.
 - Objetivo: interpretar PDF, CSV, Excel e Markdown de forma determinística antes do LLM.
 - Implementação:
   1. PDF com texto por página, metadados e indicação de páginas sem camada textual.
@@ -821,6 +821,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
   - Pacote `@desktop-agent/lite-parse` para PDF, CSV, XLSX, DOCX, PPTX, imagens e Markdown, com limites determinísticos de preview/conteúdo.
   - CSV suporta campos quoted, vírgulas escapadas e conteúdo multilinha; Markdown extrai frontmatter, títulos, links e blocos de código.
   - PDF registra páginas, páginas sem camada textual, necessidade de OCR e truncamento; falhas retornam erro estruturado com fallback seguro.
+  - O módulo nativo LiteParse é carregado de forma lazy e empacotado em `Contents/Resources`, sem bloquear o bootstrap do sidecar compilado.
   - Cobertura automatizada dos edge cases de CSV e da estrutura Markdown.
 - Pendente para concluir:
   - Normalizar XLSX em tabelas por aba com headers, tipos inferidos e limites explícitos de linhas/colunas.
