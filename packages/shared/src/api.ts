@@ -5,6 +5,7 @@ import type {
   ConnectorConfig,
   Conversation,
   ExecutionMode,
+  FileContextInput,
   McpTestResult,
   PermissionLevel,
   PromptTemplate,
@@ -31,7 +32,7 @@ export type SaveMcpServerInput = {
   permissionPolicy?: PermissionLevel[];
 };
 
-export type { SaveProfileInput, SavePromptInput };
+export type { FileContextInput, SaveProfileInput, SavePromptInput };
 
 export type AgentApi = {
   ping(): Promise<{ status: string }>;
@@ -54,6 +55,7 @@ export type AgentApi = {
     mode?: ExecutionMode;
     sourceMode?: "free" | "clipboard";
     clipboardText?: string;
+    contextText?: string;
     maxSteps?: number;
     history?: { role: "user" | "assistant" | "system"; content: string }[];
     profileId?: string;
@@ -120,5 +122,6 @@ export type AgentApi = {
     enabled?: boolean;
   }): Promise<WorkflowTemplate>;
   deleteWorkflowTemplate(input: { id: string }): Promise<void>;
+  readFileContext(input: { paths: string[] }): Promise<{ files: FileContextInput[]; errors: string[] }>;
   shutdown(): Promise<void>;
 };

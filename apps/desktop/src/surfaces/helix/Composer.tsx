@@ -1,4 +1,5 @@
-import { ArrowUp, Eye, Loader2, Plus, Square, X } from "lucide-react";
+import type { FileContextInput } from "@desktop-agent/shared";
+import { ArrowUp, Eye, FileText, FolderOpen, Loader2, Paperclip, Plus, Square, X } from "lucide-react";
 import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ClipboardModal } from "../../components/ui/clipboard-modal";
@@ -12,6 +13,12 @@ import { ModelSelector } from "../../components/ui/model-selector";
 import { useModelSelector } from "./hooks/useModelSelector";
 
 const CLIPBOARD_MARKER = "[CLIPBOARD]";
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes}B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+}
 
 interface ComposerProps {
   mode: "normal" | "expanded";
@@ -32,6 +39,10 @@ interface ComposerProps {
   onAbort?: () => void;
   showQuickActions?: boolean;
   onContextMenuOpenChange?: (open: boolean) => void;
+  fileContext?: FileContextInput[];
+  onAttachFiles?: (paths: string[]) => void;
+  onRemoveFile?: (path: string) => void;
+  isDraggingFile?: boolean;
 }
 
 export function Composer({
@@ -53,6 +64,10 @@ export function Composer({
   onAbort,
   showQuickActions = true,
   onContextMenuOpenChange,
+  fileContext,
+  onAttachFiles,
+  onRemoveFile,
+  isDraggingFile,
 }: ComposerProps) {
   const { t } = useTranslation("helix");
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
@@ -193,6 +208,29 @@ export function Composer({
     if (canSend) onExecute();
   };
 
+  const handleAttachFile = useCallback(async () => {
+    try {
+      const { open } = await import("@tauri-apps/plugin-dialog");
+      const selected = await open({ multiple: true });
+      if (selected) {
+        const paths = Array.isArray(selected) ? selected : [selected];
+        onAttachFiles?.(paths);
+      }
+    } catch {
+      // Dialog not available outside Tauri
+    }
+  }, [onAttachFiles]);
+
+  const handleAttachFolder = useCallback(async () => {
+    try {
+      const { open } = await import("@tauri-apps/plugin-dialog");
+      const selected = await open({ directory: true, multiple: false });
+      if (selected) onAttachFiles?.([selected]);
+    } catch {
+      // Dialog not available outside Tauri
+    }
+  }, [onAttachFiles]);
+
   const shellClasses = mode === "expanded" ? "mx-auto w-full min-h-[180px]" : "w-full min-h-[132px]";
 
   const widthClass = mode === "expanded" ? "max-w-[var(--composer-expanded-width)]" : "";
@@ -208,6 +246,14 @@ export function Composer({
 
   return (
     <div className={`w-full flex flex-col gap-2.5 ${widthClass}`}>
+      {isDraggingFile && (
+        <div className="absolute inset-0 z-50 rounded-xl border-2 border-dashed border-signal/50 bg-signal/10 backdrop-blur-sm flex items-center justify-center pointer-events-none">
+          <div className="flex items-center gap-2 text-signal">
+            <Paperclip className="w-5 h-5" />
+            <span className="text-sm font-medium">{t("helix:composer.dropFiles")}</span>
+          </div>
+        </div>
+      )}
       {activeSourceItems.length > 0 && (
         <div className="flex items-center gap-1.5 px-0.5 flex-wrap">
           {activeSourceItems.map((src) => {
@@ -252,6 +298,55 @@ export function Composer({
               </div>
             );
           })}
+        </div>
+      )}
+      {fileContext && fileContext.length > 0 && (
+        <div className="flex items-center gap-1.5 px-0.5 flex-wrap">
+          {fileContext.map((file) => (
+            <div
+              key={file.path}
+              className={`group flex items-center gap-1.5 rounded-lg border border-line-strong bg-white/[0.06] pl-2 pr-1 ${mode === "expanded" ? "h-7" : "h-6"} shrink-0 transition-all hover:border-signal/30`}
+            >
+              <FileText className="h-3 w-3 text-fg shrink-0" />
+              <span
+                className={`text-[10px] font-medium text-fg truncate ${mode === "expanded" ? "max-w-[160px]" : "max-w-[100px]"}`}
+                title={file.path}
+              >
+                {file.displayName}
+              </span>
+              <span className="text-[9px] text-mute shrink-0">
+                {file.encoding === "binary"
+                  ? "BIN"
+                  : file.encoding === "unsupported"
+                    ? "LARGE"
+                    : file.encoding === "parsed"
+                      ? file.parsedFormat?.toUpperCase()
+                      : formatFileSize(file.size)}
+              </span>
+              {file.parsedMetadata && (
+                <span className="text-[9px] text-signal/70 shrink-0">
+                  {file.parsedMetadata.pages != null && `${file.parsedMetadata.pages}p`}
+                  {file.parsedMetadata.sheets &&
+                    file.parsedMetadata.sheets.length > 0 &&
+                    `${file.parsedMetadata.sheets.length}s`}
+                  {file.parsedMetadata.rows != null && `${file.parsedMetadata.rows}r`}
+                  {file.parsedMetadata.columns != null && `${file.parsedMetadata.columns}c`}
+                  {file.parsedMetadata.headings && `${file.parsedMetadata.headings.length}h`}
+                  {file.parsedMetadata.truncated && " ⋯"}
+                </span>
+              )}
+              {onRemoveFile && (
+                <button
+                  type="button"
+                  onClick={() => onRemoveFile(file.path)}
+                  className="rounded p-0.5 text-mute transition-all hover:text-bad hover:bg-bad/10 shrink-0"
+                  aria-label={t("helix:contextBar.remove")}
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              )}
+            </div>
+          ))}
         </div>
       )}
       <div className="relative">
@@ -315,6 +410,28 @@ export function Composer({
                 <span className="text-[10px] text-mute truncate hidden sm:inline animate-fade-in">
                   {t("helix:composer.contextMenu.title")}
                 </span>
+              )}
+              {onAttachFiles && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleAttachFile}
+                    className={`shrink-0 ${contextSize} rounded-lg flex items-center justify-center border border-line-strong bg-ink/40 text-fg hover:text-signal hover:border-signal/30 hover:bg-signal/5 transition-all duration-200 cursor-pointer`}
+                    title={t("helix:composer.attachFile")}
+                    aria-label={t("helix:composer.attachFile")}
+                  >
+                    <Paperclip className={contextIconSize} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAttachFolder}
+                    className={`shrink-0 ${contextSize} rounded-lg flex items-center justify-center border border-line-strong bg-ink/40 text-fg hover:text-signal hover:border-signal/30 hover:bg-signal/5 transition-all duration-200 cursor-pointer`}
+                    title={t("helix:composer.attachFolder")}
+                    aria-label={t("helix:composer.attachFolder")}
+                  >
+                    <FolderOpen className={contextIconSize} />
+                  </button>
+                </>
               )}
             </div>
 

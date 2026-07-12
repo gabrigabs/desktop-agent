@@ -1,6 +1,7 @@
 import type {
   AgentProfile,
   ConnectorConfig,
+  FileContextInput,
   McpTestResult,
   PromptTemplate,
   Skill,
@@ -29,10 +30,7 @@ import { GLOBAL_SHORTCUT_GLYPH } from "./constants";
 import { HistoryList } from "./history-list";
 import type { SaveConnectorInput } from "./hooks/useCapabilities";
 import type { QuickActionItem } from "./hooks/useQuickActions";
-import { PromptsPanel } from "./PromptsPanel";
-import { SkillsPanel } from "./SkillsPanel";
 import type { HelixMode } from "./types";
-import { WorkflowsPanel } from "./WorkflowsPanel";
 
 type Props = {
   error: string | null;
@@ -146,6 +144,10 @@ type Props = {
     enabled?: boolean;
   }) => void;
   onDeleteSkill: (id: string) => void;
+  fileContext?: FileContextInput[];
+  onAttachFiles?: (paths: string[]) => void;
+  onRemoveFile?: (path: string) => void;
+  isDraggingFile?: boolean;
   onSelectRecentConversation?: (conversationId: string) => void;
 };
 
@@ -174,36 +176,6 @@ export function NormalCommandView(p: Props) {
               p.setMode("command");
             }}
           />
-        </PanelWrapper>
-      ) : p.mode === "prompts" ? (
-        <PanelWrapper title={t("helix:normalCommandView.profiles")} onBack={() => p.setMode("command")}>
-          <PromptsPanel
-            prompts={p.prompts}
-            profiles={p.profiles}
-            activeProfileId={p.activeProfileId}
-            onSavePrompt={p.onSavePrompt}
-            onDeletePrompt={p.onDeletePrompt}
-            onSaveProfile={p.onSaveProfile}
-            onDeleteProfile={p.onDeleteProfile}
-            onSetActiveProfile={p.onSetActiveProfile}
-            onUsePrompt={(prompt, mode) => {
-              p.onStarterAction(prompt, mode);
-              p.setMode("command");
-            }}
-          />
-        </PanelWrapper>
-      ) : p.mode === "workflows" ? (
-        <PanelWrapper title={t("helix:normalCommandView.workflows")} onBack={() => p.setMode("command")}>
-          <WorkflowsPanel
-            templates={p.workflowTemplates}
-            skills={p.skills}
-            onSave={p.onSaveWorkflowTemplate}
-            onDelete={p.onDeleteWorkflowTemplate}
-          />
-        </PanelWrapper>
-      ) : p.mode === "skills" ? (
-        <PanelWrapper title={t("helix:normalCommandView.skills")} onBack={() => p.setMode("command")}>
-          <SkillsPanel skills={p.skills} onSave={p.onSaveSkill} onDelete={p.onDeleteSkill} />
         </PanelWrapper>
       ) : (
         <PanelWrapper title={t("helix:normalCommandView.connectors")} onBack={() => p.setMode("command")}>
@@ -295,6 +267,10 @@ function CommandHome(p: Props) {
           onQuickAction={p.onQuickAction}
           onExecute={p.onExecute}
           onAbort={p.onAbort}
+          fileContext={p.fileContext}
+          onAttachFiles={p.onAttachFiles}
+          onRemoveFile={p.onRemoveFile}
+          isDraggingFile={p.isDraggingFile}
         />
 
         <RecentConversations limit={3} onSelect={p.onSelectRecentConversation} />
@@ -367,6 +343,10 @@ function ChatActive(p: Props) {
           onExecute={p.onExecute}
           onAbort={p.onAbort}
           showQuickActions={false}
+          fileContext={p.fileContext}
+          onAttachFiles={p.onAttachFiles}
+          onRemoveFile={p.onRemoveFile}
+          isDraggingFile={p.isDraggingFile}
         />
       </div>
     </div>
@@ -532,6 +512,10 @@ function TaskActive(p: Props) {
           onExecute={p.onExecute}
           onAbort={p.onAbort}
           showQuickActions={false}
+          fileContext={p.fileContext}
+          onAttachFiles={p.onAttachFiles}
+          onRemoveFile={p.onRemoveFile}
+          isDraggingFile={p.isDraggingFile}
         />
       </div>
     </div>

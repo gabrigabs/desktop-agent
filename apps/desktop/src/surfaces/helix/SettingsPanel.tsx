@@ -1,4 +1,14 @@
-import { type AppSettings, HELIX_ARTIFACTS } from "@desktop-agent/shared";
+import {
+  type AgentProfile,
+  type AppSettings,
+  HELIX_ARTIFACTS,
+  type PromptTemplate,
+  type SaveProfileInput,
+  type Skill,
+  type WorkflowStepKind,
+  type WorkflowTemplate,
+  type WorkflowTemplateSettings,
+} from "@desktop-agent/shared";
 import {
   AppWindow,
   Bot,
@@ -31,18 +41,79 @@ import { Card } from "../../components/ui/card";
 import { IconButton } from "../../components/ui/icon-button";
 import { Input } from "../../components/ui/input";
 import { GLOBAL_SHORTCUT_LABEL, usePinstripesModels } from "./constants";
+import { PromptsPanel } from "./PromptsPanel";
+import { SkillsPanel } from "./SkillsPanel";
+import { WorkflowsPanel } from "./WorkflowsPanel";
 
-type SettingsSection =
+export type SettingsSection =
   | "general"
   | "model"
   | "pet"
   | "shortcuts"
   | "privacy"
+  | "profiles"
   | "connectors"
   | "artifacts"
   | "workflows"
+  | "skills"
   | "data"
   | "advanced";
+
+export type ProfilesSectionProps = {
+  prompts: PromptTemplate[];
+  profiles: AgentProfile[];
+  activeProfileId: string | null;
+  onSavePrompt: (input: {
+    id?: string;
+    title: string;
+    prompt: string;
+    category?: string;
+    icon?: string;
+    executionMode?: "simple" | "workflow";
+  }) => void;
+  onDeletePrompt: (id: string) => void;
+  onSaveProfile: (input: SaveProfileInput) => void;
+  onDeleteProfile: (id: string) => void;
+  onSetActiveProfile: (profileId: string | null) => void;
+  onUsePrompt: (prompt: string, executionMode?: "simple" | "workflow") => void;
+};
+
+export type WorkflowsSectionProps = {
+  templates: WorkflowTemplate[];
+  skills: Skill[];
+  onSave: (input: {
+    id?: string;
+    name: string;
+    description?: string;
+    prompt: string;
+    settings?: WorkflowTemplateSettings;
+    steps?: Array<{ name: string; kind: WorkflowStepKind; config: Record<string, unknown> }>;
+    enabled?: boolean;
+  }) => void;
+  onDelete: (id: string) => void;
+};
+
+export type SkillsSectionProps = {
+  skills: Skill[];
+  onSave: (input: {
+    id?: string;
+    name: string;
+    description?: string;
+    prompt: string;
+    systemPrompt?: string;
+    provider?: string;
+    model?: string;
+    temperature?: number;
+    maxTokens?: number;
+    toolAllowlist?: string[];
+    mcpAllowlist?: string[];
+    maxSteps?: number;
+    metadata?: Record<string, string>;
+    compatibility?: string;
+    enabled?: boolean;
+  }) => void;
+  onDelete: (id: string) => void;
+};
 
 export type SettingsPanelProps = {
   variant?: "normal" | "expanded";
@@ -72,6 +143,12 @@ export type SettingsPanelProps = {
   setFormLanguage: (v: "pt-BR" | "en") => void;
   setShowKey: (v: boolean) => void;
   handleSaveSettings: (e: React.FormEvent) => Promise<boolean | undefined>;
+  initialSection?: SettingsSection;
+  sections?: {
+    profiles?: ProfilesSectionProps;
+    workflows?: WorkflowsSectionProps;
+    skills?: SkillsSectionProps;
+  };
 };
 
 function useSections(t: (key: string) => string) {
@@ -110,6 +187,12 @@ function useSections(t: (key: string) => string) {
         icon: ShieldCheck,
       },
       {
+        id: "profiles" as const,
+        label: t("common:profiles"),
+        description: t("settings:profiles.description"),
+        icon: Bot,
+      },
+      {
         id: "connectors" as const,
         label: t("common:connectors"),
         description: t("settings:connectors.description"),
@@ -126,6 +209,12 @@ function useSections(t: (key: string) => string) {
         label: t("common:workflows"),
         description: t("settings:workflows.description"),
         icon: Workflow,
+      },
+      {
+        id: "skills" as const,
+        label: t("common:skills"),
+        description: t("settings:skills.description"),
+        icon: Sparkles,
       },
       {
         id: "data" as const,
@@ -186,7 +275,7 @@ function petSizeLabel(value: number, t: (key: string, vars?: Record<string, stri
 export function SettingsPanel(p: SettingsPanelProps) {
   const { t } = useTranslation(["settings", "common"]);
   const pinstripesModels = usePinstripesModels();
-  const [activeSection, setActiveSection] = useState<SettingsSection>("general");
+  const [activeSection, setActiveSection] = useState<SettingsSection>(p.initialSection ?? "general");
   const isDirty = useDirtyCheck(p);
   const justSaved = useInlineSaveFeedback(p.savingSettings);
   const needsApiKey = p.formProvider !== "mock" && !p.formApiKey.trim();
@@ -320,9 +409,19 @@ export function SettingsPanel(p: SettingsPanelProps) {
               {activeSection === "pet" && <PetSection p={p} />}
               {activeSection === "shortcuts" && <ShortcutsSection />}
               {activeSection === "privacy" && <PrivacySection />}
+              {activeSection === "profiles" && p.sections?.profiles && (
+                <ProfilesSection props={p.sections.profiles} />
+              )}
               {activeSection === "connectors" && <ConnectorsSection />}
               {activeSection === "artifacts" && <ArtifactsSection />}
-              {activeSection === "workflows" && <WorkflowsSection />}
+              {activeSection === "workflows" &&
+                (p.sections?.workflows ? (
+                  <WorkflowsSection props={p.sections.workflows} />
+                ) : (
+                  <WorkflowsPlaceholderSection />
+                ))}
+              {activeSection === "skills" &&
+                (p.sections?.skills ? <SkillsSection props={p.sections.skills} /> : null)}
               {activeSection === "data" && <DataSection />}
               {activeSection === "advanced" && (
                 <AdvancedSection p={p} timeoutOutOfRange={timeoutOutOfRange} />
@@ -331,21 +430,23 @@ export function SettingsPanel(p: SettingsPanelProps) {
           </div>
         </main>
 
-        <footer className="flex min-w-0 items-center gap-2 border-t border-line bg-[#0d0b12]/96 px-5 py-3">
-          <span className="mr-auto text-[10px] text-faint">
-            {isDirty ? t("common:unsaved") : t("common:saved")}
-          </span>
-          <Button type="button" variant="secondary" onClick={p.onClose}>
-            {t("common:cancel")}
-          </Button>
-          <Button
-            type="submit"
-            variant="primary"
-            disabled={!isDirty || p.savingSettings || needsApiKey || timeoutOutOfRange}
-          >
-            {p.savingSettings ? `${t("common:saving")}...` : t("common:saveSettings")}
-          </Button>
-        </footer>
+        {activeSection !== "profiles" && activeSection !== "workflows" && activeSection !== "skills" && (
+          <footer className="flex min-w-0 items-center gap-2 border-t border-line bg-[#0d0b12]/96 px-5 py-3">
+            <span className="mr-auto text-[10px] text-faint">
+              {isDirty ? t("common:unsaved") : t("common:saved")}
+            </span>
+            <Button type="button" variant="secondary" onClick={p.onClose}>
+              {t("common:cancel")}
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={!isDirty || p.savingSettings || needsApiKey || timeoutOutOfRange}
+            >
+              {p.savingSettings ? `${t("common:saving")}...` : t("common:saveSettings")}
+            </Button>
+          </footer>
+        )}
       </form>
     </div>
   );
@@ -682,6 +783,10 @@ function PrivacySection() {
   );
 }
 
+function ProfilesSection({ props }: { props: ProfilesSectionProps }) {
+  return <PromptsPanel {...props} />;
+}
+
 function ConnectorsSection() {
   const { t } = useTranslation(["settings", "common"]);
   return (
@@ -737,7 +842,15 @@ function ArtifactsSection() {
   );
 }
 
-function WorkflowsSection() {
+function WorkflowsSection({ props }: { props: WorkflowsSectionProps }) {
+  return <WorkflowsPanel {...props} />;
+}
+
+function SkillsSection({ props }: { props: SkillsSectionProps }) {
+  return <SkillsPanel {...props} />;
+}
+
+function WorkflowsPlaceholderSection() {
   const { t } = useTranslation(["settings"]);
   return (
     <div>

@@ -66,6 +66,20 @@ function cleanPrompt(text: string): string {
     .trim();
 }
 
+function formatFileContext(files: ReturnType<typeof useAgentStore.getState>["fileContext"]): string {
+  return files
+    .map((file) => {
+      const body = file.content ?? file.preview;
+      return [
+        `--- Arquivo: ${file.displayName} ---`,
+        `Path: ${file.path}`,
+        `Tipo: ${file.parsedFormat ?? file.mimeType}`,
+        body,
+      ].join("\n");
+    })
+    .join("\n\n");
+}
+
 export function useExecute(activeProfileId?: string | null) {
   const { t } = useTranslation("helix");
   const quickActions = useQuickActions();
@@ -131,6 +145,30 @@ export function useExecute(activeProfileId?: string | null) {
             policy: "include",
           });
         }
+        const fileContext = store.fileContext;
+        if (fileContext.length > 0) {
+          for (const file of fileContext) {
+            userBlocks.push({
+              type: "context",
+              source: "file",
+              preview: file.preview,
+              content: file.encoding === "text" || file.encoding === "parsed" ? file.content : undefined,
+              policy:
+                file.encoding === "text" || file.encoding === "parsed"
+                  ? "include"
+                  : file.encoding === "binary"
+                    ? "summary"
+                    : "reference",
+              metadata: {
+                path: file.path,
+                displayName: file.displayName,
+                size: file.size,
+                mimeType: file.mimeType,
+                encoding: file.encoding,
+              },
+            });
+          }
+        }
         store.startUserTurn({
           prompt: resolvedPrompt,
           sourceMode,
@@ -139,6 +177,7 @@ export function useExecute(activeProfileId?: string | null) {
         });
         store.setQuery("");
         store.setIgnoreClipboard(true);
+        store.clearFileContext();
 
         requestId = crypto.randomUUID();
         setRpcActiveRequestId(requestId);
@@ -154,6 +193,7 @@ export function useExecute(activeProfileId?: string | null) {
           skillId: store.selectedSkillId ?? undefined,
           sourceMode,
           clipboardText,
+          contextText: formatFileContext(fileContext),
           maxSteps: store.executionMode === "workflow" ? 8 : undefined,
           history,
           profileId: store.currentProfileId ?? activeProfileId ?? undefined,

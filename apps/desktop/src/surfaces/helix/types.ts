@@ -1,8 +1,1 @@
-export type HelixMode =
-  | "command"
-  | "history"
-  | "artifacts"
-  | "prompts"
-  | "connectors"
-  | "workflows"
-  | "skills";
+export type HelixMode = "command" | "history" | "artifacts" | "connectors";

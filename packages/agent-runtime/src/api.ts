@@ -1,4 +1,5 @@
 import { execSync, spawn } from "node:child_process";
+import { isParseable, parseDocument } from "@desktop-agent/lite-parse";
 import type { LlmProvider } from "@desktop-agent/provider-gateway";
 import { createProvider } from "@desktop-agent/provider-gateway";
 import type {
@@ -7,6 +8,7 @@ import type {
   AgentProfile,
   AppSettings,
   CompletionInput,
+  FileContextInput,
   PromptTemplate,
   SaveProfileInput,
   SavePromptInput,
@@ -271,6 +273,100 @@ function ensureMcpReady() {
   ensureDefaultMcpPresets(getDb());
 }
 
+const MIME_MAP: Record<string, string> = {
+  ".txt": "text/plain",
+  ".md": "text/markdown",
+  ".markdown": "text/markdown",
+  ".json": "application/json",
+  ".yaml": "text/yaml",
+  ".yml": "text/yaml",
+  ".toml": "text/plain",
+  ".csv": "text/csv",
+  ".tsv": "text/tab-separated-values",
+  ".xml": "text/xml",
+  ".html": "text/html",
+  ".htm": "text/html",
+  ".css": "text/css",
+  ".scss": "text/x-scss",
+  ".js": "text/javascript",
+  ".ts": "text/typescript",
+  ".tsx": "text/tsx",
+  ".jsx": "text/jsx",
+  ".py": "text/x-python",
+  ".rb": "text/x-ruby",
+  ".go": "text/x-go",
+  ".rs": "text/x-rust",
+  ".java": "text/x-java",
+  ".c": "text/x-c",
+  ".cpp": "text/x-c++",
+  ".h": "text/x-c",
+  ".hpp": "text/x-c++",
+  ".swift": "text/x-swift",
+  ".kt": "text/x-kotlin",
+  ".sh": "text/x-shellscript",
+  ".bash": "text/x-shellscript",
+  ".zsh": "text/x-shellscript",
+  ".fish": "text/x-fish",
+  ".ps1": "text/x-powershell",
+  ".sql": "text/x-sql",
+  ".graphql": "text/x-graphql",
+  ".gql": "text/x-graphql",
+  ".env": "text/plain",
+  ".gitignore": "text/plain",
+  ".dockerignore": "text/plain",
+  ".ini": "text/plain",
+  ".cfg": "text/plain",
+  ".conf": "text/plain",
+  ".properties": "text/plain",
+  ".log": "text/plain",
+  ".diff": "text/x-diff",
+  ".patch": "text/x-diff",
+  ".pdf": "application/pdf",
+  ".doc": "application/msword",
+  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ".xls": "application/vnd.ms-excel",
+  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ".ppt": "application/vnd.ms-powerpoint",
+  ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".bmp": "image/bmp",
+  ".webp": "image/webp",
+  ".tiff": "image/tiff",
+  ".ico": "image/x-icon",
+  ".zip": "application/zip",
+  ".tar": "application/x-tar",
+  ".gz": "application/gzip",
+  ".rar": "application/vnd.rar",
+  ".7z": "application/x-7z-compressed",
+  ".exe": "application/x-executable",
+  ".dll": "application/x-dll",
+  ".so": "application/x-sharedlib",
+  ".dylib": "application/x-dylib",
+  ".mp3": "audio/mpeg",
+  ".mp4": "video/mp4",
+  ".avi": "video/x-msvideo",
+  ".mov": "video/quicktime",
+  ".wav": "audio/wav",
+  ".flac": "audio/flac",
+  ".woff": "font/woff",
+  ".woff2": "font/woff2",
+  ".ttf": "font/ttf",
+  ".otf": "font/otf",
+};
+
+function getMimeType(ext: string): string {
+  return MIME_MAP[ext] ?? "application/octet-stream";
+}
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes}B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+}
+
 export const agentApi: AgentApi = {
   async ping() {
     return { status: "ok" };
@@ -379,6 +475,7 @@ export const agentApi: AgentApi = {
         runId: run.id,
         prompt: input.prompt,
         clipboardText: input.clipboardText ?? "",
+        contextText: input.contextText,
         history: input.history ?? [],
         skillId: input.skillId,
         profileId: input.profileId,
@@ -929,5 +1026,273 @@ export const agentApi: AgentApi = {
     const profileId = getSetting(getDb(), "activeProfileId");
     if (!profileId) return null;
     return getAgentProfile(getDb(), profileId);
+  },
+
+  async readFileContext(input: {
+    paths: string[];
+  }): Promise<{ files: FileContextInput[]; errors: string[] }> {
+    const { promises: fs } = await import("node:fs");
+    const path = await import("node:path");
+    const files: FileContextInput[] = [];
+    const errors: string[] = [];
+
+    const BLOCKED_PATTERNS = [
+      /\/etc\/(?:passwd|shadow)(?:$|\/)/,
+      /\/(?:\.ssh|\.aws|\.gnupg)(?:$|\/)/,
+      /\/Library\/Keychains(?:$|\/)/,
+    ];
+    const SECRET_PATTERN =
+      /(?:api[_-]?key|access[_-]?token|client[_-]?secret|private[_-]?key|password)\s*[:=]/i;
+
+    const TEXT_EXTENSIONS = new Set([
+      ".txt",
+      ".md",
+      ".markdown",
+      ".json",
+      ".yaml",
+      ".yml",
+      ".toml",
+      ".csv",
+      ".tsv",
+      ".xml",
+      ".html",
+      ".htm",
+      ".css",
+      ".scss",
+      ".js",
+      ".ts",
+      ".tsx",
+      ".jsx",
+      ".py",
+      ".rb",
+      ".go",
+      ".rs",
+      ".java",
+      ".c",
+      ".cpp",
+      ".h",
+      ".hpp",
+      ".swift",
+      ".kt",
+      ".sh",
+      ".bash",
+      ".zsh",
+      ".fish",
+      ".ps1",
+      ".sql",
+      ".graphql",
+      ".gql",
+      ".env",
+      ".gitignore",
+      ".dockerignore",
+      ".ini",
+      ".cfg",
+      ".conf",
+      ".properties",
+      ".log",
+      ".diff",
+      ".patch",
+    ]);
+
+    const BINARY_EXTENSIONS = new Set([
+      ".pdf",
+      ".doc",
+      ".docx",
+      ".xls",
+      ".xlsx",
+      ".ppt",
+      ".pptx",
+      ".png",
+      ".jpg",
+      ".jpeg",
+      ".gif",
+      ".bmp",
+      ".webp",
+      ".tiff",
+      ".ico",
+      ".zip",
+      ".tar",
+      ".gz",
+      ".rar",
+      ".7z",
+      ".exe",
+      ".dll",
+      ".so",
+      ".dylib",
+      ".bin",
+      ".mp3",
+      ".mp4",
+      ".avi",
+      ".mov",
+      ".wav",
+      ".flac",
+      ".woff",
+      ".woff2",
+      ".ttf",
+      ".otf",
+    ]);
+
+    const MAX_TEXT_SIZE = 2 * 1024 * 1024; // 2MB
+    const MAX_TOTAL_SIZE = 10 * 1024 * 1024; // 10MB
+    const MAX_FILES = 25;
+    const MAX_DIRECTORY_DEPTH = 5;
+    const SKIPPED_DIRECTORIES = new Set([".git", "node_modules", "dist", "target"]);
+    let totalSize = 0;
+
+    const candidatePaths: string[] = [];
+    const collectPaths = async (rawPath: string, depth = 0): Promise<void> => {
+      if (candidatePaths.length >= MAX_FILES) return;
+      const requestedPath = path.resolve(rawPath);
+      const stat = await fs.lstat(requestedPath);
+      if (stat.isSymbolicLink()) {
+        errors.push(`Skipped symlink: ${rawPath}`);
+        return;
+      }
+      if (stat.isFile()) {
+        candidatePaths.push(requestedPath);
+        return;
+      }
+      if (!stat.isDirectory()) {
+        errors.push(`Unsupported path type: ${rawPath}`);
+        return;
+      }
+      if (depth >= MAX_DIRECTORY_DEPTH || requestedPath.endsWith(".app")) {
+        errors.push(`Skipped directory outside traversal limits: ${rawPath}`);
+        return;
+      }
+      const entries = await fs.readdir(requestedPath, { withFileTypes: true });
+      for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+        if (candidatePaths.length >= MAX_FILES) break;
+        if (entry.isDirectory() && SKIPPED_DIRECTORIES.has(entry.name)) continue;
+        await collectPaths(path.join(requestedPath, entry.name), depth + 1);
+      }
+    };
+
+    for (const rawPath of input.paths) {
+      try {
+        await collectPaths(rawPath);
+      } catch (err) {
+        errors.push(`Failed to inspect ${rawPath}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    for (const rawPath of candidatePaths) {
+      try {
+        const requestedPath = path.resolve(rawPath);
+        const requestedStat = await fs.lstat(requestedPath);
+        const resolvedPath = await fs.realpath(requestedPath);
+
+        // Security: reject blocked paths
+        if (BLOCKED_PATTERNS.some((p) => p.test(resolvedPath))) {
+          errors.push(`Blocked path: ${rawPath}`);
+          continue;
+        }
+
+        // Resolve symlinks before all authorization and type checks.
+        const stat = requestedStat.isSymbolicLink() ? await fs.stat(resolvedPath) : requestedStat;
+        if (!stat.isFile()) {
+          errors.push(`Not a file: ${rawPath}`);
+          continue;
+        }
+
+        const size = stat.size;
+        if (totalSize + size > MAX_TOTAL_SIZE) {
+          errors.push(`Total size limit exceeded (10MB): ${rawPath}`);
+          continue;
+        }
+        totalSize += size;
+
+        const ext = path.extname(resolvedPath).toLowerCase();
+        const displayName = path.basename(resolvedPath);
+
+        // Determine MIME type and encoding
+        let mimeType: string;
+        let encoding: "text" | "binary" | "unsupported" | "parsed";
+
+        if (TEXT_EXTENSIONS.has(ext)) {
+          mimeType = getMimeType(ext);
+          encoding = size > MAX_TEXT_SIZE ? "unsupported" : "text";
+        } else if (BINARY_EXTENSIONS.has(ext)) {
+          mimeType = getMimeType(ext);
+          encoding = "binary";
+        } else {
+          // Unknown extension: sniff first bytes for binary detection
+          const fd = await fs.open(resolvedPath, "r");
+          const buf = Buffer.alloc(512);
+          const { bytesRead } = await fd.read(buf, 0, 512, 0);
+          await fd.close();
+          const sample = buf.subarray(0, bytesRead);
+          const hasNull = sample.includes(0);
+          if (hasNull) {
+            mimeType = "application/octet-stream";
+            encoding = "binary";
+          } else if (size > MAX_TEXT_SIZE) {
+            mimeType = "text/plain";
+            encoding = "unsupported";
+          } else {
+            mimeType = "text/plain";
+            encoding = "text";
+          }
+        }
+
+        let content: string | undefined;
+        let preview: string;
+        let parsedFormat: FileContextInput["parsedFormat"];
+        let parsedMetadata: FileContextInput["parsedMetadata"];
+
+        // Try structured parsing for supported document formats
+        if (isParseable(resolvedPath) && encoding !== "unsupported") {
+          const parseResult = await parseDocument(resolvedPath);
+          if (parseResult.ok) {
+            content = parseResult.document.content;
+            preview = parseResult.document.preview;
+            parsedFormat = parseResult.document.format;
+            parsedMetadata = parseResult.document.metadata;
+            encoding = "parsed";
+          } else {
+            // Fall back to raw text/binary handling
+            if (encoding === "text") {
+              content = await fs.readFile(resolvedPath, "utf-8");
+              preview = content.slice(0, 500);
+            } else if (encoding === "binary") {
+              preview = `[Binary file: ${displayName} (${formatSize(size)})]`;
+            } else {
+              preview = `[File too large: ${displayName} (${formatSize(size)})]`;
+            }
+          }
+        } else if (encoding === "text") {
+          content = await fs.readFile(resolvedPath, "utf-8");
+          preview = content.slice(0, 500);
+        } else if (encoding === "binary") {
+          preview = `[Binary file: ${displayName} (${formatSize(size)})]`;
+        } else {
+          preview = `[File too large: ${displayName} (${formatSize(size)})]`;
+        }
+
+        if (content && SECRET_PATTERN.test(content.slice(0, 100_000))) {
+          errors.push(`Warning: ${displayName} may contain secrets. Review it before sending.`);
+        }
+
+        files.push({
+          path: resolvedPath,
+          displayName,
+          size,
+          mimeType,
+          encoding,
+          content,
+          preview,
+          parsedFormat,
+          parsedMetadata,
+        });
+      } catch (err) {
+        errors.push(`Failed to read ${rawPath}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    if (candidatePaths.length >= MAX_FILES) {
+      errors.push(`File count limit reached: at most ${MAX_FILES} files are attached at once.`);
+    }
+
+    return { files, errors };
   },
 };

@@ -89,6 +89,9 @@
     "retention": "Retenção de contexto",
     "retentionHint": "Será integrada à política de dados e Artifacts."
   },
+  "profiles": {
+    "description": "Perfis de agente e biblioteca de prompts para estilos de resposta e comportamentos."
+  },
   "connectors": {
     "title": "Conectores",
     "description": "A gestão detalhada continua na página Conectores; este centro reunirá status, permissões e último uso.",
@@ -105,6 +108,9 @@
     "pinRadialHint": "Será alimentado pelo mesmo Action Registry usado pelo pet.",
     "defaultApproval": "Aprovação padrão",
     "defaultApprovalHint": "Precisa respeitar permission levels do workflow e da ferramenta."
+  },
+  "skills": {
+    "description": "Skills de agente customizadas com configurações de provider, modelo e ferramentas."
   },
   "data": {
     "title": "Dados e histórico",

@@ -10,7 +10,9 @@ import { useAgentStore } from "../../stores/agent";
 import { ExpandedView } from "./ExpandedView";
 import { useCapabilities } from "./hooks/useCapabilities";
 import { useClipboard } from "./hooks/useClipboard";
+import { useDragDrop } from "./hooks/useDragDrop";
 import { useExecute } from "./hooks/useExecute";
+import { useFileContext } from "./hooks/useFileContext";
 import { useKeyboard } from "./hooks/useKeyboard";
 import { usePrompts } from "./hooks/usePrompts";
 import { type QuickActionItem, useQuickActions } from "./hooks/useQuickActions";
@@ -18,7 +20,7 @@ import { useSettingsForm } from "./hooks/useSettingsForm";
 import { useSkills } from "./hooks/useSkills";
 import { useWorkflows } from "./hooks/useWorkflows";
 import { NormalCommandView } from "./NormalCommandView";
-import { SettingsPanel } from "./SettingsPanel";
+import { SettingsPanel, type SettingsSection } from "./SettingsPanel";
 
 type HelixProps = {
   onToastSuccess?: (message: string, duration?: number) => void;
@@ -54,6 +56,7 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
 
   const [mode, setMode] = useState<HelixMode>("command");
   const [showSettings, setShowSettings] = useState(false);
+  const [settingsSection, setSettingsSection] = useState<SettingsSection>("general");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -62,7 +65,9 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
   const promptsHook = usePrompts();
   const workflows = useWorkflows();
   const skills = useSkills();
+  const fileCtx = useFileContext(onToastError);
   const exec = useExecute(promptsHook.activeProfileId);
+  const { isDragging: isDraggingFile } = useDragDrop(fileCtx.attachFiles);
   const ignoreClipboard = useAgentStore((s) => s.ignoreClipboard);
   const setIgnoreClipboard = useAgentStore((s) => s.setIgnoreClipboard);
   const setClipboardText = useAgentStore((s) => s.setClipboardText);
@@ -122,6 +127,7 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
 
   const handleChangeMode = useCallback((next: HelixMode | "settings") => {
     if (next === "settings") {
+      setSettingsSection("general");
       setShowSettings(true);
       return;
     }
@@ -169,7 +175,8 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
       return;
     }
     if (pending.actionId === "workflow") {
-      setMode("workflows");
+      setSettingsSection("workflows");
+      setShowSettings(true);
       return;
     }
 
@@ -379,6 +386,10 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     onDeleteWorkflowTemplate: workflows.handleDelete,
     onSaveSkill: skills.handleSave,
     onDeleteSkill: skills.handleDelete,
+    fileContext: fileCtx.fileContext,
+    onAttachFiles: fileCtx.attachFiles,
+    onRemoveFile: fileCtx.removeFile,
+    isDraggingFile,
   };
 
   const settingsPanelProps = {
@@ -408,6 +419,34 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     loadingModels: settingsForm.loadingModels,
     savingSettings: settingsForm.savingSettings,
     handleSaveSettings: settingsForm.handleSaveSettings,
+    initialSection: settingsSection,
+    sections: {
+      profiles: {
+        prompts: promptsHook.prompts,
+        profiles: promptsHook.profiles,
+        activeProfileId: promptsHook.activeProfileId,
+        onSavePrompt: promptsHook.handleSavePrompt,
+        onDeletePrompt: promptsHook.handleDeletePrompt,
+        onSaveProfile: promptsHook.handleSaveProfile,
+        onDeleteProfile: promptsHook.handleDeleteProfile,
+        onSetActiveProfile: promptsHook.handleSetActiveProfile,
+        onUsePrompt: (prompt: string, execMode?: "simple" | "workflow") => {
+          setShowSettings(false);
+          onStarterAction(prompt, execMode);
+        },
+      },
+      workflows: {
+        templates: workflows.templates,
+        skills: skills.skills,
+        onSave: workflows.handleSave,
+        onDelete: workflows.handleDelete,
+      },
+      skills: {
+        skills: skills.skills,
+        onSave: skills.handleSave,
+        onDelete: skills.handleDelete,
+      },
+    },
   };
 
   if (uiMode === "expanded") {

@@ -46,6 +46,7 @@ export type RunInput = {
   runId: string;
   prompt: string;
   clipboardText: string;
+  contextText?: string;
   history?: { role: "user" | "assistant" | "system"; content: string }[];
   skillId?: string;
   profileId?: string;
@@ -154,6 +155,9 @@ export class WorkflowRunner {
     resumeApproved?: boolean,
   ): Promise<WorkflowRun> {
     const db = getDb();
+    const effectivePrompt = input.contextText?.trim()
+      ? `${input.prompt}\n\nContexto de arquivos anexados:\n${input.contextText}`
+      : input.prompt;
     const provider = this.getLlmProvider();
     const model = this.getActiveModel() || "gpt-4o";
 
@@ -168,7 +172,7 @@ export class WorkflowRunner {
     if (!template) {
       const skill = input.skillId ? getSkill(db, input.skillId) : null;
       template = await this.planner.plan({
-        prompt: input.prompt,
+        prompt: effectivePrompt,
         clipboard: input.clipboardText,
         history: input.history,
         mode: run.mode as ExecutionMode,
@@ -185,7 +189,7 @@ export class WorkflowRunner {
     const mcpSessionManager = new McpSessionManager(() => db);
 
     const workflowContext: WorkflowContext = {
-      prompt: input.prompt,
+      prompt: effectivePrompt,
       clipboard: input.clipboardText,
       history: input.history ?? [],
       steps: [],
@@ -270,7 +274,7 @@ export class WorkflowRunner {
         const stepContext: StepExecutionContext = {
           requestId: input.requestId,
           run,
-          prompt: input.prompt,
+          prompt: effectivePrompt,
           clipboard: input.clipboardText,
           history: input.history ?? [],
           signal: input.signal,

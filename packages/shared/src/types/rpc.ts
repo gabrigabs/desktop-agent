@@ -395,3 +395,30 @@ export type SaveProfileInput = {
   responseStyle?: string;
   constraints?: string;
 };
+
+export type ParsedMetadata = {
+  pages?: number;
+  sheets?: string[];
+  rows?: number;
+  columns?: number;
+  truncated?: boolean;
+  hasTextLayer?: boolean;
+  pagesWithoutTextLayer?: number[];
+  ocrApplied?: boolean;
+  frontmatter?: Record<string, unknown>;
+  headings?: string[];
+  links?: number;
+  codeBlocks?: number;
+};
+
+export type FileContextInput = {
+  path: string;
+  displayName: string;
+  size: number;
+  mimeType: string;
+  encoding: "text" | "binary" | "unsupported" | "parsed";
+  content?: string;
+  preview: string;
+  parsedFormat?: "pdf" | "csv" | "excel" | "markdown" | "docx" | "pptx" | "image";
+  parsedMetadata?: ParsedMetadata;
+};

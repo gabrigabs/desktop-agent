@@ -1,6 +1,7 @@
 import type {
   AgentProfile,
   ConnectorConfig,
+  FileContextInput,
   McpTestResult,
   PromptTemplate,
   Skill,
@@ -26,10 +27,7 @@ import { ConnectorsPanel } from "./ConnectorsPanel";
 import { HistoryList } from "./history-list";
 import type { SaveConnectorInput } from "./hooks/useCapabilities";
 import type { QuickActionItem } from "./hooks/useQuickActions";
-import { PromptsPanel } from "./PromptsPanel";
-import { SkillsPanel } from "./SkillsPanel";
 import type { HelixMode } from "./types";
-import { WorkflowsPanel } from "./WorkflowsPanel";
 
 type Props = {
   error: string | null;
@@ -141,6 +139,10 @@ type Props = {
     enabled?: boolean;
   }) => void;
   onDeleteSkill: (id: string) => void;
+  fileContext?: FileContextInput[];
+  onAttachFiles?: (paths: string[]) => void;
+  onRemoveFile?: (path: string) => void;
+  isDraggingFile?: boolean;
 };
 
 export function ExpandedView(p: Props) {
@@ -167,23 +169,6 @@ export function ExpandedView(p: Props) {
               }}
             />
           </div>
-        ) : p.mode === "prompts" ? (
-          <div className="max-w-3xl">
-            <PromptsPanel
-              prompts={p.prompts}
-              profiles={p.profiles}
-              activeProfileId={p.activeProfileId}
-              onSavePrompt={p.onSavePrompt}
-              onDeletePrompt={p.onDeletePrompt}
-              onSaveProfile={p.onSaveProfile}
-              onDeleteProfile={p.onDeleteProfile}
-              onSetActiveProfile={p.onSetActiveProfile}
-              onUsePrompt={(prompt, mode) => {
-                p.onStarterAction(prompt, mode);
-                p.setMode("command");
-              }}
-            />
-          </div>
         ) : p.mode === "connectors" ? (
           <div className="max-w-5xl">
             <ConnectorsPanel
@@ -201,19 +186,6 @@ export function ExpandedView(p: Props) {
               onShowAddConnector={p.onShowAddConnector}
               variant="grid"
             />
-          </div>
-        ) : p.mode === "workflows" ? (
-          <div className="max-w-3xl">
-            <WorkflowsPanel
-              templates={p.workflowTemplates}
-              skills={p.skills}
-              onSave={p.onSaveWorkflowTemplate}
-              onDelete={p.onDeleteWorkflowTemplate}
-            />
-          </div>
-        ) : p.mode === "skills" ? (
-          <div className="max-w-3xl">
-            <SkillsPanel skills={p.skills} onSave={p.onSaveSkill} onDelete={p.onDeleteSkill} />
           </div>
         ) : p.messages.length > 0 ? (
           <ChatActive {...p} />
@@ -334,6 +306,10 @@ function CommandHome(p: Props) {
           onExecute={p.onExecute}
           onAbort={p.onAbort}
           onContextMenuOpenChange={setMenuOpen}
+          fileContext={p.fileContext}
+          onAttachFiles={p.onAttachFiles}
+          onRemoveFile={p.onRemoveFile}
+          isDraggingFile={p.isDraggingFile}
         />
 
         {!menuOpen && p.onSelectRecentConversation && (
@@ -410,6 +386,10 @@ function ChatActive(p: Props) {
           onExecute={p.onExecute}
           onAbort={p.onAbort}
           showQuickActions={false}
+          fileContext={p.fileContext}
+          onAttachFiles={p.onAttachFiles}
+          onRemoveFile={p.onRemoveFile}
+          isDraggingFile={p.isDraggingFile}
         />
       </div>
     </div>
@@ -557,6 +537,10 @@ function TaskActive(p: Props) {
           onExecute={p.onExecute}
           onAbort={p.onAbort}
           showQuickActions={false}
+          fileContext={p.fileContext}
+          onAttachFiles={p.onAttachFiles}
+          onRemoveFile={p.onRemoveFile}
+          isDraggingFile={p.isDraggingFile}
         />
       </div>
     </div>

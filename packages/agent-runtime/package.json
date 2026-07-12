@@ -19,6 +19,7 @@
     "@desktop-agent/tools-desktop": "workspace:*",
     "@desktop-agent/tools-web": "workspace:*",
     "@desktop-agent/tools-ocr": "workspace:*",
+    "@desktop-agent/lite-parse": "workspace:*",
     "kkrpc": "latest"
   },
   "devDependencies": {

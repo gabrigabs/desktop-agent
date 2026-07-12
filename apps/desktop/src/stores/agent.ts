@@ -4,6 +4,7 @@ import type {
   AppSettings,
   ConnectorConfig,
   ExecutionMode,
+  FileContextInput,
   RunStatus,
   Turn,
   WorkflowRun,
@@ -37,6 +38,7 @@ type State = {
   query: string;
   clipboardText: string;
   ignoreClipboard: boolean;
+  fileContext: FileContextInput[];
   messages: Turn[];
   assistantDraft: string;
   currentConversationId: string | null;
@@ -70,6 +72,10 @@ type State = {
   setQuery: (q: string) => void;
   setClipboardText: (t: string) => void;
   setIgnoreClipboard: (v: boolean) => void;
+  setFileContext: (files: FileContextInput[]) => void;
+  addFileContext: (files: FileContextInput[]) => void;
+  removeFileContext: (path: string) => void;
+  clearFileContext: () => void;
   setMessages: (messages: Turn[]) => void;
   addTurn: (turn: Turn) => void;
   updateLastTurn: (update: Partial<Turn>) => void;
@@ -189,6 +195,7 @@ export const useAgentStore = create<State>((set) => ({
   query: "",
   clipboardText: "",
   ignoreClipboard: true,
+  fileContext: [],
   messages: [],
   assistantDraft: "",
   currentConversationId: null,
@@ -214,6 +221,15 @@ export const useAgentStore = create<State>((set) => ({
   setQuery: (query) => set({ query }),
   setClipboardText: (clipboardText) => set({ clipboardText }),
   setIgnoreClipboard: (ignoreClipboard) => set({ ignoreClipboard }),
+  setFileContext: (fileContext) => set({ fileContext }),
+  addFileContext: (files) =>
+    set((s) => {
+      const byPath = new Map(s.fileContext.map((file) => [file.path, file]));
+      for (const file of files) byPath.set(file.path, file);
+      return { fileContext: [...byPath.values()] };
+    }),
+  removeFileContext: (path) => set((s) => ({ fileContext: s.fileContext.filter((f) => f.path !== path) })),
+  clearFileContext: () => set({ fileContext: [] }),
   setMessages: (messages) => set({ messages, assistantDraft: "" }),
   addTurn: (turn) => set((s) => ({ messages: [...s.messages, turn] })),
   updateLastTurn: (update) =>

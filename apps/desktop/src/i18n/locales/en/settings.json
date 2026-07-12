@@ -89,6 +89,9 @@
     "retention": "Context retention",
     "retentionHint": "Will be integrated with data policy and Artifacts."
   },
+  "profiles": {
+    "description": "Agent profiles and prompt library for response styles and behaviors."
+  },
   "connectors": {
     "title": "Connectors",
     "description": "Detailed management remains on the Connectors page; this hub will bring together status, permissions, and last usage.",
@@ -105,6 +108,9 @@
     "pinRadialHint": "Will be fed by the same Action Registry used by the pet.",
     "defaultApproval": "Default approval",
     "defaultApprovalHint": "Must respect workflow and tool permission levels."
+  },
+  "skills": {
+    "description": "Custom agent skills with provider, model, and tool configurations."
   },
   "data": {
     "title": "Data and history",

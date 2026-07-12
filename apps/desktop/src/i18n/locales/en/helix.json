@@ -78,6 +78,9 @@
     "removeClipboard": "Remove clipboard",
     "loading": "Generating response...",
     "stop": "Stop",
+    "attachFile": "Attach file",
+    "attachFolder": "Attach folder",
+    "dropFiles": "Drop files to attach",
     "contextMenu": {
       "title": "Add context",
       "clipboard": "Clipboard",
