@@ -4,6 +4,7 @@ import type {
   AgentEvent,
   ApprovalRequest,
   ExecutionMode,
+  FileContextInput,
   PermissionLevel,
   RunStatus,
   WorkflowRun,
@@ -26,6 +27,7 @@ import {
 import { registry } from "@desktop-agent/tool-registry";
 import type { SupportedLanguage } from "../i18n";
 import { t } from "../i18n";
+import type { ParserAgent } from "../parser";
 import { requiresApproval } from "./ApprovalEngine";
 import { McpSessionManager } from "./McpSessionManager";
 import { runResponseEngine } from "./ResponseEngine";
@@ -39,6 +41,7 @@ export type WorkflowRunnerConfig = {
   getActiveModel: () => string;
   getLanguage: () => SupportedLanguage;
   emit: (event: AgentEvent) => void;
+  parserAgent: ParserAgent;
 };
 
 export type RunInput = {
@@ -47,6 +50,7 @@ export type RunInput = {
   prompt: string;
   clipboardText: string;
   contextText?: string;
+  fileContext?: FileContextInput[];
   history?: { role: "user" | "assistant" | "system"; content: string }[];
   skillId?: string;
   profileId?: string;
@@ -98,12 +102,14 @@ export class WorkflowRunner {
   private emit: (event: AgentEvent) => void;
   private planner: WorkflowPlanner;
   private toolExecutor: ToolExecutor;
+  private parserAgent: ParserAgent;
 
   constructor(config: WorkflowRunnerConfig) {
     this.getLlmProvider = config.getLlmProvider;
     this.getActiveModel = config.getActiveModel;
     this.getLanguage = config.getLanguage;
     this.emit = config.emit;
+    this.parserAgent = config.parserAgent;
     this.planner = new WorkflowPlanner({
       getLlmProvider: config.getLlmProvider,
       getActiveModel: config.getActiveModel,
@@ -155,8 +161,9 @@ export class WorkflowRunner {
     resumeApproved?: boolean,
   ): Promise<WorkflowRun> {
     const db = getDb();
-    const effectivePrompt = input.contextText?.trim()
-      ? `${input.prompt}\n\nContexto de arquivos anexados:\n${input.contextText}`
+    const fileContextSection = await this.buildFileContext(input.fileContext, input.contextText);
+    const effectivePrompt = fileContextSection.trim()
+      ? `${input.prompt}\n\nContexto de arquivos anexados:\n${fileContextSection}`
       : input.prompt;
     const provider = this.getLlmProvider();
     const model = this.getActiveModel() || "gpt-4o";
@@ -179,6 +186,7 @@ export class WorkflowRunner {
         maxSteps: run.maxSteps,
         skill: skill ?? undefined,
         profile: profile ?? undefined,
+        fileContext: input.fileContext,
       });
     }
 
@@ -327,6 +335,51 @@ export class WorkflowRunner {
       mcpSessionManager.stopAll();
       return getWorkflowRun(db, run.id) as WorkflowRun;
     }
+  }
+
+  private async buildFileContext(fileContext?: FileContextInput[], contextText?: string): Promise<string> {
+    if (!fileContext || fileContext.length === 0) {
+      return contextText ?? "";
+    }
+
+    const parsed = await this.parserAgent.parseFileContext(fileContext);
+    const parts: string[] = [];
+
+    parts.push("Arquivos anexados:");
+    for (const file of fileContext) {
+      const lines = [
+        `- ${file.displayName} (${file.parsedFormat ?? file.mimeType}, ${file.encoding}, ${file.size} bytes)`,
+      ];
+      if (file.parsedMetadata?.pages != null) lines.push(`  Páginas: ${file.parsedMetadata.pages}`);
+      if (file.parsedMetadata?.rows != null) lines.push(`  Linhas: ${file.parsedMetadata.rows}`);
+      if (file.parsedMetadata?.columns != null) lines.push(`  Colunas: ${file.parsedMetadata.columns}`);
+      if (file.preview) lines.push(`  Preview: ${file.preview.slice(0, 300)}`);
+      parts.push(lines.join("\n"));
+    }
+
+    const suppliedContent = fileContext
+      .filter((file) => file.content?.trim())
+      .map((file) => ({ displayName: file.displayName, content: file.content as string }));
+    const successfulParses = [
+      ...suppliedContent,
+      ...parsed.filter((r): r is typeof r & { content: string } => Boolean(r.content && !r.error)),
+    ];
+    if (successfulParses.length > 0) {
+      parts.push("\nConteúdo extraído automaticamente:");
+      for (const result of successfulParses) {
+        parts.push(`--- ${result.displayName} ---\n${result.content}`);
+      }
+    }
+
+    const failedParses = parsed.filter((r) => r.error);
+    if (failedParses.length > 0) {
+      parts.push("\nFalhas na extração:");
+      for (const result of failedParses) {
+        parts.push(`- ${result.displayName}: ${result.error}`);
+      }
+    }
+
+    return parts.join("\n\n");
   }
 
   private ensureStepsFromTemplate(

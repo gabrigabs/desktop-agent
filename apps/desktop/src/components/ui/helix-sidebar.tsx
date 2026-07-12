@@ -22,10 +22,10 @@ export function HelixSidebar({ mode, onChangeMode, onNewTask, onToggleExpand }: 
           onNewTask();
           onChangeMode("command");
         }}
-        className="flex min-h-10 w-full items-center gap-2.5 rounded-xl border border-signal/20 bg-signal/[0.08] px-3 text-left text-xs font-semibold text-fg transition-colors hover:border-signal/35 hover:bg-signal/[0.12]"
+        className="flex min-h-10 w-full items-center gap-2.5 rounded-xl border border-signal/20 bg-signal/[0.08] px-3 text-left text-xs font-semibold text-fg transition-all duration-200 hover:border-signal/35 hover:bg-signal/[0.12] active:scale-[0.98]"
       >
-        <NewTaskIcon className="h-4 w-4 text-signal" />
-        <span>{t("helix:sidebar.newConversation")}</span>
+        <NewTaskIcon className="h-4 w-4 shrink-0 text-signal" />
+        <span className="truncate">{t("helix:sidebar.newConversation")}</span>
       </button>
 
       <nav className="mt-4 grid gap-4" aria-label={t("helix:sidebar.mainNavigation")}>
@@ -43,17 +43,17 @@ export function HelixSidebar({ mode, onChangeMode, onNewTask, onToggleExpand }: 
                     key={item.id}
                     type="button"
                     onClick={() => onChangeMode(item.id)}
-                    className={`group flex h-9 w-full items-center gap-2.5 rounded-lg border px-2.5 text-left text-xs font-medium transition-colors ${
+                    className={`group flex h-9 w-full items-center gap-2.5 rounded-lg border px-2.5 text-left text-xs font-medium transition-all duration-200 overflow-hidden ${
                       active
-                        ? "border-line-strong bg-white/[0.065] text-fg"
-                        : "border-transparent text-mute hover:bg-white/[0.035] hover:text-fg"
+                        ? "border-line-strong bg-white/[0.065] text-fg translate-x-0.5"
+                        : "border-transparent text-mute hover:bg-white/[0.035] hover:text-fg active:scale-[0.98]"
                     }`}
                     title={t(`helix:navigation.${item.id}Description` as const)}
                   >
                     <Icon
-                      className={`h-4 w-4 ${active ? "text-signal" : "text-faint group-hover:text-mute"}`}
+                      className={`h-4 w-4 shrink-0 ${active ? "text-signal" : "text-faint group-hover:text-mute"}`}
                     />
-                    <span>{t(`helix:navigation.${item.id}` as const)}</span>
+                    <span className="min-w-0 truncate">{t(`helix:navigation.${item.id}` as const)}</span>
                   </button>
                 );
               })}
@@ -66,18 +66,18 @@ export function HelixSidebar({ mode, onChangeMode, onNewTask, onToggleExpand }: 
         <button
           type="button"
           onClick={() => onChangeMode("settings")}
-          className="flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-xs font-medium text-mute transition-colors hover:bg-white/[0.035] hover:text-fg"
+          className="flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-xs font-medium text-mute transition-all duration-200 hover:bg-white/[0.035] hover:text-fg active:scale-[0.98]"
         >
-          <SettingsIcon className="h-4 w-4 text-faint" />
-          {t("helix:navigation.settings")}
+          <SettingsIcon className="h-4 w-4 shrink-0 text-faint" />
+          <span className="min-w-0 truncate">{t("helix:navigation.settings")}</span>
         </button>
         <button
           type="button"
           onClick={onToggleExpand}
-          className="flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-[10px] text-faint transition-colors hover:bg-white/[0.03] hover:text-mute"
+          className="flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-[10px] text-faint transition-all duration-200 hover:bg-white/[0.03] hover:text-mute active:scale-[0.98]"
         >
-          <PanelLeftClose className="h-3.5 w-3.5" />
-          {t("helix:sidebar.backToQuickPanel")}
+          <PanelLeftClose className="h-3.5 w-3.5 shrink-0" />
+          <span className="min-w-0 truncate">{t("helix:sidebar.backToQuickPanel")}</span>
         </button>
       </div>
     </aside>

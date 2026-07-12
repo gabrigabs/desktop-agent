@@ -11,6 +11,14 @@ import {
   upsertMcpServer,
 } from "../repositories/mcp-servers";
 import {
+  createParsedDocument,
+  deleteAllParsedDocuments,
+  deleteParsedDocument,
+  getParsedDocument,
+  listParsedDocuments,
+  upsertParsedDocument,
+} from "../repositories/parsed-documents";
+import {
   createWorkflowRun,
   createWorkflowStep,
   getWorkflowRun,
@@ -49,11 +57,14 @@ describe("Storage Package Tests", () => {
     expect(tableNames).toContain("mcp_servers");
     expect(tableNames).toContain("prompt_library");
     expect(tableNames).toContain("agent_profiles");
+    expect(tableNames).toContain("parsed_documents");
 
     const migrations = db.query("SELECT version FROM _migrations ORDER BY version").all() as {
       version: number;
     }[];
-    expect(migrations.map((migration) => migration.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+    expect(migrations.map((migration) => migration.version)).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
+    ]);
 
     const settings = db.query("SELECT key, value FROM app_settings ORDER BY key").all() as {
       key: string;
@@ -265,5 +276,66 @@ describe("Storage Package Tests", () => {
 
     expect(getConversation(db, olderId)).toMatchObject({ id: olderId, title: "Older" });
     expect(getConversation(db, "missing")).toBeNull();
+  });
+
+  test("Should persist parsed documents", () => {
+    const id = createParsedDocument(db, {
+      path: "/tmp/test.md",
+      displayName: "test.md",
+      size: 42,
+      mimeType: "text/markdown",
+      encoding: "parsed",
+      content: "# Hello",
+      preview: "# Hello",
+      parsedFormat: "markdown",
+      parsedMetadata: { pages: 1 },
+      status: "done",
+    });
+
+    const doc = getParsedDocument(db, id);
+    expect(doc).toMatchObject({
+      path: "/tmp/test.md",
+      displayName: "test.md",
+      content: "# Hello",
+      parsedFormat: "markdown",
+      parsedMetadata: { pages: 1 },
+    });
+
+    const docs = listParsedDocuments(db, 10);
+    expect(docs.length).toBe(1);
+
+    const sameId = upsertParsedDocument(db, {
+      path: "/tmp/test.md",
+      displayName: "renamed.md",
+      size: 43,
+      mimeType: "text/markdown",
+      encoding: "parsed",
+      content: "# Updated",
+      preview: "# Updated",
+      parsedFormat: "markdown",
+      parsedMetadata: { headings: ["Updated"] },
+      status: "done",
+    });
+    expect(sameId).toBe(id);
+    expect(listParsedDocuments(db, 10)).toHaveLength(1);
+    expect(getParsedDocument(db, id)).toMatchObject({ displayName: "renamed.md", content: "# Updated" });
+
+    deleteParsedDocument(db, id);
+    expect(getParsedDocument(db, id)).toBeNull();
+
+    createParsedDocument(db, {
+      path: "/tmp/other.pdf",
+      displayName: "other.pdf",
+      size: 100,
+      mimeType: "application/pdf",
+      encoding: "parsed",
+      content: "PDF text",
+      preview: "PDF text",
+      parsedFormat: "pdf",
+      parsedMetadata: { pages: 2 },
+      status: "done",
+    });
+    deleteAllParsedDocuments(db);
+    expect(listParsedDocuments(db, 10).length).toBe(0);
   });
 });

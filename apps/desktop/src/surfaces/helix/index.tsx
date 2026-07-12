@@ -20,6 +20,7 @@ import { useSettingsForm } from "./hooks/useSettingsForm";
 import { useSkills } from "./hooks/useSkills";
 import { useWorkflows } from "./hooks/useWorkflows";
 import { NormalCommandView } from "./NormalCommandView";
+import { useParserMode } from "./parser-mode/useParserMode";
 import { SettingsPanel, type SettingsSection } from "./SettingsPanel";
 
 type HelixProps = {
@@ -67,12 +68,19 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
   const skills = useSkills();
   const fileCtx = useFileContext(onToastError);
   const exec = useExecute(promptsHook.activeProfileId);
-  const { isDragging: isDraggingFile } = useDragDrop(fileCtx.attachFiles);
+  const { isDragging: isDraggingFile } = useDragDrop((paths) => {
+    if (mode === "parser") return;
+    fileCtx.attachFiles(paths);
+  });
   const ignoreClipboard = useAgentStore((s) => s.ignoreClipboard);
   const setIgnoreClipboard = useAgentStore((s) => s.setIgnoreClipboard);
   const setClipboardText = useAgentStore((s) => s.setClipboardText);
   const quickActions = useQuickActions(clipboard.hasClipboard, ignoreClipboard);
   const settingsForm = useSettingsForm(showSettings, onToastSuccess, onToastError);
+  const parser = useParserMode(
+    (msg) => onToastError?.(msg),
+    (key) => onToastSuccess?.(t(`helix:${key}`)),
+  );
 
   const handleQuickAction = useCallback(
     (action: QuickActionItem) => {
@@ -295,7 +303,7 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     workflowRun?.status === "waiting_approval"
       ? t("helix:helixIndex.waitingApproval")
       : error
-        ? t("helix:helixIndex.somethingFailed")
+        ? JSON.stringify(error)
         : streaming
           ? agentLogs[agentLogs.length - 1]?.type === "tool_start"
             ? t("helix:helixIndex.usingTool")
@@ -390,6 +398,7 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     onAttachFiles: fileCtx.attachFiles,
     onRemoveFile: fileCtx.removeFile,
     isDraggingFile,
+    parser,
   };
 
   const settingsPanelProps = {

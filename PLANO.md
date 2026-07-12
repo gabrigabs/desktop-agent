@@ -822,6 +822,13 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
   - CSV suporta campos quoted, vírgulas escapadas e conteúdo multilinha; Markdown extrai frontmatter, títulos, links e blocos de código.
   - PDF registra páginas, páginas sem camada textual, necessidade de OCR e truncamento; falhas retornam erro estruturado com fallback seguro.
   - O módulo nativo LiteParse é carregado de forma lazy e empacotado em `Contents/Resources`, sem bloquear o bootstrap do sidecar compilado.
+  - O addon nativo roda em worker isolado do próprio sidecar, com ambiente mínimo e timeout de 20 segundos; falha ou deadlock do LiteParse não bloqueia o RPC principal.
+  - PDFs com camada textual não acionam OCR desnecessário; páginas sem texto permanecem sinalizadas para um fluxo explícito de OCR.
+  - Anexos já parseados atravessam o chat como contexto estruturado sem uma segunda extração nem cópia integral no composer.
+  - Tela dedicada de Parser disponível nos modos normal e expanded, com drag-and-drop/seletor nativo, fila de arquivos, estados de erro, preview Markdown/texto bruto, metadados, cópia, download e envio estruturado ao chat.
+  - Storage persistente de documentos parseados com identidade estável, deduplicação por path, restauração após reload, rename de nome de exibição e deleção confirmada pelo runtime.
+  - Ação "Organizar com IA" envia o documento já estruturado ao chat com instrução explícita para melhorar formatação sem alterar fatos.
+  - Seletor nativo aceita PDF, CSV, XLS/XLSX, Markdown, DOCX, PPTX e imagens suportadas; o fallback do navegador permanece seguro para formatos textuais.
   - Cobertura automatizada dos edge cases de CSV e da estrutura Markdown.
 - Pendente para concluir:
   - Normalizar XLSX em tabelas por aba com headers, tipos inferidos e limites explícitos de linhas/colunas.

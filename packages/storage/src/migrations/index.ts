@@ -10,6 +10,8 @@ import { runMigration as runWorkflowsAndSkillsMigration } from "./008_workflows_
 import { runMigration as runSkillMetadataMigration } from "./009_skill_metadata";
 import { runMigration as runConversationProfileIdMigration } from "./010_conversation_profile_id";
 import { runMigration as runTurnProfileIdMigration } from "./011_turn_profile_id";
+import { runMigration as runParsedDocumentsMigration } from "./012_parsed_documents";
+import { runMigration as runParsedDocumentsIdentityMigration } from "./013_parsed_documents_identity";
 
 const MIGRATION_TABLE = `
   CREATE TABLE IF NOT EXISTS _migrations (
@@ -39,4 +41,6 @@ export function runMigrations(db: Database): void {
   applyMigration(db, 9, runSkillMetadataMigration);
   applyMigration(db, 10, runConversationProfileIdMigration);
   applyMigration(db, 11, runTurnProfileIdMigration);
+  applyMigration(db, 12, runParsedDocumentsMigration);
+  applyMigration(db, 13, runParsedDocumentsIdentityMigration);
 }

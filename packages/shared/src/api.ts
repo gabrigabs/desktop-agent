@@ -1,3 +1,4 @@
+import type { ParsedDocument } from "./types/parsed-documents";
 import type {
   AgentEvent,
   AgentProfile,
@@ -56,6 +57,7 @@ export type AgentApi = {
     sourceMode?: "free" | "clipboard";
     clipboardText?: string;
     contextText?: string;
+    fileContext?: FileContextInput[];
     maxSteps?: number;
     history?: { role: "user" | "assistant" | "system"; content: string }[];
     profileId?: string;
@@ -123,5 +125,12 @@ export type AgentApi = {
   }): Promise<WorkflowTemplate>;
   deleteWorkflowTemplate(input: { id: string }): Promise<void>;
   readFileContext(input: { paths: string[] }): Promise<{ files: FileContextInput[]; errors: string[] }>;
+  saveParsedDocument(input: {
+    document: Omit<ParsedDocument, "id" | "createdAt" | "updatedAt"> & { id?: string };
+  }): Promise<ParsedDocument>;
+  listParsedDocuments(input?: { limit?: number }): Promise<ParsedDocument[]>;
+  updateParsedDocument(input: { id: string; displayName: string }): Promise<ParsedDocument>;
+  deleteParsedDocument(input: { id: string }): Promise<void>;
+  deleteAllParsedDocuments(): Promise<void>;
   shutdown(): Promise<void>;
 };

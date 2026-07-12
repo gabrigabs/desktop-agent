@@ -30,6 +30,8 @@ import { GLOBAL_SHORTCUT_GLYPH } from "./constants";
 import { HistoryList } from "./history-list";
 import type { SaveConnectorInput } from "./hooks/useCapabilities";
 import type { QuickActionItem } from "./hooks/useQuickActions";
+import { ParserModePanel } from "./parser-mode/ParserModePanel";
+import type { ParserModeState } from "./parser-mode/useParserMode";
 import type { HelixMode } from "./types";
 
 type Props = {
@@ -149,6 +151,7 @@ type Props = {
   onRemoveFile?: (path: string) => void;
   isDraggingFile?: boolean;
   onSelectRecentConversation?: (conversationId: string) => void;
+  parser: ParserModeState;
 };
 
 export function NormalCommandView(p: Props) {
@@ -177,6 +180,15 @@ export function NormalCommandView(p: Props) {
             }}
           />
         </PanelWrapper>
+      ) : p.mode === "parser" ? (
+        <ParserModePanel
+          parser={p.parser}
+          onBack={() => p.setMode("command")}
+          setQuery={p.setQuery}
+          setMode={p.setMode}
+          onToastSuccess={p.onToastSuccess}
+          onToastError={p.onToastError}
+        />
       ) : (
         <PanelWrapper title={t("helix:normalCommandView.connectors")} onBack={() => p.setMode("command")}>
           <ConnectorsPanel

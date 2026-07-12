@@ -27,31 +27,37 @@ const LITEPARSE_EXTS: Set<ParseableExt> = new Set([
   ".bmp",
 ]);
 
-let parserInstance: LiteParse | null = null;
+const parserInstances = new Map<boolean, LiteParse>();
 
 type NativeLiteParseModule = {
   LiteParse: new (config: Record<string, unknown>) => LiteParse;
 };
 
-function loadBundledNativeParser(): LiteParse {
+function parserConfig(ocrEnabled: boolean): Record<string, unknown> {
+  return {
+    outputFormat: "markdown",
+    ocrEnabled,
+    imageMode: "placeholder",
+    extractLinks: true,
+    quiet: true,
+  };
+}
+
+function loadBundledNativeParser(ocrEnabled: boolean): LiteParse {
   const require = createRequire(import.meta.url);
   const platformArch = `${process.platform}-${process.arch}`;
   const fileName = `liteparse.${platformArch}.node`;
   const executableDir = path.dirname(process.execPath);
   const candidates = [
     path.join(executableDir, fileName),
+    // Tauri dev copies bundled resources into target/<profile>/liteparse.
+    path.join(executableDir, "liteparse", fileName),
     path.join(executableDir, "..", "Resources", "liteparse", fileName),
   ];
   for (const candidate of candidates) {
     try {
       const native = require(candidate) as NativeLiteParseModule;
-      return new native.LiteParse({
-        outputFormat: "markdown",
-        ocrEnabled: true,
-        imageMode: "placeholder",
-        extractLinks: true,
-        quiet: true,
-      });
+      return new native.LiteParse(parserConfig(ocrEnabled));
     } catch {
       // Try the next bundle layout.
     }
@@ -59,22 +65,18 @@ function loadBundledNativeParser(): LiteParse {
   throw new Error(`LiteParse native module not found for ${platformArch}`);
 }
 
-async function getParser(): Promise<LiteParse> {
-  if (!parserInstance) {
+async function getParser(ocrEnabled: boolean): Promise<LiteParse> {
+  let parser = parserInstances.get(ocrEnabled);
+  if (!parser) {
     try {
       const { LiteParse: LiteParseRuntime } = await import("@llamaindex/liteparse");
-      parserInstance = new LiteParseRuntime({
-        outputFormat: "markdown",
-        ocrEnabled: true,
-        imageMode: "placeholder",
-        extractLinks: true,
-        quiet: true,
-      });
+      parser = new LiteParseRuntime(parserConfig(ocrEnabled));
     } catch {
-      parserInstance = loadBundledNativeParser();
+      parser = loadBundledNativeParser(ocrEnabled);
     }
+    parserInstances.set(ocrEnabled, parser);
   }
-  return parserInstance;
+  return parser;
 }
 
 export function isParseable(filePath: string): boolean {
@@ -123,7 +125,8 @@ function inferFormat(ext: ParseableExt): ParsedDocument["format"] {
 
 async function parseWithLiteParse(filePath: string, ext: ParseableExt): Promise<ParseResult> {
   try {
-    const parser = await getParser();
+    const ocrEnabled = inferFormat(ext) === "image";
+    const parser = await getParser(ocrEnabled);
     const complexity = ext === ".pdf" ? await parser.isComplex(filePath) : [];
     const result = await parser.parse(filePath);
     const text = result.text ?? "";
@@ -147,7 +150,7 @@ async function parseWithLiteParse(filePath: string, ext: ParseableExt): Promise<
                   .filter((page) => page.textLength === 0 || page.isGarbled)
                   .map((page) => page.pageNumber)
               : undefined,
-          ocrApplied: ext === ".pdf" ? complexity.some((page) => page.needsOcr) : undefined,
+          ocrApplied: ext === ".pdf" ? false : undefined,
         },
       },
     };

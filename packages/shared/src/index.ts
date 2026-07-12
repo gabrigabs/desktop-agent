@@ -30,6 +30,7 @@ export {
   type HelixContextSource,
   type HelixSecondaryAction,
 } from "./helix";
+export type { ParsedDocument } from "./types/parsed-documents";
 export type {
   AgentEvent,
   AgentProfile,

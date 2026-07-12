@@ -1,4 +1,4 @@
-import { Clock3, Layers3, MessageSquarePlus, Orbit, Settings2 } from "lucide-react";
+import { Clock3, FileText, Layers3, MessageSquarePlus, Orbit, Settings2 } from "lucide-react";
 import type { ComponentType } from "react";
 import type { HelixMode } from "../../surfaces/helix/types";
 
@@ -24,7 +24,10 @@ export const HELIX_NAV_GROUPS: HelixNavGroup[] = [
   },
   {
     labelKey: "sources",
-    items: [{ id: "connectors", icon: Layers3 }],
+    items: [
+      { id: "parser", icon: FileText },
+      { id: "connectors", icon: Layers3 },
+    ],
   },
 ];
 

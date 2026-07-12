@@ -24,6 +24,18 @@ export {
   upsertMcpServer,
 } from "./repositories/mcp-servers";
 export {
+  createParsedDocument,
+  deleteAllParsedDocuments,
+  deleteParsedDocument,
+  getParsedDocument,
+  getParsedDocumentByPath,
+  listParsedDocuments,
+  type StoredParsedDocument,
+  toFileContextInput,
+  updateParsedDocument,
+  upsertParsedDocument,
+} from "./repositories/parsed-documents";
+export {
   type AgentProfile,
   createAgentProfile,
   createPromptTemplate,

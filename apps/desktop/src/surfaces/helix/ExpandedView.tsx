@@ -27,6 +27,8 @@ import { ConnectorsPanel } from "./ConnectorsPanel";
 import { HistoryList } from "./history-list";
 import type { SaveConnectorInput } from "./hooks/useCapabilities";
 import type { QuickActionItem } from "./hooks/useQuickActions";
+import { ParserModePanel } from "./parser-mode/ParserModePanel";
+import type { ParserModeState } from "./parser-mode/useParserMode";
 import type { HelixMode } from "./types";
 
 type Props = {
@@ -143,6 +145,7 @@ type Props = {
   onAttachFiles?: (paths: string[]) => void;
   onRemoveFile?: (path: string) => void;
   isDraggingFile?: boolean;
+  parser: ParserModeState;
 };
 
 export function ExpandedView(p: Props) {
@@ -185,6 +188,17 @@ export function ExpandedView(p: Props) {
               onCancelEditing={p.onCancelEditing}
               onShowAddConnector={p.onShowAddConnector}
               variant="grid"
+            />
+          </div>
+        ) : p.mode === "parser" ? (
+          <div className="h-full w-full">
+            <ParserModePanel
+              parser={p.parser}
+              onBack={() => p.setMode("command")}
+              setQuery={p.setQuery}
+              setMode={p.setMode}
+              onToastSuccess={p.onToastSuccess}
+              onToastError={p.onToastError}
             />
           </div>
         ) : p.messages.length > 0 ? (

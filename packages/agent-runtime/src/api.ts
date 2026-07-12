@@ -9,6 +9,7 @@ import type {
   AppSettings,
   CompletionInput,
   FileContextInput,
+  ParsedDocument,
   PromptTemplate,
   SaveProfileInput,
   SavePromptInput,
@@ -23,14 +24,17 @@ import {
   createMcpServer as createStoredMcpServer,
   createWorkflowRun,
   deleteAgentProfile,
+  deleteAllParsedDocuments as deleteAllStoredParsedDocuments,
   deletePromptTemplate,
   deleteSkill,
   deleteMcpServer as deleteStoredMcpServer,
+  deleteParsedDocument as deleteStoredParsedDocument,
   deleteWorkflowTemplate,
   ensureDefaultMcpPresets,
   getAgentProfile,
   getConversation,
   getDb,
+  getParsedDocument,
   getRecentInteractions,
   getSetting,
   getSkill,
@@ -42,6 +46,7 @@ import {
   listPromptTemplates,
   listSkills,
   listMcpServers as listStoredMcpServers,
+  listParsedDocuments as listStoredParsedDocuments,
   listTurns,
   listWorkflowRuns,
   listWorkflowTemplates,
@@ -52,11 +57,33 @@ import {
   updateMcpServerStatus,
   updatePromptTemplate,
   updateSkill,
+  updateParsedDocument as updateStoredParsedDocument,
   updateWorkflowRun,
   upsertMcpServer,
+  upsertParsedDocument,
   upsertTurn,
 } from "@desktop-agent/storage";
 import { registry } from "@desktop-agent/tool-registry";
+
+function toParsedDocument(doc: import("@desktop-agent/storage").StoredParsedDocument): ParsedDocument {
+  return {
+    id: doc.id,
+    path: doc.path,
+    displayName: doc.displayName,
+    size: doc.size,
+    mimeType: doc.mimeType,
+    encoding: doc.encoding as ParsedDocument["encoding"],
+    content: doc.content,
+    preview: doc.preview,
+    parsedFormat: doc.parsedFormat as ParsedDocument["parsedFormat"],
+    parsedMetadata: doc.parsedMetadata,
+    status: doc.status,
+    error: doc.error,
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
+  };
+}
+
 import { createClipboardTool, createFileWriteTool } from "@desktop-agent/tools-desktop";
 import { createOcrImageTool, createScreenshotOcrTool } from "@desktop-agent/tools-ocr";
 import { createRewriteTool, createSummarizeTool, createTranslateTool } from "@desktop-agent/tools-text";
@@ -69,6 +96,7 @@ import {
   registerMcpToolsForServer,
   unregisterMcpToolsForServer,
 } from "./mcp-tools";
+import { createFileParseTool, ParserAgent } from "./parser";
 import { ToolExecutor } from "./workflow/ToolExecutor";
 import { WorkflowRunner } from "./workflow/WorkflowRunner";
 
@@ -85,6 +113,10 @@ export function setClientApi(api: unknown) {
 const runningRequests = new Map<string, AbortController>();
 const runningRuns = new Map<string, AbortController>();
 const authorizedFileRoots = new Set<string>();
+
+const parserAgent = new ParserAgent({
+  getAuthorizedRoots: () => Array.from(authorizedFileRoots),
+});
 
 async function isAuthorizedFilePath(targetPath: string): Promise<boolean> {
   const { promises: fs } = await import("node:fs");
@@ -231,6 +263,7 @@ registry.register(createWebExtractTool());
 registry.register(createWebCrawlTool());
 registry.register(createOcrImageTool());
 registry.register(createScreenshotOcrTool());
+registry.register(createFileParseTool(parserAgent));
 
 ensureMcpReady();
 
@@ -480,6 +513,7 @@ export const agentApi: AgentApi = {
       getLlmProvider,
       getActiveModel: () => getActiveProviderConfig().model,
       getLanguage: () => getActiveProviderConfig().language,
+      parserAgent,
       emit(event) {
         events.push(event);
         emitToClient(event);
@@ -493,6 +527,7 @@ export const agentApi: AgentApi = {
         prompt: input.prompt,
         clipboardText: input.clipboardText ?? "",
         contextText: input.contextText,
+        fileContext: input.fileContext,
         history: input.history ?? [],
         skillId: input.skillId,
         profileId: input.profileId,
@@ -547,6 +582,7 @@ export const agentApi: AgentApi = {
       getLlmProvider,
       getActiveModel: () => getActiveProviderConfig().model,
       getLanguage: () => getActiveProviderConfig().language,
+      parserAgent,
       emit(event) {
         events.push(event);
         emitToClient(event);
@@ -1269,6 +1305,7 @@ export const agentApi: AgentApi = {
             parsedMetadata = parseResult.document.metadata;
             encoding = "parsed";
           } else {
+            errors.push(`Failed to parse ${displayName}: ${parseResult.error}`);
             // Fall back to raw text/binary handling
             if (encoding === "text") {
               content = await fs.readFile(resolvedPath, "utf-8");
@@ -1313,5 +1350,42 @@ export const agentApi: AgentApi = {
     }
 
     return { files, errors };
+  },
+
+  async saveParsedDocument(input: {
+    document: Omit<ParsedDocument, "id" | "createdAt" | "updatedAt"> & { id?: string };
+  }): Promise<ParsedDocument> {
+    const db = getDb();
+    const id = upsertParsedDocument(db, {
+      ...input.document,
+      error: input.document.error ?? undefined,
+      id: input.document.id,
+      parsedMetadata: input.document.parsedMetadata ?? {},
+    });
+    const saved = getParsedDocument(db, id);
+    if (!saved) throw new Error("Failed to save parsed document");
+    return toParsedDocument(saved);
+  },
+
+  async listParsedDocuments(input?: { limit?: number }): Promise<ParsedDocument[]> {
+    return listStoredParsedDocuments(getDb(), input?.limit ?? 100).map(toParsedDocument);
+  },
+
+  async updateParsedDocument(input: { id: string; displayName: string }): Promise<ParsedDocument> {
+    const displayName = input.displayName.trim();
+    if (!displayName) throw new Error("Document name cannot be empty");
+    const db = getDb();
+    updateStoredParsedDocument(db, input.id, { displayName });
+    const saved = getParsedDocument(db, input.id);
+    if (!saved) throw new Error("Parsed document not found");
+    return toParsedDocument(saved);
+  },
+
+  async deleteParsedDocument(input: { id: string }): Promise<void> {
+    deleteStoredParsedDocument(getDb(), input.id);
+  },
+
+  async deleteAllParsedDocuments(): Promise<void> {
+    deleteAllStoredParsedDocuments(getDb());
   },
 };

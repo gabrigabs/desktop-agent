@@ -3,6 +3,7 @@ import type { LlmProvider } from "@desktop-agent/provider-gateway";
 import type {
   AgentProfile,
   ExecutionMode,
+  FileContextInput,
   Skill,
   WorkflowStepTemplate,
   WorkflowTemplate,
@@ -55,6 +56,7 @@ export class WorkflowPlanner {
     settings?: WorkflowTemplateSettings;
     skill?: Skill | null;
     profile?: AgentProfile;
+    fileContext?: FileContextInput[];
   }): Promise<WorkflowTemplate> {
     const settings = input.settings ?? {};
     const mode = input.mode;

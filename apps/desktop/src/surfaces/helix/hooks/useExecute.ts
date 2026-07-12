@@ -67,15 +67,25 @@ function cleanPrompt(text: string): string {
 }
 
 function formatFileContext(files: ReturnType<typeof useAgentStore.getState>["fileContext"]): string {
+  if (files.length === 0) return "";
   return files
     .map((file) => {
-      const body = file.content ?? file.preview;
-      return [
-        `--- Arquivo: ${file.displayName} ---`,
+      const meta = [
+        `--- Arquivo anexado: ${file.displayName} ---`,
         `Path: ${file.path}`,
-        `Tipo: ${file.parsedFormat ?? file.mimeType}`,
-        body,
-      ].join("\n");
+        `Tipo MIME: ${file.mimeType}`,
+        `Formato parseado: ${file.parsedFormat ?? "não identificado"}`,
+        `Codificação: ${file.encoding}`,
+        `Tamanho: ${file.size} bytes`,
+      ];
+      if (file.parsedMetadata?.pages != null) meta.push(`Páginas: ${file.parsedMetadata.pages}`);
+      if (file.parsedMetadata?.rows != null) meta.push(`Linhas: ${file.parsedMetadata.rows}`);
+      if (file.parsedMetadata?.columns != null) meta.push(`Colunas: ${file.parsedMetadata.columns}`);
+      if (file.parsedMetadata?.headings && file.parsedMetadata.headings.length > 0) {
+        meta.push(`Seções: ${file.parsedMetadata.headings.slice(0, 10).join(", ")}`);
+      }
+      if (file.preview) meta.push(`Preview: ${file.preview.slice(0, 500)}`);
+      return meta.join("\n");
     })
     .join("\n\n");
 }
@@ -194,6 +204,7 @@ export function useExecute(activeProfileId?: string | null) {
           sourceMode,
           clipboardText,
           contextText: formatFileContext(fileContext),
+          fileContext,
           maxSteps: store.executionMode === "workflow" ? 8 : undefined,
           history,
           profileId: store.currentProfileId ?? activeProfileId ?? undefined,
