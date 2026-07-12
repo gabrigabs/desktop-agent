@@ -102,6 +102,7 @@ import {
   unregisterMcpToolsForServer,
 } from "./mcp-tools";
 import { createFileParseTool, ParserAgent } from "./parser";
+import { getPersistedDocumentRoot } from "./parser/persistedAuthorization";
 import { ToolExecutor } from "./workflow/ToolExecutor";
 import { WorkflowRunner } from "./workflow/WorkflowRunner";
 
@@ -1373,7 +1374,12 @@ export const agentApi: AgentApi = {
   },
 
   async listParsedDocuments(input?: { limit?: number }): Promise<ParsedDocument[]> {
-    return listStoredParsedDocuments(getDb(), input?.limit ?? 100).map(toParsedDocument);
+    const documents = listStoredParsedDocuments(getDb(), input?.limit ?? 100);
+    for (const document of documents) {
+      const root = await getPersistedDocumentRoot(document.path);
+      if (root) authorizedFileRoots.add(root);
+    }
+    return documents.map(toParsedDocument);
   },
 
   async updateParsedDocument(input: { id: string; displayName: string }): Promise<ParsedDocument> {
