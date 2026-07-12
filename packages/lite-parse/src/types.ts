@@ -5,6 +5,14 @@ export type ParsedDocument = {
   metadata: {
     pages?: number;
     sheets?: string[];
+    sheetDetails?: Array<{
+      name: string;
+      rows: number;
+      columns: number;
+      headers: string[];
+      columnTypes: string[];
+      truncated: boolean;
+    }>;
     rows?: number;
     columns?: number;
     truncated?: boolean;

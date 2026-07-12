@@ -4,6 +4,7 @@ import { closeDb, getDb } from "../db";
 import { runMigrations } from "../migrations";
 import { createConversation, getConversation, listTurns, upsertTurn } from "../repositories/conversations";
 import { createInteraction, getRecentInteractions, searchInteractions } from "../repositories/interactions";
+import { listMarkdownSources, upsertMarkdownSource } from "../repositories/markdown-sources";
 import {
   ensureDefaultMcpPresets,
   listMcpServers,
@@ -58,12 +59,13 @@ describe("Storage Package Tests", () => {
     expect(tableNames).toContain("prompt_library");
     expect(tableNames).toContain("agent_profiles");
     expect(tableNames).toContain("parsed_documents");
+    expect(tableNames).toContain("markdown_sources");
 
     const migrations = db.query("SELECT version FROM _migrations ORDER BY version").all() as {
       version: number;
     }[];
     expect(migrations.map((migration) => migration.version)).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
     ]);
 
     const settings = db.query("SELECT key, value FROM app_settings ORDER BY key").all() as {
@@ -337,5 +339,22 @@ describe("Storage Package Tests", () => {
     });
     deleteAllParsedDocuments(db);
     expect(listParsedDocuments(db, 10).length).toBe(0);
+  });
+
+  test("Should persist and refresh Markdown sources", () => {
+    const first = upsertMarkdownSource(db, {
+      path: "/tmp/notes",
+      displayName: "notes",
+      fileCount: 2,
+    });
+    const refreshed = upsertMarkdownSource(db, {
+      path: "/tmp/notes",
+      displayName: "Notes",
+      fileCount: 3,
+    });
+    expect(refreshed.id).toBe(first.id);
+    expect(listMarkdownSources(db)).toEqual([
+      expect.objectContaining({ path: "/tmp/notes", displayName: "Notes", fileCount: 3 }),
+    ]);
   });
 });

@@ -1,4 +1,5 @@
 import { execSync, spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { isParseable, parseDocument } from "@desktop-agent/lite-parse";
 import type { LlmProvider } from "@desktop-agent/provider-gateway";
 import { createProvider } from "@desktop-agent/provider-gateway";
@@ -9,6 +10,7 @@ import type {
   AppSettings,
   CompletionInput,
   FileContextInput,
+  MarkdownSource,
   ParsedDocument,
   PromptTemplate,
   SaveProfileInput,
@@ -24,6 +26,7 @@ import {
   createMcpServer as createStoredMcpServer,
   createWorkflowRun,
   deleteAgentProfile,
+  deleteAllMarkdownSources as deleteAllStoredMarkdownSources,
   deleteAllParsedDocuments as deleteAllStoredParsedDocuments,
   deletePromptTemplate,
   deleteSkill,
@@ -45,6 +48,7 @@ import {
   listConversations,
   listPromptTemplates,
   listSkills,
+  listMarkdownSources as listStoredMarkdownSources,
   listMcpServers as listStoredMcpServers,
   listParsedDocuments as listStoredParsedDocuments,
   listTurns,
@@ -59,6 +63,7 @@ import {
   updateSkill,
   updateParsedDocument as updateStoredParsedDocument,
   updateWorkflowRun,
+  upsertMarkdownSource,
   upsertMcpServer,
   upsertParsedDocument,
   upsertTurn,
@@ -1386,6 +1391,178 @@ export const agentApi: AgentApi = {
   },
 
   async deleteAllParsedDocuments(): Promise<void> {
-    deleteAllStoredParsedDocuments(getDb());
+    const db = getDb();
+    deleteAllStoredParsedDocuments(db);
+    deleteAllStoredMarkdownSources(db);
+  },
+
+  async indexMarkdownFolder(input: {
+    path: string;
+  }): Promise<{ source: MarkdownSource; documents: ParsedDocument[] }> {
+    const { promises: fs } = await import("node:fs");
+    const path = await import("node:path");
+    const root = await fs.realpath(path.resolve(input.path));
+    const stat = await fs.lstat(root);
+    if (!stat.isDirectory()) throw new Error("Markdown source must be a directory");
+    authorizedFileRoots.add(root);
+    const markdownPaths: string[] = [];
+    const collect = async (directory: string, depth: number): Promise<void> => {
+      if (depth > 5 || markdownPaths.length >= 100) return;
+      const entries = await fs.readdir(directory, { withFileTypes: true });
+      for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+        if (markdownPaths.length >= 100) break;
+        if (entry.isSymbolicLink() || [".git", "node_modules", "dist", "target"].includes(entry.name))
+          continue;
+        const target = path.join(directory, entry.name);
+        if (entry.isDirectory()) await collect(target, depth + 1);
+        else if (entry.isFile() && /\.(md|markdown)$/i.test(entry.name)) markdownPaths.push(target);
+      }
+    };
+    await collect(root, 0);
+
+    const documents: ParsedDocument[] = [];
+    for (const filePath of markdownPaths) {
+      const parsed = await parseDocument(filePath);
+      if (!parsed.ok) throw new Error(`${path.basename(filePath)}: ${parsed.error}`);
+      const fileStat = await fs.stat(filePath);
+      const id = upsertParsedDocument(getDb(), {
+        path: filePath,
+        displayName: path.relative(root, filePath),
+        size: fileStat.size,
+        mimeType: "text/markdown",
+        encoding: "parsed",
+        content: parsed.document.content,
+        preview: parsed.document.preview,
+        parsedFormat: "markdown",
+        parsedMetadata: { ...parsed.document.metadata, sourceRoot: root },
+        status: "done",
+      });
+      const saved = getParsedDocument(getDb(), id);
+      if (saved) documents.push(toParsedDocument(saved));
+    }
+    const indexedPaths = new Set(markdownPaths);
+    for (const stored of listStoredParsedDocuments(getDb(), 10_000)) {
+      if (stored.parsedMetadata.sourceRoot === root && !indexedPaths.has(stored.path)) {
+        deleteStoredParsedDocument(getDb(), stored.id);
+      }
+    }
+    const source = upsertMarkdownSource(getDb(), {
+      path: root,
+      displayName: path.basename(root),
+      fileCount: documents.length,
+    });
+    return { source, documents };
+  },
+
+  async listMarkdownSources(): Promise<MarkdownSource[]> {
+    const sources = listStoredMarkdownSources(getDb());
+    const { promises: fs } = await import("node:fs");
+    for (const source of sources) {
+      try {
+        authorizedFileRoots.add(await fs.realpath(source.path));
+      } catch {
+        // Keep the source visible so the user can repair or remove an unavailable folder.
+      }
+    }
+    return sources;
+  },
+
+  async improveParsedDocument(input: {
+    id: string;
+    instruction?: string;
+  }): Promise<{ document: ParsedDocument; outputPath: string }> {
+    const { promises: fs } = await import("node:fs");
+    const path = await import("node:path");
+    const db = getDb();
+    const document = getParsedDocument(db, input.id);
+    if (!document?.content) throw new Error("Parsed document has no editable content");
+    if (document.content.length > 80_000) {
+      throw new Error("Document is too large for safe direct AI editing (80,000 character limit)");
+    }
+    if (!(await isAuthorizedFilePath(document.path)))
+      throw new Error("Document path is no longer authorized");
+    const sourceFormat = document.parsedFormat === "csv" ? "CSV válido" : "Markdown";
+    const instruction =
+      input.instruction?.trim() ||
+      "Melhore hierarquia, legibilidade, nomes de seções e organização dos dados sem remover, inventar ou alterar nenhum fato.";
+    const result = await getLlmProvider().complete({
+      model: getActiveProviderConfig().model,
+      messages: [
+        {
+          role: "system",
+          content: `Você edita documentos diretamente. Preserve todos os fatos e valores. Retorne somente o arquivo final em ${sourceFormat}, sem cercas de código, comentários ou explicações.`,
+        },
+        {
+          role: "user",
+          content: `${instruction}\n\nNome: ${document.displayName}\n\nConteúdo:\n${document.content}`,
+        },
+      ],
+      temperature: 0.2,
+      maxTokens: 16_000,
+    });
+    const improved = result.content.trim();
+    if (!improved) throw new Error("The AI returned empty content");
+
+    const canReplaceSource = document.parsedFormat === "markdown" || document.parsedFormat === "csv";
+    const extension = document.parsedFormat === "csv" ? ".csv" : ".md";
+    const outputPath = canReplaceSource
+      ? document.path
+      : path.join(
+          path.dirname(document.path),
+          `${path.basename(document.path, path.extname(document.path))}.organized${extension}`,
+        );
+    if (!(await isAuthorizedFilePath(outputPath)))
+      throw new Error("Output path is outside the authorized directory");
+    const outputExtension = path.extname(outputPath);
+    const temporaryPath = path.join(
+      path.dirname(outputPath),
+      `${path.basename(outputPath, outputExtension)}.helix-tmp-${randomUUID()}${outputExtension}`,
+    );
+    const backupPath = `${outputPath}.helix-backup-${randomUUID()}`;
+    let backupCreated = false;
+    try {
+      await fs.writeFile(temporaryPath, improved, "utf-8");
+      if (document.parsedFormat === "csv") {
+        const validation = await parseDocument(temporaryPath);
+        if (!validation.ok) throw new Error(`AI returned invalid CSV: ${validation.error}`);
+        if (
+          validation.document.metadata.rows !== document.parsedMetadata.rows ||
+          validation.document.metadata.columns !== document.parsedMetadata.columns
+        ) {
+          throw new Error("AI changed the CSV row or column count; original file was preserved");
+        }
+      }
+      try {
+        await fs.rename(outputPath, backupPath);
+        backupCreated = true;
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+      }
+      await fs.rename(temporaryPath, outputPath);
+      if (backupCreated) await fs.unlink(backupPath);
+    } catch (err) {
+      await fs.rm(temporaryPath, { force: true });
+      if (backupCreated) await fs.rename(backupPath, outputPath);
+      throw err;
+    }
+
+    const update = {
+      displayName: path.basename(outputPath),
+      content: improved,
+      preview: improved.slice(0, 500),
+      size: Buffer.byteLength(improved),
+      mimeType: document.parsedFormat === "csv" ? "text/csv" : "text/markdown",
+      parsedFormat: document.parsedFormat === "csv" ? "csv" : "markdown",
+      parsedMetadata: { ...document.parsedMetadata, improvedByAi: true, originalPath: document.path },
+      status: "done" as const,
+      encoding: "parsed",
+      error: undefined,
+    };
+    let savedId = document.id;
+    if (canReplaceSource) updateStoredParsedDocument(db, document.id, update);
+    else savedId = upsertParsedDocument(db, { ...update, path: outputPath });
+    const saved = getParsedDocument(db, savedId);
+    if (!saved) throw new Error("Failed to persist improved document");
+    return { document: toParsedDocument(saved), outputPath };
   },
 };

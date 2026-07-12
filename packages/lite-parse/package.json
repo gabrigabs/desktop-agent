@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "@desktop-agent/shared": "workspace:*",
-    "@llamaindex/liteparse": "^2.5.1"
+    "@llamaindex/liteparse": "^2.5.1",
+    "exceljs": "4.4.0"
   },
   "optionalDependencies": {
     "@llamaindex/liteparse-darwin-arm64": "2.5.1",

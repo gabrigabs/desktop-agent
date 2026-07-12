@@ -5,6 +5,7 @@ import {
   Copy,
   Download,
   FileText,
+  FolderOpen,
   Loader2,
   Pencil,
   ScanText,
@@ -48,6 +49,16 @@ export function ParserModePanel({ parser, onBack, setQuery, setMode, onToastErro
       fileInputRef.current?.click();
     }
   }, [parser]);
+
+  const handleIndexFolder = useCallback(async () => {
+    try {
+      const { open } = await import("@tauri-apps/plugin-dialog");
+      const selected = await open({ directory: true, multiple: false });
+      if (typeof selected === "string") await parser.indexMarkdownFolder(selected);
+    } catch (err) {
+      onToastError?.(err instanceof Error ? err.message : String(err));
+    }
+  }, [onToastError, parser]);
 
   const handleFileInputChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -95,14 +106,25 @@ export function ParserModePanel({ parser, onBack, setQuery, setMode, onToastErro
                 {t("helix:parserMode.fileCount", { count: parser.jobs.length })}
               </span>
             )}
+            {parser.sources.length > 0 && (
+              <span className="rounded-full bg-white/[0.05] px-2 py-0.5 text-[10px] text-mute">
+                {t("helix:parserMode.sourceCount", { count: parser.sources.length })}
+              </span>
+            )}
           </div>
           <p className="mt-1 text-xs leading-relaxed text-faint">{t("helix:parserMode.description")}</p>
         </div>
         {parser.jobs.length > 0 && (
-          <Button variant="ghost" size="sm" onClick={parser.clearAll}>
-            <Trash2 className="w-3.5 h-3.5" />
-            {t("helix:parserMode.clearAll")}
-          </Button>
+          <div className="flex gap-1">
+            <Button variant="ghost" size="sm" onClick={handleIndexFolder}>
+              <FolderOpen className="w-3.5 h-3.5" />
+              {t("helix:parserMode.indexFolder")}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={parser.clearAll}>
+              <Trash2 className="w-3.5 h-3.5" />
+              {t("helix:parserMode.clearAll")}
+            </Button>
+          </div>
         )}
       </div>
 
@@ -114,6 +136,8 @@ export function ParserModePanel({ parser, onBack, setQuery, setMode, onToastErro
           onSelectFiles={handleSelectFiles}
           dropHint={t("helix:parserMode.dropHint")}
           selectLabel={t("helix:parserMode.selectFiles")}
+          onIndexFolder={handleIndexFolder}
+          indexFolderLabel={t("helix:parserMode.indexFolder")}
         />
       ) : (
         <div className="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row">
@@ -133,9 +157,15 @@ export function ParserModePanel({ parser, onBack, setQuery, setMode, onToastErro
             onSendToChat={() =>
               parser.selectedJob && parser.sendToChat(parser.selectedJob.path, setQuery, setMode)
             }
-            onImprove={() =>
-              parser.selectedJob && parser.sendToChat(parser.selectedJob.path, setQuery, setMode, true)
-            }
+            improving={parser.improvingPath === parser.selectedJob?.path}
+            onImprove={() => {
+              if (!parser.selectedJob) return;
+              if (
+                window.confirm(t("helix:parserMode.improveConfirm", { name: parser.selectedJob.displayName }))
+              ) {
+                void parser.improveFile(parser.selectedJob.path);
+              }
+            }}
           />
         </div>
       )}
@@ -148,16 +178,18 @@ function DropZone({
   onSelectFiles,
   dropHint,
   selectLabel,
+  onIndexFolder,
+  indexFolderLabel,
 }: {
   isDragging: boolean;
   onSelectFiles: () => void;
   dropHint: string;
   selectLabel: string;
+  onIndexFolder: () => void;
+  indexFolderLabel: string;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onSelectFiles}
+    <div
       className={`flex flex-1 flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed transition-all duration-200 ${
         isDragging
           ? "scale-[1.01] border-signal/50 bg-signal/[0.06]"
@@ -170,10 +202,22 @@ function DropZone({
         <FileText className="h-7 w-7 text-signal" />
       </div>
       <span className="text-sm text-mute">{dropHint}</span>
-      <span className="rounded-lg border border-signal/20 bg-signal/[0.06] px-3 py-1.5 text-xs font-medium text-signal">
+      <button
+        type="button"
+        onClick={onSelectFiles}
+        className="rounded-lg border border-signal/20 bg-signal/[0.06] px-3 py-1.5 text-xs font-medium text-signal"
+      >
         {selectLabel}
-      </span>
-    </button>
+      </button>
+      <button
+        type="button"
+        onClick={onIndexFolder}
+        className="flex items-center gap-1 text-xs text-faint hover:text-mute"
+      >
+        <FolderOpen className="h-3.5 w-3.5" />
+        {indexFolderLabel}
+      </button>
+    </div>
   );
 }
 
@@ -267,6 +311,7 @@ function PreviewPane({
   onDownloadTxt,
   onSendToChat,
   onImprove,
+  improving,
 }: {
   job: ParseJob | null;
   onRename: (name: string) => void;
@@ -275,6 +320,7 @@ function PreviewPane({
   onDownloadTxt: () => void;
   onSendToChat: () => void;
   onImprove: () => void;
+  improving: boolean;
 }) {
   const { t } = useTranslation("helix");
   const [view, setView] = useState<"preview" | "source">("preview");
@@ -417,9 +463,13 @@ function PreviewPane({
           <Send className="w-3.5 h-3.5" />
           {t("helix:parserMode.sendToChat")}
         </Button>
-        <Button variant="ghost" size="sm" onClick={onImprove} className="shrink-0">
-          <Sparkles className="w-3.5 h-3.5" />
-          {t("helix:parserMode.improveWithAi")}
+        <Button variant="ghost" size="sm" onClick={onImprove} disabled={improving} className="shrink-0">
+          {improving ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <Sparkles className="w-3.5 h-3.5" />
+          )}
+          {t(improving ? "helix:parserMode.improving" : "helix:parserMode.improveWithAi")}
         </Button>
       </div>
       <div key={job.path + view} className="helix-view-enter min-h-0 flex-1 overflow-y-auto px-5 py-4">

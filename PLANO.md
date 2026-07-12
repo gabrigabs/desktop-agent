@@ -807,7 +807,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### FILE02 — Parsers locais de documentos
 
-- Status: parcialmente concluído em 2026-07-12 (`515cada`, `7b3c28c`) — parsing local base entregue; tabela Excel e indexação Markdown permanecem pendentes.
+- Status: concluído em 2026-07-12 — parsing local, normalização XLSX, storage do Parser e indexação Markdown entregues.
 - Objetivo: interpretar PDF, CSV, Excel e Markdown de forma determinística antes do LLM.
 - Implementação:
   1. PDF com texto por página, metadados e indicação de páginas sem camada textual.
@@ -829,10 +829,10 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
   - Storage persistente de documentos parseados com identidade estável, deduplicação por path, restauração após reload, rename de nome de exibição e deleção confirmada pelo runtime.
   - Ação "Organizar com IA" envia o documento já estruturado ao chat com instrução explícita para melhorar formatação sem alterar fatos.
   - Seletor nativo aceita PDF, CSV, XLS/XLSX, Markdown, DOCX, PPTX e imagens suportadas; o fallback do navegador permanece seguro para formatos textuais.
+  - XLSX é normalizado por aba em tabelas Markdown, com headers estáveis, tipos inferidos por coluna e limites de 1.000 linhas/50 colunas por aba.
+  - Pastas Markdown podem ser indexadas de forma opt-in, persistem como fontes, reindexam até 100 arquivos em profundidade 5 e removem entradas que deixaram de existir.
+  - "Organizar com IA" edita diretamente após confirmação: Markdown/CSV usam escrita atômica no original; formatos binários preservam a origem e geram um arquivo irmão `.organized.md`.
   - Cobertura automatizada dos edge cases de CSV e da estrutura Markdown.
-- Pendente para concluir:
-  - Normalizar XLSX em tabelas por aba com headers, tipos inferidos e limites explícitos de linhas/colunas.
-  - Indexação opt-in de pasta Markdown como fonte persistente de Workspace.
 
 ### Fase 13 — Mermaid Confiável
 

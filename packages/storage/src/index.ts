@@ -15,6 +15,12 @@ export {
   searchInteractions,
 } from "./repositories/interactions";
 export {
+  deleteAllMarkdownSources,
+  listMarkdownSources,
+  type MarkdownSource,
+  upsertMarkdownSource,
+} from "./repositories/markdown-sources";
+export {
   createMcpServer,
   deleteMcpServer,
   ensureDefaultMcpPresets,

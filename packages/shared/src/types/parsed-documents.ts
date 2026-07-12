@@ -14,3 +14,13 @@ export type ParsedDocument = {
   createdAt: string;
   updatedAt: string;
 };
+
+export type MarkdownSource = {
+  id: string;
+  path: string;
+  displayName: string;
+  fileCount: number;
+  lastIndexedAt: string;
+  createdAt: string;
+  updatedAt: string;
+};

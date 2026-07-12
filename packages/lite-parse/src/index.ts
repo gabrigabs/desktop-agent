@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import type { LiteParse } from "@llamaindex/liteparse";
+import ExcelJS from "exceljs";
 import {
   MAX_CONTENT_CHARS,
   MAX_PREVIEW_CHARS,
@@ -28,6 +29,8 @@ const LITEPARSE_EXTS: Set<ParseableExt> = new Set([
 ]);
 
 const parserInstances = new Map<boolean, LiteParse>();
+const MAX_SHEET_ROWS = 1_000;
+const MAX_SHEET_COLUMNS = 50;
 
 type NativeLiteParseModule = {
   LiteParse: new (config: Record<string, unknown>) => LiteParse;
@@ -274,6 +277,127 @@ async function parseMarkdown(filePath: string): Promise<ParseResult> {
   }
 }
 
+function cellValue(value: ExcelJS.CellValue): string | number | boolean | Date | null {
+  if (value === null || value === undefined) return null;
+  if (
+    value instanceof Date ||
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return value;
+  }
+  if (typeof value === "object") {
+    const record = value as unknown as Record<string, unknown>;
+    if ("result" in value) return cellValue(value.result as ExcelJS.CellValue);
+    if ("text" in value) return String(value.text);
+    if ("richText" in value) return value.richText.map((part) => part.text).join("");
+    if ("hyperlink" in record) return String(record.text ?? record.hyperlink);
+  }
+  return String(value);
+}
+
+function inferColumnType(values: Array<string | number | boolean | Date | null>): string {
+  const types = new Set(
+    values
+      .filter((value) => value !== null && value !== "")
+      .map((value) => {
+        if (value instanceof Date) return "date";
+        return typeof value;
+      }),
+  );
+  if (types.size === 0) return "empty";
+  if (types.size === 1) return Array.from(types)[0] ?? "empty";
+  return "mixed";
+}
+
+function markdownCell(value: string | number | boolean | Date | null): string {
+  if (value === null) return "";
+  const text = value instanceof Date ? value.toISOString() : String(value);
+  return text.replace(/\|/g, "\\|").replace(/\r?\n/g, "<br>");
+}
+
+async function parseXlsx(filePath: string): Promise<ParseResult> {
+  try {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(filePath);
+    const sections: string[] = [];
+    const sheetDetails: NonNullable<ParsedDocument["metadata"]["sheetDetails"]> = [];
+    let totalRows = 0;
+    let maxColumns = 0;
+    let anyTruncated = false;
+
+    for (const worksheet of workbook.worksheets) {
+      const rowCount = Math.min(worksheet.actualRowCount, MAX_SHEET_ROWS + 1);
+      const columnCount = Math.min(worksheet.actualColumnCount, MAX_SHEET_COLUMNS);
+      const rows: Array<Array<string | number | boolean | Date | null>> = [];
+      for (let rowIndex = 1; rowIndex <= rowCount; rowIndex++) {
+        const row: Array<string | number | boolean | Date | null> = [];
+        for (let columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
+          row.push(cellValue(worksheet.getCell(rowIndex, columnIndex).value));
+        }
+        rows.push(row);
+      }
+
+      const rawHeaders = rows[0] ?? [];
+      const headers = Array.from({ length: columnCount }, (_, index) => {
+        const header = markdownCell(rawHeaders[index] ?? null).trim();
+        return header || `Column ${index + 1}`;
+      });
+      const dataRows = rows.slice(1);
+      const columnTypes = headers.map((_, index) =>
+        inferColumnType(dataRows.map((row) => row[index] ?? null)),
+      );
+      const truncated =
+        worksheet.actualRowCount > MAX_SHEET_ROWS + 1 || worksheet.actualColumnCount > MAX_SHEET_COLUMNS;
+      anyTruncated ||= truncated;
+      totalRows += Math.max(worksheet.actualRowCount - 1, 0);
+      maxColumns = Math.max(maxColumns, worksheet.actualColumnCount);
+      sheetDetails.push({
+        name: worksheet.name,
+        rows: Math.max(worksheet.actualRowCount - 1, 0),
+        columns: worksheet.actualColumnCount,
+        headers,
+        columnTypes,
+        truncated,
+      });
+
+      const table = [
+        `## ${worksheet.name}`,
+        "",
+        `| ${headers.map(markdownCell).join(" | ")} |`,
+        `| ${headers.map(() => "---").join(" | ")} |`,
+        ...dataRows.map(
+          (row) => `| ${headers.map((_, index) => markdownCell(row[index] ?? null)).join(" | ")} |`,
+        ),
+      ];
+      if (truncated)
+        table.push("", `_Preview limited to ${MAX_SHEET_ROWS} rows and ${MAX_SHEET_COLUMNS} columns._`);
+      sections.push(table.join("\n"));
+    }
+
+    const normalized = sections.join("\n\n");
+    const { content, preview, truncated } = truncate(normalized);
+    return {
+      ok: true,
+      document: {
+        format: "excel",
+        content,
+        preview,
+        metadata: {
+          sheets: workbook.worksheets.map((sheet) => sheet.name),
+          sheetDetails,
+          rows: totalRows,
+          columns: maxColumns,
+          truncated: truncated || anyTruncated,
+        },
+      },
+    };
+  } catch (err) {
+    return { ok: false, error: `XLSX parse failed: ${err instanceof Error ? err.message : String(err)}` };
+  }
+}
+
 export async function parseDocument(filePath: string): Promise<ParseResult> {
   const ext = getParseableExt(filePath);
   if (!ext) {
@@ -282,6 +406,7 @@ export async function parseDocument(filePath: string): Promise<ParseResult> {
 
   if (ext === ".csv") return parseCsv(filePath);
   if (ext === ".md" || ext === ".markdown") return parseMarkdown(filePath);
+  if (ext === ".xlsx") return parseXlsx(filePath);
 
   if (ext === ".xls") {
     return {

@@ -1,4 +1,4 @@
-import type { FileContextInput, ParsedDocument } from "@desktop-agent/shared";
+import type { FileContextInput, MarkdownSource, ParsedDocument } from "@desktop-agent/shared";
 import { useCallback, useEffect, useState } from "react";
 import { getAgent } from "../../../lib/rpc";
 import { useAgentStore } from "../../../stores/agent";
@@ -67,15 +67,21 @@ export function useParserMode(
 ) {
   const [jobs, setJobs] = useState<ParseJob[]>([]);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [sources, setSources] = useState<MarkdownSource[]>([]);
+  const [improvingPath, setImprovingPath] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
         const api = await getAgent();
-        const docs = await api.listParsedDocuments({ limit: 100 });
+        const [docs, savedSources] = await Promise.all([
+          api.listParsedDocuments({ limit: 100 }),
+          api.listMarkdownSources(),
+        ]);
         if (!cancelled) {
           setJobs(docs.map(parsedDocumentToParseJob));
+          setSources(savedSources);
         }
       } catch (err) {
         console.error("Failed to load parsed documents:", err);
@@ -201,6 +207,30 @@ export function useParserMode(
     [saveJob],
   );
 
+  const indexMarkdownFolder = useCallback(
+    async (path: string) => {
+      try {
+        const api = await getAgent();
+        const result = await api.indexMarkdownFolder({ path });
+        const indexedJobs = result.documents.map(parsedDocumentToParseJob);
+        setJobs((current) => {
+          const byPath = new Map(current.map((job) => [job.path, job]));
+          for (const job of indexedJobs) byPath.set(job.path, job);
+          return Array.from(byPath.values());
+        });
+        setSources((current) => [
+          result.source,
+          ...current.filter((source) => source.id !== result.source.id),
+        ]);
+        setSelectedPath((current) => current ?? indexedJobs[0]?.path ?? null);
+        onToastSuccess?.("parserMode.folderIndexed");
+      } catch (err) {
+        onError?.(`Failed to index Markdown folder: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    },
+    [onError, onToastSuccess],
+  );
+
   const removeFile = useCallback(
     async (path: string) => {
       const job = jobs.find((item) => item.path === path);
@@ -228,6 +258,7 @@ export function useParserMode(
       const api = await getAgent();
       await api.deleteAllParsedDocuments();
       setJobs([]);
+      setSources([]);
       setSelectedPath(null);
       onToastSuccess?.("parserMode.cleared");
     } catch (err) {
@@ -313,22 +344,50 @@ export function useParserMode(
     [jobs, onToastSuccess],
   );
 
+  const improveFile = useCallback(
+    async (path: string) => {
+      const job = jobs.find((item) => item.path === path);
+      if (!job?.id) return;
+      setImprovingPath(path);
+      try {
+        const api = await getAgent();
+        const result = await api.improveParsedDocument({ id: job.id });
+        const improvedJob = parsedDocumentToParseJob(result.document);
+        setJobs((current) => {
+          const withoutPrevious = current.filter((item) => item.id !== improvedJob.id);
+          return [improvedJob, ...withoutPrevious];
+        });
+        setSelectedPath(improvedJob.path);
+        onToastSuccess?.("parserMode.improved");
+      } catch (err) {
+        onError?.(`Failed to improve document: ${err instanceof Error ? err.message : String(err)}`);
+      } finally {
+        setImprovingPath(null);
+      }
+    },
+    [jobs, onError, onToastSuccess],
+  );
+
   const selectFile = useCallback((path: string) => {
     setSelectedPath(path);
   }, []);
 
   return {
     jobs,
+    sources,
+    improvingPath,
     selectedPath,
     selectedJob: jobs.find((j) => j.path === selectedPath) ?? null,
     addFiles,
     addWebFiles,
+    indexMarkdownFolder,
     removeFile,
     renameFile,
     clearAll,
     copyContent,
     downloadContent,
     sendToChat,
+    improveFile,
     selectFile,
   };
 }

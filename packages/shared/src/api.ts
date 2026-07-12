@@ -1,4 +1,4 @@
-import type { ParsedDocument } from "./types/parsed-documents";
+import type { MarkdownSource, ParsedDocument } from "./types/parsed-documents";
 import type {
   AgentEvent,
   AgentProfile,
@@ -132,5 +132,13 @@ export type AgentApi = {
   updateParsedDocument(input: { id: string; displayName: string }): Promise<ParsedDocument>;
   deleteParsedDocument(input: { id: string }): Promise<void>;
   deleteAllParsedDocuments(): Promise<void>;
+  indexMarkdownFolder(input: {
+    path: string;
+  }): Promise<{ source: MarkdownSource; documents: ParsedDocument[] }>;
+  listMarkdownSources(): Promise<MarkdownSource[]>;
+  improveParsedDocument(input: {
+    id: string;
+    instruction?: string;
+  }): Promise<{ document: ParsedDocument; outputPath: string }>;
   shutdown(): Promise<void>;
 };

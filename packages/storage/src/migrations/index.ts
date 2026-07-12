@@ -12,6 +12,7 @@ import { runMigration as runConversationProfileIdMigration } from "./010_convers
 import { runMigration as runTurnProfileIdMigration } from "./011_turn_profile_id";
 import { runMigration as runParsedDocumentsMigration } from "./012_parsed_documents";
 import { runMigration as runParsedDocumentsIdentityMigration } from "./013_parsed_documents_identity";
+import { runMigration as runMarkdownSourcesMigration } from "./014_markdown_sources";
 
 const MIGRATION_TABLE = `
   CREATE TABLE IF NOT EXISTS _migrations (
@@ -43,4 +44,5 @@ export function runMigrations(db: Database): void {
   applyMigration(db, 11, runTurnProfileIdMigration);
   applyMigration(db, 12, runParsedDocumentsMigration);
   applyMigration(db, 13, runParsedDocumentsIdentityMigration);
+  applyMigration(db, 14, runMarkdownSourcesMigration);
 }
