@@ -182,6 +182,7 @@ export function NormalCommandView(p: Props) {
         </PanelWrapper>
       ) : p.mode === "parser" ? (
         <ParserModePanel
+          variant="compact"
           parser={p.parser}
           onBack={() => p.setMode("command")}
           setQuery={p.setQuery}

@@ -772,6 +772,7 @@
     "improveWithAi": "Organize with AI",
     "improving": "Organizing...",
     "improved": "File organized and saved directly",
+    "improvedAt": "Organized and saved to {{path}}",
     "improveConfirm": "AI will edit {{name}} directly. Continue?",
     "indexFolder": "Index Markdown folder",
     "folderIndexed": "Markdown folder indexed",

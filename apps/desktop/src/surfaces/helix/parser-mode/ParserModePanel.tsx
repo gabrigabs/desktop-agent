@@ -23,6 +23,7 @@ import type { HelixMode } from "../types";
 import type { ParseJob, ParserModeState } from "./useParserMode";
 
 type Props = {
+  variant: "compact" | "expanded";
   parser: ParserModeState;
   onBack: () => void;
   setQuery: (q: string) => void;
@@ -31,8 +32,9 @@ type Props = {
   onToastError?: (message: string, duration?: number) => void;
 };
 
-export function ParserModePanel({ parser, onBack, setQuery, setMode, onToastError }: Props) {
+export function ParserModePanel({ variant, parser, onBack, setQuery, setMode, onToastError }: Props) {
   const { t } = useTranslation("helix");
+  const compact = variant === "compact";
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { isDragging } = useDragDrop(parser.addFiles);
@@ -92,13 +94,13 @@ export function ParserModePanel({ parser, onBack, setQuery, setMode, onToastErro
   );
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4">
-      <div className="flex items-start gap-3 border-b border-line pb-3">
-        <Button variant="ghost" size="sm" onClick={onBack}>
-          <ArrowLeft className="w-3.5 h-3.5" />
-          {t("helix:normalCommandView.back")}
-        </Button>
-        <div className="min-w-0 flex-1">
+    <div className={`flex h-full min-h-0 flex-col ${compact ? "gap-3" : "gap-4"}`}>
+      <div className={`flex border-b border-line ${compact ? "flex-col gap-2 pb-2" : "gap-3 pb-3"}`}>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={onBack} className="shrink-0 px-2">
+            <ArrowLeft className="w-3.5 h-3.5" />
+            {t("helix:normalCommandView.back")}
+          </Button>
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-fg">{t("helix:parserMode.title")}</span>
             {parser.jobs.length > 0 && (
@@ -112,23 +114,34 @@ export function ParserModePanel({ parser, onBack, setQuery, setMode, onToastErro
               </span>
             )}
           </div>
-          <p className="mt-1 text-xs leading-relaxed text-faint">{t("helix:parserMode.description")}</p>
+          {!compact && (
+            <p className="ml-2 min-w-0 truncate text-xs text-faint">{t("helix:parserMode.description")}</p>
+          )}
         </div>
         {parser.jobs.length > 0 && (
-          <div className="flex gap-1">
+          <div className={`flex gap-1 ${compact ? "w-full justify-end" : "shrink-0"}`}>
             <Button variant="ghost" size="sm" onClick={handleIndexFolder}>
               <FolderOpen className="w-3.5 h-3.5" />
-              {t("helix:parserMode.indexFolder")}
+              <span className={compact ? "sr-only" : undefined}>{t("helix:parserMode.indexFolder")}</span>
             </Button>
             <Button variant="ghost" size="sm" onClick={parser.clearAll}>
               <Trash2 className="w-3.5 h-3.5" />
-              {t("helix:parserMode.clearAll")}
+              <span className={compact ? "sr-only" : undefined}>{t("helix:parserMode.clearAll")}</span>
             </Button>
           </div>
         )}
       </div>
 
       <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileInputChange} />
+
+      {parser.lastImprovedPath && (
+        <div className="flex min-w-0 items-center gap-2 rounded-lg border border-good/20 bg-good/[0.06] px-3 py-2 text-xs text-good">
+          <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate" title={parser.lastImprovedPath}>
+            {t("helix:parserMode.improvedAt", { path: parser.lastImprovedPath.split(/[/\\]/).pop() })}
+          </span>
+        </div>
+      )}
 
       {parser.jobs.length === 0 ? (
         <DropZone
@@ -149,6 +162,7 @@ export function ParserModePanel({ parser, onBack, setQuery, setMode, onToastErro
             onAdd={handleSelectFiles}
           />
           <PreviewPane
+            compact={compact}
             job={parser.selectedJob}
             onRename={(name) => parser.selectedJob && parser.renameFile(parser.selectedJob.path, name)}
             onCopy={() => parser.selectedJob && parser.copyContent(parser.selectedJob.path)}
@@ -305,6 +319,7 @@ function StatusIcon({ status }: { status: ParseJob["status"] }) {
 
 function PreviewPane({
   job,
+  compact,
   onRename,
   onCopy,
   onDownloadMd,
@@ -314,6 +329,7 @@ function PreviewPane({
   improving,
 }: {
   job: ParseJob | null;
+  compact: boolean;
   onRename: (name: string) => void;
   onCopy: () => void;
   onDownloadMd: () => void;
@@ -364,115 +380,112 @@ function PreviewPane({
 
   return (
     <div className="flex min-h-64 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-line bg-white/[0.02]">
-      <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-line bg-white/[0.015] px-2 py-2">
-        <div className="mr-auto w-44 shrink-0 px-2">
-          {editingName ? (
-            <input
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              onBlur={commitName}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") commitName();
-                if (event.key === "Escape") {
+      <div
+        className={`flex shrink-0 border-b border-line bg-white/[0.015] ${compact ? "flex-col" : "items-center"}`}
+      >
+        <div className={`flex min-w-0 items-center gap-2 px-3 py-2 ${compact ? "w-full" : "mr-auto w-56"}`}>
+          <div className="min-w-0 flex-1">
+            {editingName ? (
+              <input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                onBlur={commitName}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") commitName();
+                  if (event.key === "Escape") {
+                    setName(job.displayName);
+                    setEditingName(false);
+                  }
+                }}
+                className="w-full rounded border border-signal/30 bg-ink/40 px-1.5 py-0.5 text-xs font-semibold text-fg outline-none"
+                aria-label={t("helix:parserMode.rename")}
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
                   setName(job.displayName);
-                  setEditingName(false);
-                }
-              }}
-              className="w-full rounded border border-signal/30 bg-ink/40 px-1.5 py-0.5 text-xs font-semibold text-fg outline-none"
-              aria-label={t("helix:parserMode.rename")}
-            />
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                setName(job.displayName);
-                setEditingName(true);
-              }}
-              className="flex max-w-full items-center gap-1 text-left text-xs font-semibold text-fg"
-              title={t("helix:parserMode.rename")}
-            >
-              <span className="truncate">{job.displayName}</span>
-              <Pencil className="h-3 w-3 shrink-0 text-faint" />
-            </button>
+                  setEditingName(true);
+                }}
+                className="flex max-w-full items-center gap-1 text-left text-xs font-semibold text-fg"
+                title={t("helix:parserMode.rename")}
+              >
+                <span className="truncate">{job.displayName}</span>
+                <Pencil className="h-3 w-3 shrink-0 text-faint" />
+              </button>
+            )}
+            <p className="text-[10px] uppercase tracking-wider text-faint">
+              {job.format ?? "document"}
+              {job.metadata && "pages" in job.metadata
+                ? ` · ${job.metadata.pages} ${t("helix:parserMode.pages")}`
+                : ""}
+              {job.size > 0 ? ` · ${formatFileSize(job.size)}` : ""}
+            </p>
+          </div>
+          {compact && (
+            <fieldset className="flex shrink-0 rounded-lg border border-line bg-ink/20 p-0.5">
+              <ViewToggle view={view} setView={setView} compact />
+            </fieldset>
           )}
-          <p className="text-[10px] uppercase tracking-wider text-faint">
-            {job.format ?? "document"}
-            {job.metadata && "pages" in job.metadata
-              ? ` · ${job.metadata.pages} ${t("helix:parserMode.pages")}`
-              : ""}
-            {job.size > 0 ? ` · ${formatFileSize(job.size)}` : ""}
-          </p>
         </div>
-        <fieldset className="mr-1 flex rounded-lg border border-line bg-ink/20 p-0.5">
-          <button
-            type="button"
-            onClick={() => setView("preview")}
-            aria-pressed={view === "preview"}
-            className={`flex h-6 items-center gap-1 rounded-md px-2 text-[10px] font-medium transition-colors ${
-              view === "preview" ? "bg-white/[0.08] text-fg" : "text-faint hover:text-mute"
-            }`}
-          >
-            <ScanText className="h-3 w-3" />
-            {t("helix:parserMode.preview")}
-          </button>
-          <button
-            type="button"
-            onClick={() => setView("source")}
-            aria-pressed={view === "source"}
-            className={`flex h-6 items-center gap-1 rounded-md px-2 text-[10px] font-medium transition-colors ${
-              view === "source" ? "bg-white/[0.08] text-fg" : "text-faint hover:text-mute"
-            }`}
-          >
-            <Braces className="h-3 w-3" />
-            {t("helix:parserMode.source")}
-          </button>
-        </fieldset>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onCopy}
-          aria-label={t("helix:parserMode.copy")}
-          title={t("helix:parserMode.copy")}
-          className="px-2"
+        <div
+          className={`flex items-center gap-1 px-2 py-1.5 ${compact ? "w-full border-t border-line/60" : ""}`}
         >
-          <Copy className="w-3.5 h-3.5" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onDownloadMd}
-          aria-label={t("helix:parserMode.downloadMarkdown")}
-          title={t("helix:parserMode.downloadMarkdown")}
-          className="px-2"
-        >
-          <Download className="w-3.5 h-3.5" />
-          .md
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onDownloadTxt}
-          aria-label={t("helix:parserMode.downloadText")}
-          title={t("helix:parserMode.downloadText")}
-          className="px-2"
-        >
-          <Download className="w-3.5 h-3.5" />
-          .txt
-        </Button>
-        <Button variant="primary" size="sm" onClick={onSendToChat} className="shrink-0">
-          <Send className="w-3.5 h-3.5" />
-          {t("helix:parserMode.sendToChat")}
-        </Button>
-        <Button variant="ghost" size="sm" onClick={onImprove} disabled={improving} className="shrink-0">
-          {improving ? (
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          ) : (
-            <Sparkles className="w-3.5 h-3.5" />
+          {!compact && (
+            <fieldset className="mr-1 flex rounded-lg border border-line bg-ink/20 p-0.5">
+              <ViewToggle view={view} setView={setView} />
+            </fieldset>
           )}
-          {t(improving ? "helix:parserMode.improving" : "helix:parserMode.improveWithAi")}
-        </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onCopy}
+            aria-label={t("helix:parserMode.copy")}
+            title={t("helix:parserMode.copy")}
+            className="px-2"
+          >
+            <Copy className="w-3.5 h-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onDownloadMd}
+            aria-label={t("helix:parserMode.downloadMarkdown")}
+            title={t("helix:parserMode.downloadMarkdown")}
+            className="px-2"
+          >
+            <Download className="w-3.5 h-3.5" />
+            {!compact && ".md"}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onDownloadTxt}
+            aria-label={t("helix:parserMode.downloadText")}
+            title={t("helix:parserMode.downloadText")}
+            className="px-2"
+          >
+            <Download className="w-3.5 h-3.5" />
+            {!compact && ".txt"}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={onSendToChat} className="ml-auto shrink-0">
+            <Send className="w-3.5 h-3.5" />
+            {!compact && t("helix:parserMode.sendToChat")}
+          </Button>
+          <Button variant="primary" size="sm" onClick={onImprove} disabled={improving} className="shrink-0">
+            {improving ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="w-3.5 h-3.5" />
+            )}
+            {t(improving ? "helix:parserMode.improving" : "helix:parserMode.improveWithAi")}
+          </Button>
+        </div>
       </div>
-      <div key={job.path + view} className="helix-view-enter min-h-0 flex-1 overflow-y-auto px-5 py-4">
+      <div
+        key={job.path + view}
+        className={`helix-view-enter min-h-0 flex-1 overflow-y-auto ${compact ? "px-3 py-3" : "px-5 py-4"}`}
+      >
         {view === "preview" ? (
           <MarkdownRenderer
             key={`${job.path}-preview`}
@@ -486,6 +499,42 @@ function PreviewPane({
         )}
       </div>
     </div>
+  );
+}
+
+function ViewToggle({
+  view,
+  setView,
+  compact = false,
+}: {
+  view: "preview" | "source";
+  setView: (view: "preview" | "source") => void;
+  compact?: boolean;
+}) {
+  const { t } = useTranslation("helix");
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setView("preview")}
+        aria-pressed={view === "preview"}
+        title={t("helix:parserMode.preview")}
+        className={`flex h-6 items-center gap-1 rounded-md px-2 text-[10px] font-medium transition-colors ${view === "preview" ? "bg-white/[0.08] text-fg" : "text-faint hover:text-mute"}`}
+      >
+        <ScanText className="h-3 w-3" />
+        {!compact && t("helix:parserMode.preview")}
+      </button>
+      <button
+        type="button"
+        onClick={() => setView("source")}
+        aria-pressed={view === "source"}
+        title={t("helix:parserMode.source")}
+        className={`flex h-6 items-center gap-1 rounded-md px-2 text-[10px] font-medium transition-colors ${view === "source" ? "bg-white/[0.08] text-fg" : "text-faint hover:text-mute"}`}
+      >
+        <Braces className="h-3 w-3" />
+        {!compact && t("helix:parserMode.source")}
+      </button>
+    </>
   );
 }
 

@@ -772,6 +772,7 @@
     "improveWithAi": "Organizar com IA",
     "improving": "Organizando...",
     "improved": "Arquivo organizado e salvo diretamente",
+    "improvedAt": "Organizado e salvo em {{path}}",
     "improveConfirm": "A IA editará o arquivo {{name}} diretamente. Continuar?",
     "indexFolder": "Indexar pasta Markdown",
     "folderIndexed": "Pasta Markdown indexada",

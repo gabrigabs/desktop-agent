@@ -102,6 +102,7 @@ import {
   unregisterMcpToolsForServer,
 } from "./mcp-tools";
 import { createFileParseTool, ParserAgent } from "./parser";
+import { hasMaterialDocumentChange, normalizeImprovedDocument } from "./parser/improvedDocument";
 import { getPersistedDocumentRoot } from "./parser/persistedAuthorization";
 import { ToolExecutor } from "./workflow/ToolExecutor";
 import { WorkflowRunner } from "./workflow/WorkflowRunner";
@@ -1491,23 +1492,50 @@ export const agentApi: AgentApi = {
     const instruction =
       input.instruction?.trim() ||
       "Melhore hierarquia, legibilidade, nomes de seções e organização dos dados sem remover, inventar ou alterar nenhum fato.";
-    const result = await getLlmProvider().complete({
-      model: getActiveProviderConfig().model,
-      messages: [
-        {
-          role: "system",
-          content: `Você edita documentos diretamente. Preserve todos os fatos e valores. Retorne somente o arquivo final em ${sourceFormat}, sem cercas de código, comentários ou explicações.`,
-        },
-        {
-          role: "user",
-          content: `${instruction}\n\nNome: ${document.displayName}\n\nConteúdo:\n${document.content}`,
-        },
-      ],
-      temperature: 0.2,
-      maxTokens: 16_000,
+    const providerConfig = getActiveProviderConfig();
+    const controller = new AbortController();
+    const timeoutMs = Math.min(Math.max(providerConfig.timeout, 10), 90) * 1_000;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeout = setTimeout(() => {
+        controller.abort();
+        reject(new Error("AI_IMPROVEMENT_TIMEOUT"));
+      }, timeoutMs);
     });
-    const improved = result.content.trim();
+    let result: Awaited<ReturnType<LlmProvider["complete"]>>;
+    try {
+      result = await Promise.race([
+        getLlmProvider().complete({
+          model: providerConfig.model,
+          messages: [
+            {
+              role: "system",
+              content: `Você é um editor estrutural de documentos. Reorganize ativamente o conteúdo com título, seções, listas ou tabelas quando isso melhorar a leitura. Preserve literalmente todos os fatos, nomes, datas e valores. O resultado deve ser materialmente mais organizado que a entrada. Retorne somente o arquivo final em ${sourceFormat}, sem cercas de código, comentários ou explicações.`,
+            },
+            {
+              role: "user",
+              content: `${instruction}\n\nNome: ${document.displayName}\n\nConteúdo:\n${document.content}`,
+            },
+          ],
+          temperature: 0.2,
+          maxTokens: 8_000,
+          signal: controller.signal,
+        }),
+        timeoutPromise,
+      ]);
+    } catch (err) {
+      if (controller.signal.aborted) {
+        throw new Error(`AI improvement timed out after ${Math.round(timeoutMs / 1_000)} seconds`);
+      }
+      throw err;
+    } finally {
+      if (timeout) clearTimeout(timeout);
+    }
+    const improved = normalizeImprovedDocument(result.content);
     if (!improved) throw new Error("The AI returned empty content");
+    if (!hasMaterialDocumentChange(document.content, improved)) {
+      throw new Error("The AI returned the document without changes; the original file was preserved");
+    }
 
     const canReplaceSource = document.parsedFormat === "markdown" || document.parsedFormat === "csv";
     const extension = document.parsedFormat === "csv" ? ".csv" : ".md";
@@ -1553,21 +1581,27 @@ export const agentApi: AgentApi = {
     }
 
     const update = {
-      displayName: path.basename(outputPath),
       content: improved,
       preview: improved.slice(0, 500),
       size: Buffer.byteLength(improved),
-      mimeType: document.parsedFormat === "csv" ? "text/csv" : "text/markdown",
-      parsedFormat: document.parsedFormat === "csv" ? "csv" : "markdown",
-      parsedMetadata: { ...document.parsedMetadata, improvedByAi: true, originalPath: document.path },
+      mimeType: canReplaceSource
+        ? document.parsedFormat === "csv"
+          ? "text/csv"
+          : "text/markdown"
+        : document.mimeType,
+      parsedFormat: document.parsedFormat,
+      parsedMetadata: {
+        ...document.parsedMetadata,
+        improvedByAi: true,
+        originalPath: document.path,
+        organizedOutputPath: outputPath,
+      },
       status: "done" as const,
       encoding: "parsed",
       error: undefined,
     };
-    let savedId = document.id;
-    if (canReplaceSource) updateStoredParsedDocument(db, document.id, update);
-    else savedId = upsertParsedDocument(db, { ...update, path: outputPath });
-    const saved = getParsedDocument(db, savedId);
+    updateStoredParsedDocument(db, document.id, update);
+    const saved = getParsedDocument(db, document.id);
     if (!saved) throw new Error("Failed to persist improved document");
     return { document: toParsedDocument(saved), outputPath };
   },

@@ -69,6 +69,7 @@ export function useParserMode(
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [sources, setSources] = useState<MarkdownSource[]>([]);
   const [improvingPath, setImprovingPath] = useState<string | null>(null);
+  const [lastImprovedPath, setLastImprovedPath] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -358,6 +359,7 @@ export function useParserMode(
           return [improvedJob, ...withoutPrevious];
         });
         setSelectedPath(improvedJob.path);
+        setLastImprovedPath(result.outputPath);
         onToastSuccess?.("parserMode.improved");
       } catch (err) {
         onError?.(`Failed to improve document: ${err instanceof Error ? err.message : String(err)}`);
@@ -376,6 +378,7 @@ export function useParserMode(
     jobs,
     sources,
     improvingPath,
+    lastImprovedPath,
     selectedPath,
     selectedJob: jobs.find((j) => j.path === selectedPath) ?? null,
     addFiles,

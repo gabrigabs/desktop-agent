@@ -193,6 +193,7 @@ export function ExpandedView(p: Props) {
         ) : p.mode === "parser" ? (
           <div className="h-full w-full">
             <ParserModePanel
+              variant="expanded"
               parser={p.parser}
               onBack={() => p.setMode("command")}
               setQuery={p.setQuery}
