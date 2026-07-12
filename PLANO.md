@@ -765,7 +765,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### CL05 — Design system e reorganização de Settings (`D03`)
 
-- Status: pendente, complementa `D03`.
+- Status: concluído em 2026-07-12 (`515cada`), complementa `D03`.
 - Objetivo: padronizar páginas internas antes de consolidá-las em Settings.
 - Implementação:
   1. Aplicar componentes e tokens em Profiles/Prompts, Workflows, Skills e Connectors.
@@ -775,12 +775,16 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 - Aceite:
   - Nenhuma entidade ou dado legado é apagado durante a mudança de localização.
   - CRUD e ativação continuam funcionando ponta a ponta.
+- Evidência:
+  - Profiles/Prompts, Workflows e Skills usam seus painéis funcionais dentro de Settings, sem duplicar estado ou CRUD.
+  - A ação contextual de Workflow abre diretamente a seção `workflows`; a navegação principal não expõe mais modos internos legados.
+  - Footer global não conflita com seções que possuem persistência própria.
 
 ### Fase 12 — Arquivos, Pastas E Parsers
 
 #### FILE01 — Contexto seguro de arquivos e pastas
 
-- Status: pendente.
+- Status: concluído em 2026-07-12 (`515cada`, `cf460e6`).
 - Objetivo: permitir leitura e escrita de arquivos dentro de escopo escolhido pelo usuário.
 - Implementação:
   1. Selecionar arquivo/pasta via diálogo nativo e aceitar drag-and-drop.
@@ -793,10 +797,17 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 - Aceite:
   - Arquivo/pasta anexado permanece visível, removível e auditável.
   - Nenhuma escrita acontece fora do diretório autorizado.
+- Entregue:
+  - Diálogo nativo para arquivo e pasta, drag-and-drop, chips removíveis, preview, deduplicação por path canônico e persistência em blocos de contexto.
+  - Travessia de pasta limitada a 5 níveis/25 arquivos, limite agregado de 10 MB, exclusão de symlinks, pacotes `.app`, `.git`, `node_modules`, `dist` e `target`.
+  - Paths sensíveis conhecidos são bloqueados; conteúdo com indícios de segredo produz aviso removível antes do envio.
+  - Contexto textual e parseado atravessa `startRun`, planejamento, execução e histórico; falhas de leitura/parser chegam ao toast.
+  - A tool `desktop.file.write` só escreve em raízes explicitamente escolhidas, revalida o parent canônico e sempre passa pela aprovação `local.write`.
+  - Testes automatizados comprovam escrita dentro da raiz e rejeição de paths fora do escopo autorizado.
 
 #### FILE02 — Parsers locais de documentos
 
-- Status: pendente.
+- Status: parcialmente concluído em 2026-07-12 (`515cada`) — parsing local base entregue; tabela Excel e indexação Markdown permanecem pendentes.
 - Objetivo: interpretar PDF, CSV, Excel e Markdown de forma determinística antes do LLM.
 - Implementação:
   1. PDF com texto por página, metadados e indicação de páginas sem camada textual.
@@ -806,6 +817,14 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 - Aceite:
   - Preview informa formato, tamanho, páginas/abas e truncamento.
   - Parser falho retorna erro claro e nunca inventa conteúdo.
+- Entregue:
+  - Pacote `@desktop-agent/lite-parse` para PDF, CSV, XLSX, DOCX, PPTX, imagens e Markdown, com limites determinísticos de preview/conteúdo.
+  - CSV suporta campos quoted, vírgulas escapadas e conteúdo multilinha; Markdown extrai frontmatter, títulos, links e blocos de código.
+  - PDF registra páginas, páginas sem camada textual, necessidade de OCR e truncamento; falhas retornam erro estruturado com fallback seguro.
+  - Cobertura automatizada dos edge cases de CSV e da estrutura Markdown.
+- Pendente para concluir:
+  - Normalizar XLSX em tabelas por aba com headers, tipos inferidos e limites explícitos de linhas/colunas.
+  - Indexação opt-in de pasta Markdown como fonte persistente de Workspace.
 
 ### Fase 13 — Mermaid Confiável
 
