@@ -8,6 +8,7 @@ target/
 
 # Tauri
 apps/desktop/src-tauri/binaries/
+apps/desktop/src-tauri/resources/liteparse/
 
 # IDE
 .vscode/

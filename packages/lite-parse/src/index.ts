@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
-import { LiteParse } from "@llamaindex/liteparse";
+import type { LiteParse } from "@llamaindex/liteparse";
 import {
   MAX_CONTENT_CHARS,
   MAX_PREVIEW_CHARS,
@@ -28,15 +29,50 @@ const LITEPARSE_EXTS: Set<ParseableExt> = new Set([
 
 let parserInstance: LiteParse | null = null;
 
-function getParser(): LiteParse {
+type NativeLiteParseModule = {
+  LiteParse: new (config: Record<string, unknown>) => LiteParse;
+};
+
+function loadBundledNativeParser(): LiteParse {
+  const require = createRequire(import.meta.url);
+  const platformArch = `${process.platform}-${process.arch}`;
+  const fileName = `liteparse.${platformArch}.node`;
+  const executableDir = path.dirname(process.execPath);
+  const candidates = [
+    path.join(executableDir, fileName),
+    path.join(executableDir, "..", "Resources", "liteparse", fileName),
+  ];
+  for (const candidate of candidates) {
+    try {
+      const native = require(candidate) as NativeLiteParseModule;
+      return new native.LiteParse({
+        outputFormat: "markdown",
+        ocrEnabled: true,
+        imageMode: "placeholder",
+        extractLinks: true,
+        quiet: true,
+      });
+    } catch {
+      // Try the next bundle layout.
+    }
+  }
+  throw new Error(`LiteParse native module not found for ${platformArch}`);
+}
+
+async function getParser(): Promise<LiteParse> {
   if (!parserInstance) {
-    parserInstance = new LiteParse({
-      outputFormat: "markdown",
-      ocrEnabled: true,
-      imageMode: "placeholder",
-      extractLinks: true,
-      quiet: true,
-    });
+    try {
+      const { LiteParse: LiteParseRuntime } = await import("@llamaindex/liteparse");
+      parserInstance = new LiteParseRuntime({
+        outputFormat: "markdown",
+        ocrEnabled: true,
+        imageMode: "placeholder",
+        extractLinks: true,
+        quiet: true,
+      });
+    } catch {
+      parserInstance = loadBundledNativeParser();
+    }
   }
   return parserInstance;
 }
@@ -87,7 +123,7 @@ function inferFormat(ext: ParseableExt): ParsedDocument["format"] {
 
 async function parseWithLiteParse(filePath: string, ext: ParseableExt): Promise<ParseResult> {
   try {
-    const parser = getParser();
+    const parser = await getParser();
     const complexity = ext === ".pdf" ? await parser.isComplex(filePath) : [];
     const result = await parser.parse(filePath);
     const text = result.text ?? "";

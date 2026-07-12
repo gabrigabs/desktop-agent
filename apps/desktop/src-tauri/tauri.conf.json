@@ -37,7 +37,10 @@
     "targets": "all",
     "externalBin": [
       "binaries/agent-runtime"
-    ]
+    ],
+    "resources": {
+      "resources/liteparse/": "liteparse/"
+    }
   },
   "plugins": {
     "shell": {
