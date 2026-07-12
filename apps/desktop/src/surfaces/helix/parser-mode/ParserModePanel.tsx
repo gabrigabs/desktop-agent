@@ -248,7 +248,7 @@ function FileList({
       {jobs.map((job) => (
         <div
           key={job.path}
-          className={`group flex items-center gap-2 rounded-md px-2.5 py-2 transition-all duration-200 ${
+          className={`group grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1 rounded-md px-2 py-1.5 transition-all duration-200 ${
             selectedPath === job.path
               ? "bg-signal/[0.1] border border-signal/20"
               : "hover:bg-white/[0.04] border border-transparent active:scale-[0.98]"
@@ -256,7 +256,7 @@ function FileList({
         >
           <button
             type="button"
-            className="flex flex-1 cursor-pointer items-center gap-2 text-left"
+            className="flex min-w-0 cursor-pointer items-center gap-2 rounded px-0.5 py-0.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/40"
             onClick={() => onSelect(job.path)}
           >
             <StatusIcon status={job.status} />
@@ -275,14 +275,14 @@ function FileList({
           </button>
           <button
             type="button"
-            className="opacity-0 transition-all duration-200 group-hover:opacity-100 hover:scale-110"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-faint opacity-60 transition-all duration-200 hover:bg-bad/10 hover:text-bad hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bad/40"
             aria-label={t("helix:parserMode.removeFile")}
             onClick={(e) => {
               e.stopPropagation();
               onRemove(job.path);
             }}
           >
-            <Trash2 className="h-3 w-3 text-faint hover:text-bad" />
+            <Trash2 className="h-3.5 w-3.5" />
           </button>
         </div>
       ))}
