@@ -57,7 +57,7 @@ import {
   upsertTurn,
 } from "@desktop-agent/storage";
 import { registry } from "@desktop-agent/tool-registry";
-import { createClipboardTool } from "@desktop-agent/tools-desktop";
+import { createClipboardTool, createFileWriteTool } from "@desktop-agent/tools-desktop";
 import { createOcrImageTool, createScreenshotOcrTool } from "@desktop-agent/tools-ocr";
 import { createRewriteTool, createSummarizeTool, createTranslateTool } from "@desktop-agent/tools-text";
 import { createWebCrawlTool, createWebExtractTool, createWebSearchTool } from "@desktop-agent/tools-web";
@@ -84,6 +84,22 @@ export function setClientApi(api: unknown) {
 
 const runningRequests = new Map<string, AbortController>();
 const runningRuns = new Map<string, AbortController>();
+const authorizedFileRoots = new Set<string>();
+
+async function isAuthorizedFilePath(targetPath: string): Promise<boolean> {
+  const { promises: fs } = await import("node:fs");
+  const path = await import("node:path");
+  let canonicalParent: string;
+  try {
+    canonicalParent = await fs.realpath(path.dirname(path.resolve(targetPath)));
+  } catch {
+    const resolvedTarget = path.resolve(targetPath);
+    return [...authorizedFileRoots].some((root) => resolvedTarget.startsWith(`${root}${path.sep}`));
+  }
+  return [...authorizedFileRoots].some(
+    (root) => canonicalParent === root || canonicalParent.startsWith(`${root}${path.sep}`),
+  );
+}
 
 // Clipboard context wrapper for Bun environment (macOS native pbcopy/pbpaste)
 const clipboardCtx = {
@@ -209,6 +225,7 @@ registry.register(createRewriteTool(ctx));
 registry.register(createSummarizeTool(ctx));
 registry.register(createTranslateTool(ctx));
 registry.register(createClipboardTool(clipboardCtx));
+registry.register(createFileWriteTool({ isPathAuthorized: isAuthorizedFilePath }));
 registry.register(createWebSearchTool());
 registry.register(createWebExtractTool());
 registry.register(createWebCrawlTool());
@@ -1149,6 +1166,7 @@ export const agentApi: AgentApi = {
         return;
       }
       if (stat.isFile()) {
+        authorizedFileRoots.add(await fs.realpath(path.dirname(requestedPath)));
         candidatePaths.push(requestedPath);
         return;
       }
@@ -1156,6 +1174,7 @@ export const agentApi: AgentApi = {
         errors.push(`Unsupported path type: ${rawPath}`);
         return;
       }
+      authorizedFileRoots.add(await fs.realpath(requestedPath));
       if (depth >= MAX_DIRECTORY_DEPTH || requestedPath.endsWith(".app")) {
         errors.push(`Skipped directory outside traversal limits: ${rawPath}`);
         return;
