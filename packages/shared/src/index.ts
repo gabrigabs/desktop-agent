@@ -40,6 +40,8 @@ export type {
   NativeCaptureAnalysisRequest,
   NativeCapturePreview,
   NativeCaptureRequest,
+  NativeCaptureTarget,
+  NativeCroppedPreview,
   NativeError,
   NativeErrorCode,
   NativeNotificationInput,

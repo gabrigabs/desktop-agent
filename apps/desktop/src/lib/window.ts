@@ -209,6 +209,39 @@ export async function hideWindow() {
 }
 
 /**
+ * Oculta a janela principal e aguarda o compositor renderizar o desktop.
+ * Retorna uma função para restaurar a janela ao estado anterior.
+ */
+export async function hideMainWindowForCapture(): Promise<() => Promise<void>> {
+  if (!isTauriRuntime()) {
+    return async () => undefined;
+  }
+
+  let wasVisible = true;
+  try {
+    const appWindow = getCurrentWindow();
+    wasVisible = await appWindow.isVisible();
+    if (wasVisible) {
+      await appWindow.hide();
+      await new Promise((r) => setTimeout(r, 120));
+    }
+  } catch (err) {
+    console.error("Erro ao ocultar janela para captura:", err);
+  }
+
+  return async () => {
+    if (!isTauriRuntime() || !wasVisible) return;
+    try {
+      const appWindow = getCurrentWindow();
+      await appWindow.show();
+      await appWindow.setFocus();
+    } catch (err) {
+      console.error("Erro ao restaurar janela após captura:", err);
+    }
+  };
+}
+
+/**
  * Fecha a janela atual sem encerrar o processo do app (mantém tray/menu bar ativos).
  */
 export async function closeApp() {

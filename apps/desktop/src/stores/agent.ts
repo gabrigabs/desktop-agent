@@ -6,6 +6,8 @@ import type {
   ContextAttachment,
   ExecutionMode,
   FileContextInput,
+  NativeBoundingBox,
+  NativeCapturePreview,
   RunStatus,
   Turn,
   WorkflowRun,
@@ -18,6 +20,14 @@ type ToolDef = {
   name: string;
   description: string;
   category: string;
+};
+
+export type ScreenCaptureState = {
+  preview: NativeCapturePreview | null;
+  busy: boolean;
+  error: string | null;
+  editorAction: "screen-capture" | "screen-region" | "screen-window" | null;
+  crop: NativeBoundingBox | null;
 };
 
 export type AgentLogEntry = {
@@ -66,6 +76,9 @@ type State = {
   uiMode: UiMode;
   settings: AppSettings;
   agentLogs: AgentLogEntry[];
+  screenCapture: ScreenCaptureState;
+  pendingScreenAction: "screen-read" | "screen-capture" | "screen-region" | "screen-window" | null;
+  activeComposerActionId: string;
 
   setConnected: (v: boolean) => void;
   setBootState: (s: BootState) => void;
@@ -114,6 +127,12 @@ type State = {
   setSettings: (s: AppSettings) => void;
   addAgentLog: (entry: Omit<AgentLogEntry, "id" | "timestamp">) => void;
   clearAgentLogs: () => void;
+  setScreenCapture: (state: Partial<ScreenCaptureState>) => void;
+  clearScreenCapture: () => void;
+  setPendingScreenAction: (
+    action: "screen-read" | "screen-capture" | "screen-region" | "screen-window" | null,
+  ) => void;
+  setActiveComposerActionId: (actionId: string) => void;
   reset: () => void;
 };
 
@@ -223,6 +242,9 @@ export const useAgentStore = create<State>((set) => ({
   uiMode: "normal",
   settings: defaultSettings,
   agentLogs: [],
+  screenCapture: { preview: null, busy: false, error: null, editorAction: null, crop: null },
+  pendingScreenAction: null,
+  activeComposerActionId: "pergunta-livre",
 
   setConnected: (connected) => set({ connected }),
   setBootState: (bootState) => set({ bootState }),
@@ -396,6 +418,11 @@ export const useAgentStore = create<State>((set) => ({
       ],
     })),
   clearAgentLogs: () => set({ agentLogs: [] }),
+  setScreenCapture: (partial) => set((s) => ({ screenCapture: { ...s.screenCapture, ...partial } })),
+  clearScreenCapture: () =>
+    set({ screenCapture: { preview: null, busy: false, error: null, editorAction: null, crop: null } }),
+  setPendingScreenAction: (action) => set({ pendingScreenAction: action }),
+  setActiveComposerActionId: (activeComposerActionId) => set({ activeComposerActionId }),
   reset: () =>
     set({
       query: "",
@@ -412,5 +439,8 @@ export const useAgentStore = create<State>((set) => ({
       workflowRun: null,
       agentLogs: [],
       contexts: [],
+      screenCapture: { preview: null, busy: false, error: null, editorAction: null, crop: null },
+      pendingScreenAction: null,
+      activeComposerActionId: "pergunta-livre",
     }),
 }));

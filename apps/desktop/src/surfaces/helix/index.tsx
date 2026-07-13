@@ -188,6 +188,26 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
       return;
     }
 
+    const screenActionMap: Record<
+      string,
+      "screen-read" | "screen-capture" | "screen-region" | "screen-window"
+    > = {
+      screen: "screen-read",
+      "screen-full": "screen-capture",
+      "screen-region": "screen-region",
+      "screen-window": "screen-window",
+    };
+    const screenAction = screenActionMap[pending.actionId] ?? screenActionMap[pending.secondaryId ?? ""];
+    if (screenAction) {
+      setMode("command");
+      setExecutionMode("simple");
+      setQuery("");
+      useAgentStore.setState({ uiMode: "expanded", pendingScreenAction: screenAction });
+      void setWindowMode("expanded", { alwaysOnTop: settings.alwaysOnTop });
+      requestAnimationFrame(() => textareaRef.current?.focus());
+      return;
+    }
+
     const action = getHelixAction(pending.actionId);
     if (!action) return;
 
@@ -201,7 +221,7 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     setIgnoreClipboard(!requiredContext?.includes("clipboard"));
     setQuery(secondary?.prompt ?? action.prompt);
     requestAnimationFrame(() => textareaRef.current?.focus());
-  }, [setExecutionMode, setIgnoreClipboard, setQuery]);
+  }, [setExecutionMode, setIgnoreClipboard, setQuery, settings.alwaysOnTop]);
 
   const onStarterAction = useCallback(
     (prompt: string, modeOverride?: "simple" | "workflow") => {

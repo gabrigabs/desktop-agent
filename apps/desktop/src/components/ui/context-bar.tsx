@@ -26,6 +26,7 @@ export interface ContextItem {
   enabled: boolean;
   sensitive: boolean;
   mock?: boolean;
+  imageDataUrl?: string;
 }
 
 interface UnifiedContextBarProps {
@@ -97,6 +98,7 @@ function ContextItemRow({
   const { t } = useTranslation("helix");
   const SourceIcon = SOURCE_ICONS[item.source];
   const ContentIcon = item.source === "clipboard" ? detectContentIcon(item.preview) : SourceIcon;
+  const hasThumb = item.source === "screen" && Boolean(item.imageDataUrl);
 
   return (
     <div
@@ -108,6 +110,14 @@ function ContextItemRow({
       title={item.preview}
     >
       <ContentIcon className={`h-3.5 w-3.5 shrink-0 ${item.enabled ? "text-ink" : "text-faint"}`} />
+      {hasThumb && item.imageDataUrl && (
+        <img
+          src={item.imageDataUrl}
+          alt={item.label}
+          className="h-5 w-5 shrink-0 rounded object-cover ring-1 ring-signal/30"
+          draggable={false}
+        />
+      )}
       <span className={`truncate text-[10px] font-semibold ${item.enabled ? "text-ink" : "text-mute"}`}>
         {item.label}
       </span>

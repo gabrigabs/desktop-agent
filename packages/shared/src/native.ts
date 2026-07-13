@@ -55,9 +55,18 @@ export type NativeCapturePreview = {
   expiresAt: string;
 };
 
+export type NativeCaptureTarget = "display" | "active_window";
+
 export type NativeCaptureRequest = {
   displayId?: number;
   excludeHelix?: boolean;
+  captureTarget?: NativeCaptureTarget;
+};
+
+export type NativeCroppedPreview = {
+  previewDataUrl: string;
+  width: number;
+  height: number;
 };
 
 export type NativeCaptureAnalysisRequest = {
@@ -162,6 +171,7 @@ type ContextAttachmentBase = {
   metadata?: Record<string, unknown>;
   sensitive: boolean;
   enabled: boolean;
+  imageDataUrl?: string;
 };
 
 export type ContextAttachment =
@@ -189,6 +199,7 @@ export type HostBridgeApi = {
     displayName?: string;
   }): Promise<VisionAnalysis>;
   prepareNativeCapture(input?: NativeCaptureRequest): Promise<NativeCapturePreview>;
+  cropNativeCapture(input: { captureId: string; crop: NativeBoundingBox }): Promise<NativeCroppedPreview>;
   analyzeNativeCapture(input: NativeCaptureAnalysisRequest): Promise<VisionAnalysis>;
   discardNativeCapture(input: { captureId: string }): Promise<void>;
   snapshotActiveWindow(): Promise<ActiveWindowSnapshot>;

@@ -11,15 +11,27 @@ import type {
   WorkflowTemplate,
   WorkflowTemplateSettings,
 } from "@desktop-agent/shared";
-import { AlertCircle, ArrowLeft, Check, Clipboard, RefreshCw, Sparkles, Workflow, X } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  Check,
+  Clipboard,
+  Monitor,
+  RefreshCw,
+  Sparkles,
+  Workflow,
+  X,
+} from "lucide-react";
 import type { RefObject } from "react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useShallow } from "zustand/react/shallow";
 import { AgentIdentity } from "../../components/ui/agent-identity";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { HeroHome } from "../../components/ui/hero-home";
 import { RecentConversations } from "../../components/ui/recent-conversations";
+import { useAgentStore } from "../../stores/agent";
 import { ArtifactsPanel } from "./ArtifactsPanel";
 import { ChatView } from "./ChatView";
 import { Composer } from "./Composer";
@@ -151,6 +163,7 @@ type Props = {
 export function ExpandedView(p: Props) {
   const { t } = useTranslation("helix");
   const showInspector = p.mode === "command" && (p.taskActive || p.messages.length > 0);
+  const screenContexts = useAgentStore(useShallow((s) => s.contexts.filter((c) => c.source === "screen")));
 
   return (
     <div
@@ -276,6 +289,33 @@ export function ExpandedView(p: Props) {
                 : t("helix:normalCommandView.noClipboardText")}
             </p>
           </section>
+
+          {screenContexts.length > 0 && (
+            <section className="rounded-xl border border-line p-3 flex flex-col gap-2 bg-white/[0.02]">
+              <div className="text-[10px] text-mute font-medium tracking-tight flex items-center gap-1.5">
+                <Monitor className="w-3.5 h-3.5 text-signal" />
+                {t("helix:capturePreview.inspectorTitle")}
+              </div>
+              {screenContexts.map((ctx) => (
+                <div key={ctx.id} className="flex flex-col gap-1.5">
+                  {ctx.imageDataUrl && (
+                    <img
+                      src={ctx.imageDataUrl}
+                      alt={ctx.label}
+                      className="w-full rounded-lg border border-line object-cover max-h-32"
+                      draggable={false}
+                    />
+                  )}
+                  <span className="text-[10px] font-medium text-fg truncate">{ctx.label}</span>
+                  {ctx.content && (
+                    <p className="text-[10px] text-mute leading-relaxed line-clamp-3 select-text">
+                      {ctx.content.slice(0, 200)}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </section>
+          )}
 
           <section className="rounded-xl border border-line p-3 bg-white/[0.02]">
             <div className="text-[10px] text-mute font-medium tracking-tight mb-2">

@@ -174,6 +174,60 @@ void helix_free_bytes(uint8_t *bytes) {
     free(bytes);
 }
 
+int helix_crop_image(const uint8_t *bytes, size_t length, double x, double y, double width, double height, uint8_t **cropped_bytes, size_t *cropped_length, uint32_t *cropped_width, uint32_t *cropped_height) {
+    if (!bytes || length == 0 || !cropped_bytes || !cropped_length || !cropped_width || !cropped_height) return 0;
+    *cropped_bytes = NULL;
+    *cropped_length = 0;
+    *cropped_width = 0;
+    *cropped_height = 0;
+    CFDataRef data = CFDataCreate(NULL, bytes, (CFIndex)length);
+    CGImageSourceRef source = data ? CGImageSourceCreateWithData(data, NULL) : NULL;
+    CGImageRef full = source ? CGImageSourceCreateImageAtIndex(source, 0, NULL) : NULL;
+    if (!full) {
+        if (source) CFRelease(source);
+        if (data) CFRelease(data);
+        return 0;
+    }
+    size_t full_width = CGImageGetWidth(full);
+    size_t full_height = CGImageGetHeight(full);
+    size_t crop_x = (size_t)MAX(0.0, MIN((double)full_width, x * (double)full_width));
+    size_t crop_y = (size_t)MAX(0.0, MIN((double)full_height, y * (double)full_height));
+    size_t crop_w = (size_t)MAX(1.0, MIN((double)(full_width - crop_x), width * (double)full_width));
+    size_t crop_h = (size_t)MAX(1.0, MIN((double)(full_height - crop_y), height * (double)full_height));
+    CGImageRef cropped = CGImageCreateWithImageInRect(full, CGRectMake((CGFloat)crop_x, (CGFloat)crop_y, (CGFloat)crop_w, (CGFloat)crop_h));
+    if (!cropped) {
+        CGImageRelease(full);
+        if (source) CFRelease(source);
+        if (data) CFRelease(data);
+        return 0;
+    }
+    CFMutableDataRef output = CFDataCreateMutable(NULL, 0);
+    CGImageDestinationRef destination = output ? CGImageDestinationCreateWithData(output, CFSTR("public.png"), 1, NULL) : NULL;
+    BOOL finalized = NO;
+    if (destination && cropped) {
+        CGImageDestinationAddImage(destination, cropped, NULL);
+        finalized = CGImageDestinationFinalize(destination);
+    }
+    if (finalized) {
+        *cropped_length = (size_t)CFDataGetLength(output);
+        *cropped_bytes = malloc(*cropped_length);
+        if (*cropped_bytes) {
+            memcpy(*cropped_bytes, CFDataGetBytePtr(output), *cropped_length);
+            *cropped_width = (uint32_t)crop_w;
+            *cropped_height = (uint32_t)crop_h;
+        } else {
+            *cropped_length = 0;
+        }
+    }
+    if (destination) CFRelease(destination);
+    if (output) CFRelease(output);
+    CGImageRelease(cropped);
+    CGImageRelease(full);
+    if (source) CFRelease(source);
+    if (data) CFRelease(data);
+    return finalized && *cropped_bytes != NULL;
+}
+
 int helix_make_preview(const uint8_t *bytes, size_t length, uint32_t max_dimension, uint8_t **preview_bytes, size_t *preview_length) {
     if (!bytes || length == 0 || !preview_bytes || !preview_length) return 0;
     *preview_bytes = NULL;
@@ -400,6 +454,64 @@ static BOOL helix_ax_frame(AXUIElementRef element, NSRect *frame) {
     if (position) CFRelease(position);
     if (size) CFRelease(size);
     return valid;
+}
+
+static BOOL helix_active_window_rect(NSRect *out_frame) {
+    NSRunningApplication *application = helix_target_application();
+    if (!application) return NO;
+    pid_t pid = application.processIdentifier;
+    AXUIElementRef app = AXUIElementCreateApplication(pid);
+    if (!app) return NO;
+    CFTypeRef focused = NULL;
+    AXUIElementCopyAttributeValue(app, kAXFocusedWindowAttribute, &focused);
+    AXUIElementRef window = (AXUIElementRef)focused;
+    if (!window) {
+        CFRelease(app);
+        return NO;
+    }
+    BOOL valid = helix_ax_frame(window, out_frame);
+    if (focused) CFRelease(focused);
+    CFRelease(app);
+    return valid;
+}
+
+int helix_active_window_frame(uint32_t *display_id, double *x, double *y, double *width, double *height) {
+    if (!display_id || !x || !y || !width || !height) return 0;
+    NSRect frame = NSZeroRect;
+    if (!helix_active_window_rect(&frame)) return 0;
+    CGRect window_bounds = CGRectMake(frame.origin.x, frame.origin.y, frame.size.width, frame.size.height);
+    CGDirectDisplayID displays[16] = {0};
+    uint32_t display_count = 0;
+    if (CGGetDisplaysWithRect(window_bounds, 16, displays, &display_count) != kCGErrorSuccess || display_count == 0) {
+        return 0;
+    }
+
+    CGDirectDisplayID target_display = displays[0];
+    CGRect target_bounds = CGDisplayBounds(target_display);
+    CGFloat largest_area = 0.0;
+    for (uint32_t index = 0; index < display_count; index++) {
+        CGRect candidate_bounds = CGDisplayBounds(displays[index]);
+        CGRect intersection = CGRectIntersection(window_bounds, candidate_bounds);
+        CGFloat area = CGRectIsNull(intersection) ? 0.0 : intersection.size.width * intersection.size.height;
+        if (area > largest_area) {
+            largest_area = area;
+            target_display = displays[index];
+            target_bounds = candidate_bounds;
+        }
+    }
+
+    CGRect clipped = CGRectIntersection(window_bounds, target_bounds);
+    if (CGRectIsNull(clipped) || clipped.size.width < 1.0 || clipped.size.height < 1.0) return 0;
+
+    // AX window positions and CGDisplayBounds use the same global, top-left screen space.
+    // Normalized values stay valid when ScreenCaptureKit returns Retina pixel dimensions.
+    *display_id = (uint32_t)target_display;
+    *x = (clipped.origin.x - target_bounds.origin.x) / target_bounds.size.width;
+    *y = (clipped.origin.y - target_bounds.origin.y) / target_bounds.size.height;
+    *width = clipped.size.width / target_bounds.size.width;
+    *height = clipped.size.height / target_bounds.size.height;
+    return *x >= 0.0 && *y >= 0.0 && *width > 0.0 && *height > 0.0 &&
+           *x + *width <= 1.0001 && *y + *height <= 1.0001;
 }
 
 typedef struct {

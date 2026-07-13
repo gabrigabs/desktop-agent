@@ -91,6 +91,8 @@
       "screenCaptureDescription": "Analisar a tela inteira como contexto.",
       "screenRegion": "Capturar região",
       "screenRegionDescription": "Selecionar uma área específica da tela.",
+      "screenWindow": "Capturar janela ativa",
+      "screenWindowDescription": "Capturar apenas a janela em foco, sem dock ou menu.",
       "file": "Arquivo",
       "fileDescription": "Anexar um arquivo do computador.",
       "activeApp": "App ativo",
@@ -100,22 +102,53 @@
     },
     "screenCapture": {
       "permissionDenied": "Autorize a gravação de tela nos Ajustes do Sistema para continuar.",
+      "accessibilityDenied": "Autorize Acessibilidade nos Ajustes do Sistema para capturar somente a janela ativa.",
       "failed": "Não foi possível capturar a tela.",
       "screenReadLabel": "Leitura da tela",
       "screenCaptureLabel": "Captura da tela",
       "screenRegionLabel": "Região da tela",
+      "screenRegionTextLabel": "Texto da região",
+      "screenWindowLabel": "Janela ativa",
       "noVisibleContent": "Captura {{width}}×{{height}} analisada localmente, sem texto visível."
     },
     "screenRegion": {
-      "title": "Selecione a região",
+      "title": "Editar captura",
       "description": "Arraste sobre a prévia. A imagem permanece no dispositivo e é descartada após a análise.",
       "previewAlt": "Prévia da tela para seleção de região",
-      "selectionHint": "Arraste para marcar a área que o Helix deve analisar.",
-      "selectionReady": "Região pronta para análise.",
+      "selectionHint": "Arraste para escolher a área que deseja usar.",
+      "selectionReady": "Região pronta para usar ou extrair texto.",
       "cancel": "Cancelar",
-      "confirm": "Analisar região"
+      "confirm": "Usar recorte",
+      "extractText": "Extrair texto",
+      "selectMode": "Modo seleção",
+      "panMode": "Modo panorâmico",
+      "zoomIn": "Aproximar",
+      "zoomOut": "Afastar",
+      "resetView": "Restaurar visualização",
+      "resetSelection": "Limpar seleção",
+      "captureFull": "Selecionar imagem inteira"
     },
     "activeAppFailed": "Não foi possível ler o aplicativo ativo."
+  },
+  "capturePreview": {
+    "inspectorTitle": "Captura atual",
+    "tabs": {
+      "image": "Imagem",
+      "text": "Texto detectado",
+      "metadata": "Metadados"
+    },
+    "crop": "Recortar",
+    "recapture": "Recapturar",
+    "remove": "Remover",
+    "close": "Fechar",
+    "noText": "Nenhum texto extraído desta captura.",
+    "meta": {
+      "mode": "Modo",
+      "dimensions": "Dimensões",
+      "crop": "Recorte",
+      "onDevice": "Processado no dispositivo",
+      "expires": "Expira em"
+    }
   },
   "contextBar": {
     "clipboard": "Clipboard",

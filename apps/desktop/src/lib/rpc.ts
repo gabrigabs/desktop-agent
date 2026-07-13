@@ -3,9 +3,11 @@ import type {
   AgentApi,
   AgentEvent,
   HostBridgeApi,
+  NativeBoundingBox,
   NativeCaptureAnalysisRequest,
   NativeCapturePreview,
   NativeCaptureRequest,
+  NativeCroppedPreview,
   NativeNotificationInput,
   NativePermissionKind,
   NativePermissionState,
@@ -141,6 +143,12 @@ async function doInitializeRpc(attempt: number): Promise<AgentApi> {
       },
       async prepareNativeCapture(input?: NativeCaptureRequest): Promise<NativeCapturePreview> {
         return invoke("prepare_native_capture", { request: input ?? null });
+      },
+      async cropNativeCapture(input: {
+        captureId: string;
+        crop: NativeBoundingBox;
+      }): Promise<NativeCroppedPreview> {
+        return invoke("crop_native_capture", { request: input });
       },
       async analyzeNativeCapture(input: NativeCaptureAnalysisRequest): Promise<VisionAnalysis> {
         return invoke("analyze_native_capture", { request: input });
@@ -352,6 +360,13 @@ export async function requestNativePermission(kind: NativePermissionKind): Promi
 
 export async function prepareNativeCapture(request?: NativeCaptureRequest): Promise<NativeCapturePreview> {
   return invoke("prepare_native_capture", { request: request ?? null });
+}
+
+export async function cropNativeCapture(request: {
+  captureId: string;
+  crop: NativeBoundingBox;
+}): Promise<NativeCroppedPreview> {
+  return invoke("crop_native_capture", { request });
 }
 
 export async function analyzeNativeCapture(request: NativeCaptureAnalysisRequest): Promise<VisionAnalysis> {

@@ -157,6 +157,7 @@ pub fn run() {
             native::get_native_permission_state,
             native::request_native_permission,
             native::prepare_native_capture,
+            native::crop_native_capture,
             native::analyze_native_capture,
             native::discard_native_capture,
             native::analyze_native_image,

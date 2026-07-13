@@ -355,6 +355,14 @@ export const HELIX_ACTIONS: readonly HelixAction[] = [
         requiredContext: ["screen"],
         executionMode: "workflow",
       },
+      {
+        id: "screen-window",
+        title: "Janela ativa",
+        icon: "app-window",
+        prompt: "Capture a janela ativa e descreva o que é acionável",
+        requiredContext: ["screen"],
+        executionMode: "workflow",
+      },
     ],
   },
   {

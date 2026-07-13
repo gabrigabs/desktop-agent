@@ -91,6 +91,8 @@
       "screenCaptureDescription": "Analyze the entire screen as context.",
       "screenRegion": "Capture region",
       "screenRegionDescription": "Select a specific area of the screen.",
+      "screenWindow": "Capture active window",
+      "screenWindowDescription": "Capture only the focused window, without the dock or menu.",
       "file": "File",
       "fileDescription": "Attach a file from your computer.",
       "activeApp": "Active app",
@@ -100,22 +102,53 @@
     },
     "screenCapture": {
       "permissionDenied": "Allow Screen Recording in System Settings to continue.",
+      "accessibilityDenied": "Allow Accessibility in System Settings to capture only the active window.",
       "failed": "The screen could not be captured.",
       "screenReadLabel": "Screen reading",
       "screenCaptureLabel": "Screen capture",
       "screenRegionLabel": "Screen region",
+      "screenRegionTextLabel": "Region text",
+      "screenWindowLabel": "Active window",
       "noVisibleContent": "Capture {{width}}×{{height}} analyzed locally with no visible text."
     },
     "screenRegion": {
-      "title": "Select a region",
+      "title": "Edit capture",
       "description": "Drag over the preview. The image stays on-device and is discarded after analysis.",
       "previewAlt": "Screen preview for region selection",
-      "selectionHint": "Drag to mark the area Helix should analyze.",
-      "selectionReady": "Region ready for analysis.",
+      "selectionHint": "Drag to choose the area you want to use.",
+      "selectionReady": "Region ready to use or extract text.",
       "cancel": "Cancel",
-      "confirm": "Analyze region"
+      "confirm": "Use crop",
+      "extractText": "Extract text",
+      "selectMode": "Select mode",
+      "panMode": "Pan mode",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "resetView": "Reset view",
+      "resetSelection": "Clear selection",
+      "captureFull": "Select full image"
     },
     "activeAppFailed": "The active application could not be read."
+  },
+  "capturePreview": {
+    "inspectorTitle": "Current capture",
+    "tabs": {
+      "image": "Image",
+      "text": "Detected text",
+      "metadata": "Metadata"
+    },
+    "crop": "Crop",
+    "recapture": "Recapture",
+    "remove": "Remove",
+    "close": "Close",
+    "noText": "No text extracted from this capture.",
+    "meta": {
+      "mode": "Mode",
+      "dimensions": "Dimensions",
+      "crop": "Crop",
+      "onDevice": "Processed on-device",
+      "expires": "Expires at"
+    }
   },
   "contextBar": {
     "clipboard": "Clipboard",

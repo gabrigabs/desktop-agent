@@ -1,4 +1,15 @@
-import { Camera, Check, Clipboard, FileText, Globe, Layout, Plus, ScanLine, ScanText } from "lucide-react";
+import {
+  AppWindow,
+  Camera,
+  Check,
+  Clipboard,
+  FileText,
+  Globe,
+  Layout,
+  Plus,
+  ScanLine,
+  ScanText,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ContextItem } from "./context-bar";
@@ -43,6 +54,14 @@ export const CONTEXT_SOURCES: ContextMenuSource[] = [
     labelKey: "composer.contextMenu.screenRegion",
     descriptionKey: "composer.contextMenu.screenRegionDescription",
     icon: ScanLine,
+    mock: false,
+  },
+  {
+    id: "screen-window",
+    source: "screen",
+    labelKey: "composer.contextMenu.screenWindow",
+    descriptionKey: "composer.contextMenu.screenWindowDescription",
+    icon: AppWindow,
     mock: false,
   },
   {

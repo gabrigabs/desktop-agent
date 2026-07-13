@@ -62,11 +62,27 @@ pub struct NativeCapturePreview {
     pub expires_at: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NativeCaptureTarget {
+    Display,
+    ActiveWindow,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NativeCaptureRequest {
     pub display_id: Option<u32>,
     pub exclude_helix: Option<bool>,
+    pub capture_target: Option<NativeCaptureTarget>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NativeCroppedPreview {
+    pub preview_data_url: String,
+    pub width: u32,
+    pub height: u32,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -143,11 +159,41 @@ pub fn prepare_native_capture(
     let request = request.unwrap_or(NativeCaptureRequest {
         display_id: None,
         exclude_helix: Some(true),
+        capture_target: Some(NativeCaptureTarget::Display),
     });
 
     #[cfg(target_os = "macos")]
     {
-        let display_id = request.display_id.unwrap_or_else(main_display_id);
+        if matches!(
+            request.capture_target.as_ref(),
+            Some(NativeCaptureTarget::ActiveWindow)
+        ) {
+            ensure_permission(NativePermissionKind::Accessibility)?;
+        }
+        let active_window_crop = match request.capture_target {
+            Some(NativeCaptureTarget::ActiveWindow) => {
+                let mut display_id = 0u32;
+                let mut x = 0.0;
+                let mut y = 0.0;
+                let mut width = 0.0;
+                let mut height = 0.0;
+                if unsafe { helix_active_window_frame(&mut display_id, &mut x, &mut y, &mut width, &mut height) } {
+                    Some((display_id, NativeBoundingBox { x, y, width, height }))
+                } else {
+                    return Err(NativeError::new(
+                        "ACTIVE_WINDOW_UNAVAILABLE",
+                        "Não foi possível determinar os limites da janela ativa",
+                        true,
+                    ));
+                }
+            }
+            _ => None,
+        };
+
+        let display_id = request
+            .display_id
+            .or(active_window_crop.as_ref().map(|(id, _)| *id))
+            .unwrap_or_else(main_display_id);
         let helix_window = app.get_webview_window("main");
         let was_visible = helix_window
             .as_ref()
@@ -177,7 +223,7 @@ pub fn prepare_native_capture(
                 true,
             ));
         }
-        let image = unsafe { std::slice::from_raw_parts(bytes, length).to_vec() };
+        let mut image = unsafe { std::slice::from_raw_parts(bytes, length).to_vec() };
         unsafe { helix_free_bytes(bytes) };
 
         if (width as u64) * (height as u64) > 50_000_000 {
@@ -186,6 +232,10 @@ pub fn prepare_native_capture(
                 "O display excede o limite de 50 megapixels",
                 true,
             ));
+        }
+
+        if let Some((_, crop)) = active_window_crop {
+            image = crop_image_bytes(&image, &crop, &mut width, &mut height)?;
         }
 
         let capture_id = uuid::Uuid::new_v4().to_string();
@@ -694,7 +744,7 @@ fn make_preview_data_url(bytes: &[u8]) -> String {
         helix_make_preview(
             bytes.as_ptr(),
             bytes.len(),
-            640,
+            1440,
             &mut preview_bytes,
             &mut preview_length,
         )
@@ -713,6 +763,91 @@ fn make_preview_data_url(bytes: &[u8]) -> String {
 #[cfg(not(target_os = "macos"))]
 fn make_preview_data_url(_bytes: &[u8]) -> String {
     String::new()
+}
+
+#[cfg(target_os = "macos")]
+fn crop_image_bytes(
+    bytes: &[u8],
+    crop: &NativeBoundingBox,
+    width: &mut u32,
+    height: &mut u32,
+) -> Result<Vec<u8>, NativeError> {
+    validate_crop(Some(crop))?;
+    let mut cropped_bytes = std::ptr::null_mut();
+    let mut cropped_length = 0usize;
+    let mut cropped_width = 0u32;
+    let mut cropped_height = 0u32;
+    let ok = unsafe {
+        helix_crop_image(
+            bytes.as_ptr(),
+            bytes.len(),
+            crop.x,
+            crop.y,
+            crop.width,
+            crop.height,
+            &mut cropped_bytes,
+            &mut cropped_length,
+            &mut cropped_width,
+            &mut cropped_height,
+        )
+    };
+    if !ok || cropped_bytes.is_null() || cropped_length == 0 {
+        return Err(NativeError::new(
+            "CROP_FAILED",
+            "Não foi possível recortar a captura",
+            true,
+        ));
+    }
+    let result = unsafe { std::slice::from_raw_parts(cropped_bytes, cropped_length).to_vec() };
+    unsafe { helix_free_bytes(cropped_bytes) };
+    *width = cropped_width;
+    *height = cropped_height;
+    Ok(result)
+}
+
+#[cfg(not(target_os = "macos"))]
+fn crop_image_bytes(
+    _bytes: &[u8],
+    _crop: &NativeBoundingBox,
+    _width: &mut u32,
+    _height: &mut u32,
+) -> Result<Vec<u8>, NativeError> {
+    Err(NativeError::unavailable("Native crop is only available on macOS"))
+}
+
+#[tauri::command]
+pub fn crop_native_capture(
+    request: serde_json::Value,
+    state: State<'_, NativeState>,
+) -> Result<NativeCroppedPreview, NativeError> {
+    #[derive(Debug, Clone, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct CropRequest {
+        capture_id: String,
+        crop: NativeBoundingBox,
+    }
+    let request: CropRequest = serde_json::from_value(request).map_err(|_| {
+        NativeError::new("INVALID_REQUEST", "Requisição de recorte inválida", true)
+    })?;
+    let entry = {
+        let mut captures = state
+            .captures
+            .lock()
+            .map_err(|_| NativeError::bridge("capture state unavailable"))?;
+        captures.retain(|_, entry| entry.expires_at > Instant::now());
+        captures.get(&request.capture_id).cloned()
+    }
+    .ok_or_else(|| NativeError::new("INVALID_RESOURCE", "Captura expirada ou inexistente", true))?;
+
+    let mut dims = image_dimensions(&entry.bytes).unwrap_or((entry.bytes.len() as u32, 0));
+    let cropped = crop_image_bytes(&entry.bytes, &request.crop, &mut dims.0, &mut dims.1)?;
+    let preview_data_url = make_preview_data_url(&cropped);
+
+    Ok(NativeCroppedPreview {
+        preview_data_url,
+        width: dims.0,
+        height: dims.1,
+    })
 }
 
 fn image_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
@@ -833,6 +968,25 @@ extern "C" {
         max_dimension: u32,
         preview_bytes: *mut *mut u8,
         preview_length: *mut usize,
+    ) -> bool;
+    fn helix_crop_image(
+        bytes: *const u8,
+        length: usize,
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
+        cropped_bytes: *mut *mut u8,
+        cropped_length: *mut usize,
+        cropped_width: *mut u32,
+        cropped_height: *mut u32,
+    ) -> bool;
+    fn helix_active_window_frame(
+        display_id: *mut u32,
+        x: *mut f64,
+        y: *mut f64,
+        width: *mut f64,
+        height: *mut f64,
     ) -> bool;
     fn helix_free_bytes(bytes: *mut u8);
     fn helix_free_string(value: *mut std::os::raw::c_char);

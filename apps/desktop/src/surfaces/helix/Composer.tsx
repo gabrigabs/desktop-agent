@@ -1,13 +1,16 @@
 import {
+  type ContextAttachment,
   type FileContextInput,
   type NativeBoundingBox,
   type NativeCapturePreview,
+  type NativeCaptureTarget,
   normalizeNativeError,
   type VisionAnalysis,
 } from "@desktop-agent/shared";
 import { ArrowUp, Eye, FileText, FolderOpen, Loader2, Paperclip, Plus, Square, X } from "lucide-react";
 import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { CapturePreviewModal } from "../../components/ui/capture-preview";
 import { ClipboardModal } from "../../components/ui/clipboard-modal";
 import {
   CONTEXT_SOURCES,
@@ -19,15 +22,20 @@ import { ModelSelector } from "../../components/ui/model-selector";
 import { ScreenRegionModal } from "../../components/ui/screen-region-modal";
 import {
   analyzeNativeCapture,
+  cropNativeCapture,
   discardNativeCapture,
   getNativeActiveWindow,
   prepareNativeCapture,
   requestNativePermission,
 } from "../../lib/rpc";
+import { hideMainWindowForCapture, setWindowMode } from "../../lib/window";
 import { useAgentStore } from "../../stores/agent";
 import { useModelSelector } from "./hooks/useModelSelector";
 
 const CLIPBOARD_MARKER = "[CLIPBOARD]";
+type ScreenAction = "screen-read" | "screen-capture" | "screen-region" | "screen-window";
+type ScreenEditorAction = Exclude<ScreenAction, "screen-read">;
+type ScreenEditorIntent = "capture" | "extract_text";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes}B`;
@@ -115,21 +123,36 @@ export function Composer({
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
   const [clipboardModalOpen, setClipboardModalOpen] = useState(false);
   const [contextError, setContextError] = useState<string | null>(null);
-  const [pendingRegionCapture, setPendingRegionCapture] = useState<NativeCapturePreview | null>(null);
   const [screenBusy, setScreenBusy] = useState(false);
+  const [previewModalContext, setPreviewModalContext] = useState<ContextAttachment | null>(null);
   const contexts = useAgentStore((state) => state.contexts);
   const connectors = useAgentStore((state) => state.connectors);
   const addContext = useAgentStore((state) => state.addContext);
   const toggleContext = useAgentStore((state) => state.toggleContext);
   const removeContext = useAgentStore((state) => state.removeContext);
+  const pendingScreenAction = useAgentStore((state) => state.pendingScreenAction);
+  const setPendingScreenAction = useAgentStore((state) => state.setPendingScreenAction);
+  const setScreenCapture = useAgentStore((state) => state.setScreenCapture);
+  const clearScreenCapture = useAgentStore((state) => state.clearScreenCapture);
+  const screenCapture = useAgentStore((state) => state.screenCapture);
+  const activeActionId = useAgentStore((state) => state.activeComposerActionId);
+  const setActiveActionId = useAgentStore((state) => state.setActiveComposerActionId);
 
   useEffect(() => {
     onContextMenuOpenChange?.(contextMenuOpen);
   }, [contextMenuOpen, onContextMenuOpenChange]);
+
+  const startScreenActionRef = useRef<(action: ScreenAction) => Promise<void>>(async () => {});
+
+  useEffect(() => {
+    if (!pendingScreenAction) return;
+    setPendingScreenAction(null);
+    void startScreenActionRef.current(pendingScreenAction);
+  }, [pendingScreenAction, setPendingScreenAction]);
+
   const contextButtonRef = useRef<HTMLButtonElement>(null);
   const composerRef = useRef<HTMLDivElement>(null);
   const [hoveringSend, setHoveringSend] = useState(false);
-  const [activeActionId, setActiveActionId] = useState<string>("pergunta-livre");
   const modelSelector = useModelSelector();
 
   useEffect(() => {
@@ -240,23 +263,38 @@ export function Composer({
 
   const analyzeScreenCapture = async (
     preview: NativeCapturePreview,
-    action: "screen-read" | "screen-capture" | "screen-region",
+    action: ScreenAction,
     crop?: NativeBoundingBox,
+    croppedPreview?: { previewDataUrl: string; width: number; height: number },
+    intent: ScreenEditorIntent = "capture",
   ) => {
-    const isRead = action === "screen-read";
+    const isRead = action === "screen-read" || intent === "extract_text";
     const analysis = await analyzeNativeCapture({
       captureId: preview.captureId,
       features: isRead ? ["text"] : ["text", "classification", "barcode", "saliency"],
       crop,
-      displayName: action === "screen-region" ? "selected-region" : `display-${preview.displayId}`,
+      displayName:
+        action === "screen-window"
+          ? "active-window"
+          : crop
+            ? "selected-region"
+            : `display-${preview.displayId}`,
     });
     const content = screenAnalysisContent(analysis);
     const labelKey =
-      action === "screen-read"
-        ? "screenReadLabel"
-        : action === "screen-region"
-          ? "screenRegionLabel"
-          : "screenCaptureLabel";
+      intent === "extract_text" && crop
+        ? "screenRegionTextLabel"
+        : action === "screen-read"
+          ? "screenReadLabel"
+          : action === "screen-window"
+            ? "screenWindowLabel"
+            : action === "screen-region"
+              ? "screenRegionLabel"
+              : "screenCaptureLabel";
+
+    const imageDataUrl = croppedPreview?.previewDataUrl ?? preview.previewDataUrl;
+    const imageWidth = croppedPreview?.width ?? preview.width;
+    const imageHeight = croppedPreview?.height ?? preview.height;
 
     addContext({
       id: action,
@@ -265,64 +303,121 @@ export function Composer({
       preview:
         content.slice(0, 180) ||
         t("helix:composer.screenCapture.noVisibleContent", {
-          width: preview.width,
-          height: preview.height,
+          width: imageWidth,
+          height: imageHeight,
         }),
       content,
+      imageDataUrl,
       metadata: {
         mode: action,
         displayId: preview.displayId,
-        width: preview.width,
-        height: preview.height,
+        width: imageWidth,
+        height: imageHeight,
         crop,
+        analysisIntent: intent,
         processedOnDevice: analysis.processedOnDevice,
       },
       policy: "include",
       sensitive: true,
       enabled: true,
     });
+    setScreenCapture({
+      preview: { ...preview, previewDataUrl: imageDataUrl, width: imageWidth, height: imageHeight },
+      busy: false,
+      error: null,
+      editorAction: null,
+      crop: null,
+    });
   };
 
-  const startScreenAction = async (action: "screen-read" | "screen-capture" | "screen-region") => {
+  const startScreenAction = async (action: ScreenAction, target?: NativeCaptureTarget) => {
     setContextError(null);
     setScreenBusy(true);
+    setScreenCapture({ busy: true, error: null, editorAction: null, crop: null });
+    let restoreWindow: (() => Promise<void>) | null = null;
     try {
       await ensureScreenPermission();
-      const preview = await prepareNativeCapture({ excludeHelix: true });
-      if (action === "screen-region") {
-        setPendingRegionCapture(preview);
+      if (action === "screen-window") {
+        const accessibility = await requestNativePermission("accessibility");
+        if (accessibility !== "granted") {
+          throw new Error(t("helix:composer.screenCapture.accessibilityDenied"));
+        }
+      }
+      restoreWindow = await hideMainWindowForCapture();
+      const captureTarget: NativeCaptureTarget =
+        target ?? (action === "screen-window" ? "active_window" : "display");
+      const preview = await prepareNativeCapture({ excludeHelix: true, captureTarget });
+      if (action !== "screen-read") {
+        const editorAction = action as ScreenEditorAction;
+        setScreenCapture({
+          preview,
+          busy: false,
+          error: null,
+          editorAction,
+          crop: editorAction === "screen-region" ? null : { x: 0, y: 0, width: 1, height: 1 },
+        });
         return;
       }
       try {
-        await analyzeScreenCapture(preview, action);
+        await analyzeScreenCapture(preview, action, undefined, undefined, "extract_text");
       } finally {
         await discardNativeCapture(preview.captureId).catch(() => undefined);
       }
     } catch (error) {
-      setContextError(formatNativeError(error, t("helix:composer.screenCapture.failed")));
+      const message = formatNativeError(error, t("helix:composer.screenCapture.failed"));
+      setContextError(message);
+      setScreenCapture({
+        preview: null,
+        busy: false,
+        error: message,
+        editorAction: null,
+        crop: null,
+      });
     } finally {
       setScreenBusy(false);
+      if (restoreWindow) await restoreWindow();
     }
+  };
+  startScreenActionRef.current = startScreenAction;
+
+  const queueScreenAction = async (action: ScreenAction) => {
+    if (mode === "expanded") {
+      await startScreenAction(action);
+      return;
+    }
+    const { settings } = useAgentStore.getState();
+    await setWindowMode("expanded", { alwaysOnTop: settings.alwaysOnTop });
+    useAgentStore.setState({ uiMode: "expanded", pendingScreenAction: action });
   };
 
   const cancelRegionCapture = useCallback(() => {
-    const capture = pendingRegionCapture;
-    setPendingRegionCapture(null);
+    const capture = screenCapture.preview;
+    setScreenBusy(false);
+    clearScreenCapture();
     if (capture) void discardNativeCapture(capture.captureId).catch(() => undefined);
-  }, [pendingRegionCapture]);
+  }, [screenCapture.preview, clearScreenCapture]);
 
-  const confirmRegionCapture = async (crop: NativeBoundingBox) => {
-    const preview = pendingRegionCapture;
-    if (!preview) return;
+  const confirmRegionCapture = async (crop: NativeBoundingBox, intent: ScreenEditorIntent) => {
+    const preview = screenCapture.preview;
+    const action = screenCapture.editorAction;
+    if (!preview || !action) return;
     setScreenBusy(true);
+    setScreenCapture({ busy: true, error: null });
     setContextError(null);
     try {
-      await analyzeScreenCapture(preview, "screen-region", crop);
-      setPendingRegionCapture(null);
+      const croppedPreview = await cropNativeCapture({ captureId: preview.captureId, crop });
+      await analyzeScreenCapture(preview, action, crop, croppedPreview, intent);
     } catch (error) {
-      setContextError(formatNativeError(error, t("helix:composer.screenCapture.failed")));
+      const message = formatNativeError(error, t("helix:composer.screenCapture.failed"));
+      setContextError(message);
+      setScreenCapture({
+        preview: null,
+        busy: false,
+        error: message,
+        editorAction: null,
+        crop: null,
+      });
     } finally {
-      setPendingRegionCapture(null);
       await discardNativeCapture(preview.captureId).catch(() => undefined);
       setScreenBusy(false);
     }
@@ -337,8 +432,13 @@ export function Composer({
       }
     } else if (src.id === "file") {
       await handleAttachFile();
-    } else if (src.id === "screen-read" || src.id === "screen-capture" || src.id === "screen-region") {
-      await startScreenAction(src.id);
+    } else if (
+      src.id === "screen-read" ||
+      src.id === "screen-capture" ||
+      src.id === "screen-region" ||
+      src.id === "screen-window"
+    ) {
+      await queueScreenAction(src.id);
     } else if (src.id === "active-app") {
       try {
         setContextError(null);
@@ -449,12 +549,40 @@ export function Composer({
 
   return (
     <div className={`w-full flex flex-col gap-2.5 ${widthClass}`}>
-      {pendingRegionCapture && (
+      {screenCapture.editorAction && screenCapture.preview && (
         <ScreenRegionModal
-          preview={pendingRegionCapture}
-          busy={screenBusy}
+          preview={screenCapture.preview}
+          busy={screenBusy || screenCapture.busy}
           onCancel={cancelRegionCapture}
-          onConfirm={(crop) => void confirmRegionCapture(crop)}
+          onConfirm={(crop, intent) => void confirmRegionCapture(crop, intent)}
+          initialCrop={screenCapture.crop}
+          onCropChange={(crop) => setScreenCapture({ crop })}
+          onCaptureFull={() => setScreenCapture({ crop: { x: 0, y: 0, width: 1, height: 1 } })}
+        />
+      )}
+      {previewModalContext && (
+        <CapturePreviewModal
+          context={previewModalContext}
+          preview={useAgentStore.getState().screenCapture.preview}
+          onClose={() => setPreviewModalContext(null)}
+          onCrop={() => {
+            const ctx = previewModalContext;
+            setPreviewModalContext(null);
+            if (ctx) void queueScreenAction("screen-region");
+          }}
+          onRecapture={() => {
+            const ctx = previewModalContext;
+            setPreviewModalContext(null);
+            if (ctx) void queueScreenAction((ctx.metadata?.mode as ScreenAction) ?? "screen-read");
+          }}
+          onRemove={() => {
+            const ctx = previewModalContext;
+            setPreviewModalContext(null);
+            if (ctx) {
+              removeContext(ctx.id);
+              clearScreenCapture();
+            }
+          }}
         />
       )}
       {isDraggingFile && (
@@ -472,12 +600,22 @@ export function Composer({
             const Icon = src.icon;
             const isClipboard = src.id === "clipboard";
             const context = contexts.find((item) => item.id === src.id);
+            const isScreen = context?.source === "screen" && context?.imageDataUrl;
             return (
               <div
                 key={src.id}
                 className={`group flex items-center gap-1.5 rounded-lg border border-signal/25 bg-signal/10 pl-2 pr-1 ${mode === "expanded" ? "h-7" : "h-6"} shrink-0 transition-all hover:border-signal/40 hover:bg-signal/15 animate-chip-enter`}
               >
-                <Icon className="h-3 w-3 text-signal shrink-0" />
+                {isScreen && context?.imageDataUrl ? (
+                  <img
+                    src={context.imageDataUrl}
+                    alt={context.label}
+                    className="h-4 w-4 shrink-0 rounded object-cover ring-1 ring-signal/30"
+                    draggable={false}
+                  />
+                ) : (
+                  <Icon className="h-3 w-3 text-signal shrink-0" />
+                )}
                 {isClipboard ? (
                   <button
                     type="button"
@@ -492,6 +630,17 @@ export function Composer({
                       {clipboardText.length} {t("helix:contextBar.characters")}
                     </span>
                     <Eye className="h-2.5 w-2.5 text-signal/60 transition-colors group-hover:text-signal" />
+                  </button>
+                ) : isScreen && context ? (
+                  <button
+                    type="button"
+                    onClick={() => setPreviewModalContext(context)}
+                    className={`text-[10px] font-medium truncate ${
+                      context.enabled ? "text-signal" : "text-mute"
+                    } ${mode === "expanded" ? "max-w-[120px]" : "max-w-[60px]"}`}
+                    title={context.preview}
+                  >
+                    {context.label}
                   </button>
                 ) : context ? (
                   <button
@@ -514,8 +663,10 @@ export function Composer({
                 <button
                   type="button"
                   onClick={() => {
-                    if (!isClipboard && context) removeContext(context.id);
-                    else void handleContextToggle(src);
+                    if (!isClipboard && context) {
+                      removeContext(context.id);
+                      if (isScreen) clearScreenCapture();
+                    } else void handleContextToggle(src);
                   }}
                   className="rounded p-0.5 text-signal/40 transition-all hover:text-bad hover:bg-bad/10 shrink-0"
                   aria-label={t("helix:contextBar.remove")}

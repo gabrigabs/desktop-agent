@@ -73,6 +73,25 @@ Os três modos têm contratos diferentes e não devem repetir a mesma interface 
 - Navegação lateral/drawer prioriza Nova conversa, Histórico, Espaços, Conectores e Config; Workflows continuam acionáveis e Profiles continuam contextuais.
 - Biblioteca inicial de Artifacts (Finanças, Código, Estudos, Escrita, Produto) com cards e quick actions.
 - Settings Center responsivo com seções segmentadas.
+- Captura de tela abre uma bancada expandida de edição; captura integral, região e janela ativa permitem usar o recorte ou extrair texto somente da seleção.
+- A ação ativa do composer e o estado do editor de captura sobrevivem à troca entre os modos normal e expanded.
+
+### Auditoria De Captura De 2026-07-13
+
+Resolvido nesta rodada:
+
+- Prévia de captura elevada para 1440 px no eixo maior e thumbnails locais adicionados à Context Bar e ao inspector.
+- Seleção passa a usar os limites reais da imagem renderizada, sem deslocamento causado por `object-contain`, zoom ou letterbox.
+- Recorte nativo opera sobre a imagem original e a prévia/contexto exibem exatamente a região escolhida.
+- Captura integral e janela ativa abrem o editor no modo expanded por padrão; o usuário escolhe entre anexar o recorte e executar OCR somente na região.
+- `active_window` exige Screen Recording e Accessibility; falha de Accessibility ou de leitura do frame não faz mais fallback silencioso para o display inteiro.
+- O frame da janela ativa usa coordenadas globais CoreGraphics e escolhe o display de maior interseção, preservando Retina e múltiplos monitores.
+- Trocar o tamanho da janela não reinicia a quick action ativa, a captura pendente nem o recorte em andamento.
+
+Pontos ainda abertos:
+
+- Executar no bundle a matriz manual de permissão concedida/negada/revogada e validar janela ativa em Safari, Chrome, VS Code e TextEdit.
+- Validar manualmente janelas atravessando dois monitores, Stage Manager e apps sem janela AX focada; nesses casos o comportamento esperado é erro explícito, nunca captura do display inteiro.
 
 ### Auditoria Visual De 2026-07-10
 
@@ -541,7 +560,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### C01 — Context Bar orientada a permissões
 
-- Status: implementação e bundle `.app` validados em 2026-07-13. Clipboard e arquivo permanecem funcionais; Tela oferece leitura, captura integral e seleção de região, enquanto App ativo e Connector usam fluxos explícitos de permissão/contexto. A matriz manual de TCC/apps externos permanece aberta.
+- Status: implementação, typecheck, lint, testes, `cargo check`, bundle `.app` e DMG validados em 2026-07-13. Tela oferece leitura, captura integral, seleção de região e janela ativa com editor expandido, recorte real e OCR regional. A matriz manual de TCC e apps externos permanece aberta.
 - Objetivo: mostrar claramente o que o Helix está vendo e o que será enviado.
 - Arquivos: `ContextBar.tsx`, `ContextChipBar.tsx`, `useContextChips.ts`, `Composer.tsx`, inspector do expanded.
 - Implementação: consolidar Clipboard, Tela, App ativo, arquivo e connectors; cada origem oferece Ver, Usar/Não usar e Remover quando aplicável.
@@ -752,7 +771,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### CL04 — Concluir radial, resultado e Context Bar (`A02`, `R01`, `C01`)
 
-- Status: `A02` e `R01` concluídos; implementação e bundle de `C01` validados em 2026-07-13, com matriz manual de TCC/apps externos ainda aberta.
+- Status: `A02` e `R01` concluídos; `C01` validado em código, testes, bundle `.app` e DMG em 2026-07-13, incluindo continuidade de estado entre tamanhos e bancada de captura. Matriz manual de TCC/apps externos ainda aberta.
 - Objetivo: concluir a segunda órbita, o resultado compacto e o contexto orientado a permissões como uma experiência coerente.
 - Implementação:
   1. Segunda órbita para Clipboard, Tela, Workflow e Espaços.
@@ -857,7 +876,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### VIS01 — Ponte nativa do Vision Framework
 
-- Status: implementação e bundle `.app` validados em 2026-07-13; matriz manual de permissões, Retina/múltiplos displays e fixtures visuais permanece aberta.
+- Status: implementação, typecheck, lint, testes, `cargo check`, bundle `.app` e DMG validados em 2026-07-13; crop nativo, OCR regional e seleção correta de display foram adicionados. Matriz manual de permissões, Retina/múltiplos displays e fixtures visuais permanece aberta.
 - Objetivo: migrar OCR para APIs nativas da Apple e ampliar análise visual on-device.
 - Implementação:
   1. `vision.text` com `VNRecognizeTextRequest`.
@@ -914,14 +933,14 @@ Esta fase substitui os mocks de contexto por contratos e operações nativas exp
 - Requisito mínimo: macOS 13.0 (`LSMinimumSystemVersion` e `MACOSX_DEPLOYMENT_TARGET`).
 - CP1 — Mermaid: concluído; SVG é validado/sanitizado, exibido como `data:` e `mermaid.generate` limita correções a duas tentativas.
 - CP2 — Fundação nativa: concluído em código; contratos compartilhados, `HostBridgeApi`, erros tipados, permissões e grants one-shot estão no runtime e no host Tauri.
-- CP3 — Vision/captura efêmera: concluído em código e bundle; Vision on-device (texto, classificação, barcode e saliência) e ScreenCaptureKit em memória, com TTL de 120s e descarte explícito. A Context Bar oferece leitura de tela, captura integral e captura por região com prévia local.
+- CP3 — Vision/captura efêmera: concluído em código, bundle `.app` e DMG; Vision on-device (texto, classificação, barcode e saliência) e ScreenCaptureKit em memória, com TTL de 120s e descarte explícito. A bancada expandida oferece captura integral, região e janela ativa, recorte real e OCR limitado à seleção. A matriz manual de TCC/apps externos permanece aberta.
 - CP4 — App ativo: concluído em código; Accessibility consentida, snapshot limitado/redigido e fallback visual apenas explícito.
 - CP5 — Sistema/notificações: concluído em código; contexto seguro do sistema e notificações genéricas opt-in no host nativo.
 - CP6 — Propagação ponta a ponta: implementação, testes automatizados e bundle `.app` concluídos; validação final ainda exige a matriz manual de permissões TCC e execução contra apps externos.
 
 Decisão de compatibilidade: como o binding `objc2-vision` não está disponível na linha local do lockfile, as APIs Apple ficam isoladas em um shim Objective-C mínimo ligado ao mesmo binário Tauri; não há CLI externo nem segundo sidecar.
 
-Critérios manuais ainda abertos: validar permissões concedida/negada/revogada no bundle, Retina/múltiplos displays, crop/cancelamento, Safari/Chrome/VS Code/TextEdit e confirmar em runtime a ausência de arquivos temporários de captura. Esses fixtures não bloqueiam o status de implementação/bundle, mas bloqueiam o aceite completo de `C01`, `CL04`, `VIS01` e `DESK01`.
+Critérios manuais ainda abertos: validar permissões concedida/negada/revogada no bundle, Retina/múltiplos displays, janela atravessando displays, crop/cancelamento, Safari/Chrome/VS Code/TextEdit e confirmar em runtime a ausência de arquivos temporários de captura. Falha de Accessibility/frame deve gerar erro explícito e nunca fallback para o display inteiro. Esses fixtures bloqueiam o aceite completo de `C01`, `CL04`, `VIS01` e `DESK01`.
 
 ## Fora Da Rodada Visual Atual
 
