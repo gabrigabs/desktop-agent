@@ -1,13 +1,26 @@
-import type { AgentApi, AgentEvent } from "@desktop-agent/shared";
+import type {
+  ActiveWindowSnapshot,
+  AgentApi,
+  AgentEvent,
+  HostBridgeApi,
+  NativeCaptureAnalysisRequest,
+  NativeCapturePreview,
+  NativeCaptureRequest,
+  NativeNotificationInput,
+  NativePermissionKind,
+  NativePermissionState,
+  NativeSystemContext,
+  VisionAnalysis,
+} from "@desktop-agent/shared";
+import { invoke } from "@tauri-apps/api/core";
 import { type Child, Command } from "@tauri-apps/plugin-shell";
 import { RPCChannel } from "kkrpc";
 import { tauriShellStdioTransport } from "kkrpc/tauri";
 import i18n from "../i18n";
 import { useAgentStore } from "../stores/agent";
+import { validateMermaid } from "./mermaid";
 
-type FrontendApi = {
-  onEvent(event: AgentEvent): Promise<void>;
-};
+type FrontendApi = HostBridgeApi;
 
 let agent: AgentApi | null = null;
 let channel: RPCChannel<FrontendApi, AgentApi> | null = null;
@@ -44,6 +57,17 @@ function flushChunksNow() {
     clearTimeout(chunkFlushTimer);
     flushChunkBuffer();
   }
+}
+
+async function notifyNativeIfEnabled(input: NativeNotificationInput): Promise<void> {
+  const settings = useAgentStore.getState().settings;
+  if (!settings.notificationsEnabled) return;
+  await invoke("send_native_notification", {
+    input: {
+      ...input,
+      includePreview: Boolean(input.includePreview && settings.notificationContentMode === "preview"),
+    },
+  });
 }
 
 export function setActiveRequestId(id: string | null) {
@@ -103,6 +127,39 @@ async function doInitializeRpc(attempt: number): Promise<AgentApi> {
 
   channel = new RPCChannel<FrontendApi, AgentApi>(transport, {
     expose: {
+      async validateMermaid(input) {
+        return validateMermaid(input.code);
+      },
+      async getNativePermissionState(input): Promise<NativePermissionState> {
+        return invoke("get_native_permission_state", { kind: input.kind });
+      },
+      async requestNativePermission(input): Promise<NativePermissionState> {
+        return invoke("request_native_permission", { kind: input.kind });
+      },
+      async analyzeNativeImage(input): Promise<VisionAnalysis> {
+        return invoke("analyze_native_image", { request: input });
+      },
+      async prepareNativeCapture(input?: NativeCaptureRequest): Promise<NativeCapturePreview> {
+        return invoke("prepare_native_capture", { request: input ?? null });
+      },
+      async analyzeNativeCapture(input: NativeCaptureAnalysisRequest): Promise<VisionAnalysis> {
+        return invoke("analyze_native_capture", { request: input });
+      },
+      async discardNativeCapture(input: { captureId: string }): Promise<void> {
+        await invoke("discard_native_capture", { request: { captureId: input.captureId } });
+      },
+      async snapshotActiveWindow(): Promise<ActiveWindowSnapshot> {
+        return invoke("snapshot_active_window");
+      },
+      async getNativeSystemContext(): Promise<NativeSystemContext> {
+        return invoke("get_native_system_context");
+      },
+      async sendNativeNotification(input: NativeNotificationInput) {
+        if (!useAgentStore.getState().settings.notificationsEnabled) {
+          throw new Error("NOTIFICATIONS_DISABLED: native notifications are disabled in settings");
+        }
+        await notifyNativeIfEnabled(input);
+      },
       async onEvent(event) {
         // Forward event to native events store
         store.addEvent(event as AgentEvent);
@@ -159,9 +216,13 @@ async function doInitializeRpc(attempt: number): Promise<AgentApi> {
           case "workflow.approval_required":
             store.setWorkflowApproval(event.approval);
             store.addAgentLog({ type: "info", text: i18n.t("helix:rpcLogs.waitingApprovalToContinue") });
+            void notifyNativeIfEnabled({ kind: "approval" }).catch(() => undefined);
             break;
           case "workflow.completed":
             store.setWorkflowStatus(event.status);
+            void notifyNativeIfEnabled({
+              kind: event.status === "completed" ? "completed" : "failed",
+            }).catch(() => undefined);
             store.addAgentLog({
               type:
                 event.status === "completed"
@@ -283,6 +344,26 @@ export async function getAgent(): Promise<AgentApi> {
     }
     throw err;
   }
+}
+
+export async function requestNativePermission(kind: NativePermissionKind): Promise<NativePermissionState> {
+  return invoke("request_native_permission", { kind });
+}
+
+export async function prepareNativeCapture(request?: NativeCaptureRequest): Promise<NativeCapturePreview> {
+  return invoke("prepare_native_capture", { request: request ?? null });
+}
+
+export async function analyzeNativeCapture(request: NativeCaptureAnalysisRequest): Promise<VisionAnalysis> {
+  return invoke("analyze_native_capture", { request });
+}
+
+export async function discardNativeCapture(captureId: string): Promise<void> {
+  await invoke("discard_native_capture", { request: { captureId } });
+}
+
+export async function getNativeActiveWindow(): Promise<ActiveWindowSnapshot> {
+  return invoke("snapshot_active_window");
 }
 
 export async function restartRpc(): Promise<AgentApi> {

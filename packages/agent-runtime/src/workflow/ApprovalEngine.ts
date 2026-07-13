@@ -9,6 +9,8 @@ const SENSITIVITY_ORDER: ApprovalThreshold[] = [
   "network",
   "browser.control",
   "screen.read",
+  "accessibility.read",
+  "notification.send",
   "external",
   "all",
 ];
@@ -21,7 +23,9 @@ function sensitivityIndex(level: PermissionLevel | "none" | "all"): number {
 export function requiresApproval(
   level: PermissionLevel | undefined,
   threshold: ApprovalThreshold | undefined,
+  executionPolicy: "standard" | "explicit_approval" = "standard",
 ): boolean {
+  if (executionPolicy === "explicit_approval") return true;
   if (!level || threshold === "none" || !threshold) return false;
   if (threshold === "all") return true;
   return sensitivityIndex(level) >= sensitivityIndex(threshold);

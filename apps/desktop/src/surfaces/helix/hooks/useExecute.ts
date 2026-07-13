@@ -1,4 +1,4 @@
-import type { Turn } from "@desktop-agent/shared";
+import type { ContextAttachment, Turn } from "@desktop-agent/shared";
 import { unwrapAgentResponse } from "@desktop-agent/shared";
 import { readText as readClipboard, writeText as writeClipboard } from "@tauri-apps/plugin-clipboard-manager";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -179,6 +179,22 @@ export function useExecute(activeProfileId?: string | null) {
             });
           }
         }
+        const nativeContexts = store.contexts;
+        const selectedNativeContexts = nativeContexts.filter((context) => context.enabled);
+        for (const context of selectedNativeContexts) {
+          userBlocks.push({
+            type: "context",
+            source: context.source,
+            preview: context.preview,
+            content: context.content,
+            policy: context.policy,
+            metadata: {
+              ...context.metadata,
+              label: context.label,
+              sensitive: context.sensitive,
+            },
+          });
+        }
         store.startUserTurn({
           prompt: resolvedPrompt,
           sourceMode,
@@ -188,6 +204,7 @@ export function useExecute(activeProfileId?: string | null) {
         store.setQuery("");
         store.setIgnoreClipboard(true);
         store.clearFileContext();
+        store.clearContexts();
 
         requestId = crypto.randomUUID();
         setRpcActiveRequestId(requestId);
@@ -205,6 +222,42 @@ export function useExecute(activeProfileId?: string | null) {
           clipboardText,
           contextText: formatFileContext(fileContext),
           fileContext,
+          contexts: [
+            ...selectedNativeContexts,
+            ...(hasClipboard
+              ? [
+                  {
+                    id: "clipboard",
+                    source: "clipboard" as const,
+                    label: "Clipboard",
+                    preview: rawClipboardText.slice(0, 500),
+                    content: rawClipboardText,
+                    policy: "include" as const,
+                    sensitive: false,
+                    enabled: true,
+                  } satisfies ContextAttachment,
+                ]
+              : []),
+            ...fileContext.map(
+              (file) =>
+                ({
+                  id: `file:${file.path}`,
+                  source: "file" as const,
+                  label: file.displayName,
+                  preview: file.preview,
+                  content: file.encoding === "text" || file.encoding === "parsed" ? file.content : undefined,
+                  metadata: { path: file.path, mimeType: file.mimeType, size: file.size },
+                  policy:
+                    file.encoding === "text" || file.encoding === "parsed"
+                      ? "include"
+                      : file.encoding === "binary"
+                        ? "summary"
+                        : "reference",
+                  sensitive: true,
+                  enabled: true,
+                }) satisfies ContextAttachment,
+            ),
+          ],
           maxSteps: store.executionMode === "workflow" ? 8 : undefined,
           history,
           profileId: store.currentProfileId ?? activeProfileId ?? undefined,

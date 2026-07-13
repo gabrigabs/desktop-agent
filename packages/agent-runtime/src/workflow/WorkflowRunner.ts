@@ -3,6 +3,8 @@ import type { LlmProvider } from "@desktop-agent/provider-gateway";
 import type {
   AgentEvent,
   ApprovalRequest,
+  ContextAttachment,
+  ExecutionGrant,
   ExecutionMode,
   FileContextInput,
   PermissionLevel,
@@ -29,6 +31,7 @@ import type { SupportedLanguage } from "../i18n";
 import { t } from "../i18n";
 import type { ParserAgent } from "../parser";
 import { requiresApproval } from "./ApprovalEngine";
+import { createExecutionGrant } from "./ExecutionGrant";
 import { McpSessionManager } from "./McpSessionManager";
 import { runResponseEngine } from "./ResponseEngine";
 import { ToolExecutor } from "./ToolExecutor";
@@ -51,6 +54,7 @@ export type RunInput = {
   clipboardText: string;
   contextText?: string;
   fileContext?: FileContextInput[];
+  contexts?: ContextAttachment[];
   history?: { role: "user" | "assistant" | "system"; content: string }[];
   skillId?: string;
   profileId?: string;
@@ -76,6 +80,8 @@ type StepExecutionContext = {
   emit: (event: AgentEvent) => void;
   emitter: WorkflowEventEmitter;
   context: WorkflowContext;
+  executionGrant?: ExecutionGrant;
+  allowedMcpServers?: string[];
 };
 
 function isTerminalStatus(status: RunStatus): boolean {
@@ -162,8 +168,13 @@ export class WorkflowRunner {
   ): Promise<WorkflowRun> {
     const db = getDb();
     const fileContextSection = await this.buildFileContext(input.fileContext, input.contextText);
-    const effectivePrompt = fileContextSection.trim()
-      ? `${input.prompt}\n\nContexto de arquivos anexados:\n${fileContextSection}`
+    const attachmentSection = this.buildAttachmentContext(input.contexts, Boolean(input.fileContext?.length));
+    const contextSections = [
+      fileContextSection.trim() ? `Contexto de arquivos anexados:\n${fileContextSection}` : "",
+      attachmentSection,
+    ].filter(Boolean);
+    const effectivePrompt = contextSections.length
+      ? `${input.prompt}\n\n${contextSections.join("\n\n")}`
       : input.prompt;
     const provider = this.getLlmProvider();
     const model = this.getActiveModel() || "gpt-4o";
@@ -195,6 +206,16 @@ export class WorkflowRunner {
     const approvalThreshold = settings.approvalThreshold;
     const toolExecutor = this.toolExecutor;
     const mcpSessionManager = new McpSessionManager(() => db);
+    const connectorContexts = (input.contexts ?? []).filter(
+      (context) => context.source === "connector" && context.enabled,
+    );
+    const allowedMcpServers = connectorContexts.flatMap((context) => {
+      const ids = context.metadata?.mcpAllowlist;
+      return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === "string") : [];
+    });
+    if (connectorContexts.length > 0 && allowedMcpServers.length === 0) {
+      throw new Error("CONNECTOR_NOT_ALLOWED: nenhum connector selecionado para esta execução");
+    }
 
     const workflowContext: WorkflowContext = {
       prompt: effectivePrompt,
@@ -236,20 +257,33 @@ export class WorkflowRunner {
           continue;
         }
 
+        let executionGrant: ExecutionGrant | undefined;
+        const plannedTool = step.kind === "tool" ? registry.get(step.toolName ?? "") : undefined;
+
         if (step.status === "waiting_approval" && resumeApproved !== undefined) {
           if (!resumeApproved) {
             await this.failStepAndRun(db, run, step, t("errors:workflow.approvalDenied", this.lang), emitter);
             return getWorkflowRun(db, run.id) as WorkflowRun;
           }
+          if (plannedTool?.executionPolicy === "explicit_approval" && step.permissionLevel) {
+            const resolvedConfig = resolveVariables(step.config ?? {}, workflowContext);
+            executionGrant = createExecutionGrant(
+              plannedTool.name,
+              step.permissionLevel,
+              resolvedConfig.args ?? {},
+              step.id,
+            );
+          }
           step.status = "pending";
           step.requiresApproval = false;
-          step.permissionLevel = undefined;
+          if (!executionGrant) step.permissionLevel = undefined;
         }
 
         if (
           step.status !== "waiting_approval" &&
           step.permissionLevel &&
-          requiresApproval(step.permissionLevel, approvalThreshold)
+          !executionGrant &&
+          requiresApproval(step.permissionLevel, approvalThreshold, plannedTool?.executionPolicy)
         ) {
           step.status = "waiting_approval";
           step.requiresApproval = true;
@@ -294,6 +328,8 @@ export class WorkflowRunner {
           emit: this.emit,
           emitter,
           context: workflowContext,
+          executionGrant,
+          allowedMcpServers: connectorContexts.length > 0 ? allowedMcpServers : undefined,
         };
 
         const updatedStep = await this.executeStep(step, stepContext);
@@ -380,6 +416,24 @@ export class WorkflowRunner {
     }
 
     return parts.join("\n\n");
+  }
+
+  private buildAttachmentContext(contexts?: ContextAttachment[], hasLegacyFiles = false): string {
+    const included = (contexts ?? []).filter(
+      (context) =>
+        context.enabled && context.content?.trim() && !(hasLegacyFiles && context.source === "file"),
+    );
+    if (included.length === 0) return "";
+    return [
+      "Contextos nativos anexados:",
+      ...included.map((context) => {
+        const warning = [
+          context.metadata?.truncated ? "truncado" : "",
+          context.metadata?.redactions ? "com redactions" : "",
+        ].filter(Boolean);
+        return `--- ${context.label} (${context.source}${warning.length ? `; ${warning.join(", ")}` : ""}) ---\n${context.content}`;
+      }),
+    ].join("\n\n");
   }
 
   private ensureStepsFromTemplate(
@@ -520,7 +574,12 @@ export class WorkflowRunner {
   ): Promise<unknown> {
     const toolName = (config.toolName as string) ?? "";
     if (!toolName) throw new Error("toolName is required for tool step");
-    const result = await ctx.toolExecutor.execute(ctx.requestId, toolName, config.args ?? {});
+    const result = await ctx.toolExecutor.execute(
+      ctx.requestId,
+      toolName,
+      config.args ?? {},
+      ctx.executionGrant,
+    );
     return result.output;
   }
 
@@ -528,6 +587,9 @@ export class WorkflowRunner {
     const serverId = (config.serverId as string) ?? "";
     const toolName = (config.toolName as string) ?? "";
     if (!serverId || !toolName) throw new Error("serverId and toolName are required for mcp step");
+    if (ctx.allowedMcpServers && !ctx.allowedMcpServers.includes(serverId)) {
+      throw new Error(`CONNECTOR_NOT_ALLOWED: server ${serverId} is not selected for this execution`);
+    }
 
     ctx.emitter.toolStarted(toolName, config.args ?? {});
     try {

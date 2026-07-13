@@ -85,15 +85,37 @@
       "title": "Adicionar contexto",
       "clipboard": "Clipboard",
       "clipboardDescription": "Incluir o conteúdo copiado na mensagem.",
-      "screen": "Tela",
-      "screenDescription": "Anexar uma captura da tela atual.",
+      "screenRead": "Ler texto da tela",
+      "screenReadDescription": "Extrair texto visível com Vision no dispositivo.",
+      "screenCapture": "Capturar tela",
+      "screenCaptureDescription": "Analisar a tela inteira como contexto.",
+      "screenRegion": "Capturar região",
+      "screenRegionDescription": "Selecionar uma área específica da tela.",
       "file": "Arquivo",
       "fileDescription": "Anexar um arquivo do computador.",
       "activeApp": "App ativo",
       "activeAppDescription": "Incluir o contexto do aplicativo em foco.",
       "connector": "Conector",
       "connectorDescription": "Usar uma conexão ativa para buscar contexto."
-    }
+    },
+    "screenCapture": {
+      "permissionDenied": "Autorize a gravação de tela nos Ajustes do Sistema para continuar.",
+      "failed": "Não foi possível capturar a tela.",
+      "screenReadLabel": "Leitura da tela",
+      "screenCaptureLabel": "Captura da tela",
+      "screenRegionLabel": "Região da tela",
+      "noVisibleContent": "Captura {{width}}×{{height}} analisada localmente, sem texto visível."
+    },
+    "screenRegion": {
+      "title": "Selecione a região",
+      "description": "Arraste sobre a prévia. A imagem permanece no dispositivo e é descartada após a análise.",
+      "previewAlt": "Prévia da tela para seleção de região",
+      "selectionHint": "Arraste para marcar a área que o Helix deve analisar.",
+      "selectionReady": "Região pronta para análise.",
+      "cancel": "Cancelar",
+      "confirm": "Analisar região"
+    },
+    "activeAppFailed": "Não foi possível ler o aplicativo ativo."
   },
   "contextBar": {
     "clipboard": "Clipboard",
@@ -510,7 +532,7 @@
     "copyError": "Erro ao copiar resposta",
     "extractedText": "Texto extraído",
     "noTextDetected": "Nenhum texto detectado na imagem.",
-    "ocrFailed": "Falha no OCR. Verifique se o tesseract está instalado ou configure OCR_SPACE_API_KEY.",
+    "ocrFailed": "Falha na análise visual nativa. Tente novamente ou verifique a permissão da imagem.",
     "sources": "Fontes ({{count}})",
     "searchFailed": "Não foi possível pesquisar agora. Verifique sua conexão.",
     "analyzingContext": "Analisando contexto...",

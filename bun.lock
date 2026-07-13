@@ -155,6 +155,7 @@
       "name": "@desktop-agent/tools-ocr",
       "version": "0.1.0",
       "dependencies": {
+        "@desktop-agent/shared": "workspace:*",
         "@desktop-agent/tool-registry": "workspace:*",
       },
       "devDependencies": {

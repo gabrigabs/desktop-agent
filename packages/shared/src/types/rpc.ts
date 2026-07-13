@@ -49,7 +49,11 @@ export type PermissionLevel =
   | "network"
   | "browser.control"
   | "screen.read"
+  | "accessibility.read"
+  | "notification.send"
   | "external";
+
+export type ExecutionPolicy = "standard" | "explicit_approval";
 
 export type Permission = {
   id: string;
@@ -64,6 +68,7 @@ export type ToolDefinition = {
   description: string;
   category: "text" | "desktop" | "system" | "web" | "ocr" | "mcp";
   permissionLevel: PermissionLevel;
+  executionPolicy?: ExecutionPolicy;
   inputSchema: z.ZodType;
 };
 
@@ -147,6 +152,8 @@ export type AppSettings = {
   windowOpacity: number;
   petSize: number;
   language: "pt-BR" | "en";
+  notificationsEnabled: boolean;
+  notificationContentMode: "generic" | "preview";
 };
 
 export type ExecutionMode = "simple" | "workflow";

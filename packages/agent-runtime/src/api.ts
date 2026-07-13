@@ -9,7 +9,9 @@ import type {
   AgentProfile,
   AppSettings,
   CompletionInput,
+  ContextAttachment,
   FileContextInput,
+  HostBridgeApi,
   MarkdownSource,
   ParsedDocument,
   PromptTemplate,
@@ -89,9 +91,27 @@ function toParsedDocument(doc: import("@desktop-agent/storage").StoredParsedDocu
   };
 }
 
-import { createClipboardTool, createFileWriteTool } from "@desktop-agent/tools-desktop";
-import { createOcrImageTool, createScreenshotOcrTool } from "@desktop-agent/tools-ocr";
-import { createRewriteTool, createSummarizeTool, createTranslateTool } from "@desktop-agent/tools-text";
+import {
+  createClipboardTool,
+  createDesktopAppTool,
+  createDesktopNotifyTool,
+  createDesktopSystemTool,
+  createFileWriteTool,
+} from "@desktop-agent/tools-desktop";
+import {
+  createOcrImageTool,
+  createScreenshotOcrTool,
+  createVisionBarcodeTool,
+  createVisionClassificationTool,
+  createVisionSaliencyTool,
+  createVisionTextTool,
+} from "@desktop-agent/tools-ocr";
+import {
+  createMermaidGenerateTool,
+  createRewriteTool,
+  createSummarizeTool,
+  createTranslateTool,
+} from "@desktop-agent/tools-text";
 import { createWebCrawlTool, createWebExtractTool, createWebSearchTool } from "@desktop-agent/tools-web";
 import { conversationTitleFromTurns, sanitizeConversationTitle } from "./conversation-title";
 import { t } from "./i18n";
@@ -107,9 +127,7 @@ import { getPersistedDocumentRoot } from "./parser/persistedAuthorization";
 import { ToolExecutor } from "./workflow/ToolExecutor";
 import { WorkflowRunner } from "./workflow/WorkflowRunner";
 
-type ClientApi = {
-  onEvent(event: AgentEvent): Promise<void>;
-};
+type ClientApi = HostBridgeApi;
 
 // Client API reference for streaming events
 let clientApi: ClientApi | null = null;
@@ -138,6 +156,21 @@ async function isAuthorizedFilePath(targetPath: string): Promise<boolean> {
   return [...authorizedFileRoots].some(
     (root) => canonicalParent === root || canonicalParent.startsWith(`${root}${path.sep}`),
   );
+}
+
+async function isAuthorizedImagePath(targetPath: string): Promise<boolean> {
+  const fs = await import("node:fs/promises");
+  const path = await import("node:path");
+  try {
+    const canonicalTarget = await fs.realpath(path.resolve(targetPath));
+    const stat = await fs.stat(canonicalTarget);
+    if (!stat.isFile()) return false;
+    return [...authorizedFileRoots].some(
+      (root) => canonicalTarget === root || canonicalTarget.startsWith(`${root}${path.sep}`),
+    );
+  } catch {
+    return false;
+  }
 }
 
 // Clipboard context wrapper for Bun environment (macOS native pbcopy/pbpaste)
@@ -182,6 +215,9 @@ function getActiveProviderConfig() {
   const languageVal = getSetting(db, "language");
   const language: AppSettings["language"] =
     languageVal === "en" || languageVal === "pt-BR" ? languageVal : "pt-BR";
+  const notificationsEnabled = getSetting(db, "notificationsEnabled") === "true";
+  const notificationContentMode: AppSettings["notificationContentMode"] =
+    getSetting(db, "notificationContentMode") === "preview" ? "preview" : "generic";
 
   return {
     activeProvider,
@@ -195,6 +231,8 @@ function getActiveProviderConfig() {
     windowOpacity,
     petSize,
     language,
+    notificationsEnabled,
+    notificationContentMode,
   };
 }
 
@@ -259,17 +297,46 @@ const ctx = {
   },
 };
 
+function nativeBridge(): HostBridgeApi {
+  if (!clientApi) throw new Error("BRIDGE_UNAVAILABLE: native host bridge is not connected");
+  return clientApi;
+}
+
+const nativeCtx = {
+  get bridge(): HostBridgeApi {
+    return nativeBridge();
+  },
+  isPathAuthorized: isAuthorizedImagePath,
+};
+
 // Register all tools
 registry.register(createRewriteTool(ctx));
+registry.register(
+  createMermaidGenerateTool({
+    provider: proxyProvider,
+    model: ctx.model,
+    validate: async (code) => {
+      if (!clientApi?.validateMermaid) return { valid: false, error: "MERMAID_BRIDGE_UNAVAILABLE" };
+      return clientApi.validateMermaid({ code });
+    },
+  }),
+);
 registry.register(createSummarizeTool(ctx));
 registry.register(createTranslateTool(ctx));
 registry.register(createClipboardTool(clipboardCtx));
+registry.register(createDesktopAppTool(nativeCtx));
+registry.register(createDesktopSystemTool(nativeCtx));
+registry.register(createDesktopNotifyTool(nativeCtx));
 registry.register(createFileWriteTool({ isPathAuthorized: isAuthorizedFilePath }));
 registry.register(createWebSearchTool());
 registry.register(createWebExtractTool());
 registry.register(createWebCrawlTool());
-registry.register(createOcrImageTool());
-registry.register(createScreenshotOcrTool());
+registry.register(createVisionTextTool(nativeCtx));
+registry.register(createVisionClassificationTool(nativeCtx));
+registry.register(createVisionBarcodeTool(nativeCtx));
+registry.register(createVisionSaliencyTool(nativeCtx));
+registry.register(createOcrImageTool(nativeCtx));
+registry.register(createScreenshotOcrTool(nativeCtx));
 registry.register(createFileParseTool(parserAgent));
 
 ensureMcpReady();
@@ -290,6 +357,7 @@ function listToolCapabilities() {
     description: t.description,
     category: t.category,
     permissionLevel: t.permissionLevel,
+    executionPolicy: t.executionPolicy,
   }));
 }
 
@@ -302,6 +370,7 @@ function createQueuedRun(input: {
   workflowTemplateId?: string;
   history?: { role: "user" | "assistant" | "system"; content: string }[];
   profileId?: string;
+  contexts?: ContextAttachment[];
 }) {
   const db = getDb();
   const config = getActiveProviderConfig();
@@ -320,6 +389,7 @@ function createQueuedRun(input: {
       createdBy: "helix",
       timeoutSeconds: config.timeout,
       profileId: input.profileId,
+      contexts: input.contexts?.map(({ content, ...context }) => ({ ...context, content })) ?? [],
     },
   });
 
@@ -452,6 +522,7 @@ export const agentApi: AgentApi = {
       name: t.name,
       description: t.description,
       category: t.category,
+      executionPolicy: t.executionPolicy,
     }));
   },
 
@@ -510,6 +581,7 @@ export const agentApi: AgentApi = {
       workflowTemplateId,
       history: input.history,
       profileId: input.profileId,
+      contexts: input.contexts,
     });
 
     const controller = new AbortController();
@@ -535,6 +607,7 @@ export const agentApi: AgentApi = {
         clipboardText: input.clipboardText ?? "",
         contextText: input.contextText,
         fileContext: input.fileContext,
+        contexts: input.contexts,
         history: input.history ?? [],
         skillId: input.skillId,
         profileId: input.profileId,
@@ -602,6 +675,9 @@ export const agentApi: AgentApi = {
         runId,
         prompt: existingRun.prompt,
         clipboardText: existingRun.clipboardPreview,
+        contexts: Array.isArray(existingRun.metadata.contexts)
+          ? (existingRun.metadata.contexts as ContextAttachment[])
+          : undefined,
         approved,
         signal: controller.signal,
       });
@@ -842,6 +918,8 @@ export const agentApi: AgentApi = {
       windowOpacity: config.windowOpacity,
       petSize: config.petSize,
       language: config.language,
+      notificationsEnabled: config.notificationsEnabled,
+      notificationContentMode: config.notificationContentMode,
     };
   },
 
@@ -858,6 +936,8 @@ export const agentApi: AgentApi = {
     setSetting(db, "windowOpacity", String(settings.windowOpacity));
     setSetting(db, "petSize", String(settings.petSize));
     setSetting(db, "language", settings.language);
+    setSetting(db, "notificationsEnabled", settings.notificationsEnabled ? "true" : "false");
+    setSetting(db, "notificationContentMode", settings.notificationContentMode);
   },
 
   async fetchModels(provider: string, apiKey: string, baseUrl?: string): Promise<string[]> {

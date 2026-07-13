@@ -26,6 +26,8 @@ export function getHighestPermissionLevel(policy?: PermissionLevel[]): Permissio
     "local.read",
     "local.write",
     "screen.read",
+    "accessibility.read",
+    "notification.send",
     "network",
     "browser.control",
     "external",

@@ -111,14 +111,26 @@ export function App() {
     if (!isTauriRuntime()) return;
 
     let unlistenFn: (() => void) | undefined;
+    let disposed = false;
 
-    listen<string>("tray-click", () => {
-      applyWindowMode("normal");
-    }).then((fn) => {
-      unlistenFn = fn;
-    });
+    void listen<string>("tray-click", () => {
+      void applyWindowMode("normal");
+    })
+      .then((fn) => {
+        if (disposed) {
+          fn();
+          return;
+        }
+        unlistenFn = fn;
+      })
+      .catch((err) => {
+        if (!disposed) {
+          console.error("Failed to listen for tray events:", err);
+        }
+      });
 
     return () => {
+      disposed = true;
       if (unlistenFn) {
         unlistenFn();
       }

@@ -30,6 +30,30 @@ export {
   type HelixContextSource,
   type HelixSecondaryAction,
 } from "./helix";
+export type {
+  ActiveWindowElement,
+  ActiveWindowSnapshot,
+  ContextAttachment,
+  ExecutionGrant,
+  HostBridgeApi,
+  NativeBoundingBox,
+  NativeCaptureAnalysisRequest,
+  NativeCapturePreview,
+  NativeCaptureRequest,
+  NativeError,
+  NativeErrorCode,
+  NativeNotificationInput,
+  NativePermissionKind,
+  NativePermissionState,
+  NativeSettings,
+  NativeSystemContext,
+  VisionAnalysis,
+  VisionBarcode,
+  VisionClassification,
+  VisionFeature,
+  VisionTextObservation,
+} from "./native";
+export { normalizeNativeError } from "./native";
 export type { MarkdownSource, ParsedDocument } from "./types/parsed-documents";
 export type {
   AgentEvent,
@@ -44,6 +68,7 @@ export type {
   ConnectorKind,
   Conversation,
   ExecutionMode,
+  ExecutionPolicy,
   FileContextInput,
   McpTestResult,
   MessageBlock,

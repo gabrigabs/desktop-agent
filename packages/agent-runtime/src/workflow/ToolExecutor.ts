@@ -1,6 +1,7 @@
-import type { AgentEvent, ToolResult } from "@desktop-agent/shared";
+import type { AgentEvent, ExecutionGrant, PermissionLevel, ToolResult } from "@desktop-agent/shared";
 import { createInteraction, getDb } from "@desktop-agent/storage";
 import { registry } from "@desktop-agent/tool-registry";
+import { grantKey, hashToolInput } from "./ExecutionGrant";
 
 export class ToolExecutor {
   constructor(
@@ -8,12 +9,27 @@ export class ToolExecutor {
     private getProviderId: () => string,
   ) {}
 
-  async execute(requestId: string, toolName: string, input: unknown): Promise<ToolResult> {
+  private consumedGrants = new Set<string>();
+
+  async execute(
+    requestId: string,
+    toolName: string,
+    input: unknown,
+    grant?: ExecutionGrant,
+  ): Promise<ToolResult> {
     const tool = registry.get(toolName);
     if (!tool) {
       const error = `Unknown tool: ${toolName}`;
       this.emit({ type: "tool.failed", requestId, toolName, error });
       throw new Error(error);
+    }
+
+    if (tool.executionPolicy === "explicit_approval") {
+      const grantError = this.validateGrant(toolName, tool.permissionLevel, input, grant);
+      if (grantError) {
+        this.emit({ type: "tool.failed", requestId, toolName, error: grantError });
+        throw new Error(grantError);
+      }
     }
 
     this.emit({ type: "tool.started", requestId, toolName, input });
@@ -71,6 +87,25 @@ export class ToolExecutor {
 
       throw err;
     }
+  }
+
+  private validateGrant(
+    toolName: string,
+    permissionLevel: PermissionLevel,
+    input: unknown,
+    grant?: ExecutionGrant,
+  ): string | null {
+    if (!grant) return "EXPLICIT_APPROVAL_REQUIRED: this tool needs a one-shot approval grant";
+    if (grant.toolName !== toolName || grant.permissionLevel !== permissionLevel) {
+      return "INVALID_EXECUTION_GRANT: tool or permission does not match";
+    }
+    if (grant.expiresAt <= Date.now()) return "EXECUTION_GRANT_EXPIRED: approval grant has expired";
+    if (grant.inputHash !== hashToolInput(input))
+      return "INVALID_EXECUTION_GRANT: input does not match approval";
+    const key = grantKey(grant);
+    if (this.consumedGrants.has(key)) return "EXECUTION_GRANT_REUSED: approval grant was already consumed";
+    this.consumedGrants.add(key);
+    return null;
   }
 
   list(allowlist?: string[]): ReturnType<typeof registry.list> {

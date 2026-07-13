@@ -1,4 +1,4 @@
-import { getHelixAction } from "@desktop-agent/shared";
+import { type ContextAttachment, getHelixAction } from "@desktop-agent/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { HelixBottomNav } from "../../components/ui/helix-bottom-nav";
@@ -258,6 +258,24 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     } else {
       store.setIgnoreClipboard(true);
     }
+    store.setContexts(
+      lastUserTurn.blocks.flatMap((block, index) => {
+        if (block.type !== "context" || block.source === "clipboard" || block.source === "web") return [];
+        return [
+          {
+            id: `regenerated:${block.source}:${index}`,
+            source: block.source,
+            label: typeof block.metadata?.label === "string" ? block.metadata.label : block.source,
+            preview: block.preview,
+            content: block.content,
+            metadata: block.metadata,
+            policy: block.policy,
+            sensitive: block.source !== "file",
+            enabled: true,
+          } as ContextAttachment,
+        ];
+      }),
+    );
     store.setResult(null);
     store.setError(null);
     onToastSuccess?.(t("helix:helixIndex.regenerating"));

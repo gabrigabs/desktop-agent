@@ -112,6 +112,16 @@ export class Orchestrator {
       throw new Error(`Unknown tool: ${toolName}`);
     }
 
+    // This compatibility executor has no step-bound approval channel. Sensitive
+    // native tools must therefore fail closed instead of bypassing the central
+    // WorkflowRunner/ToolExecutor grant flow.
+    if (tool.executionPolicy === "explicit_approval") {
+      const error = "EXPLICIT_APPROVAL_REQUIRED: this tool needs a step-bound approval grant";
+      emit({ type: "tool.failed", requestId, toolName, error });
+      emit({ type: "agent.completed", requestId });
+      throw new Error(error);
+    }
+
     emit({ type: "tool.started", requestId, toolName });
     const startedAt = Date.now();
 

@@ -40,6 +40,8 @@ import { Button } from "../../components/ui/button";
 import { Card } from "../../components/ui/card";
 import { IconButton } from "../../components/ui/icon-button";
 import { Input } from "../../components/ui/input";
+import { getAgent } from "../../lib/rpc";
+import { useAgentStore } from "../../stores/agent";
 import { GLOBAL_SHORTCUT_LABEL, usePinstripesModels } from "./constants";
 import { PromptsPanel } from "./PromptsPanel";
 import { SkillsPanel } from "./SkillsPanel";
@@ -755,6 +757,20 @@ function ShortcutsSection() {
 
 function PrivacySection() {
   const { t } = useTranslation(["settings", "common"]);
+  const settings = useAgentStore((state) => state.settings);
+  const setSettings = useAgentStore((state) => state.setSettings);
+
+  const updateNotifications = async (patch: Partial<typeof settings>) => {
+    const next = { ...settings, ...patch };
+    setSettings(next);
+    try {
+      const api = await getAgent();
+      await api.saveSettings(next);
+    } catch {
+      setSettings(settings);
+    }
+  };
+
   return (
     <div>
       <div className="grid gap-2">
@@ -778,6 +794,40 @@ function PrivacySection() {
           title={t("settings:privacy.retention")}
           description={t("settings:privacy.retentionHint")}
         />
+      </div>
+      <div className="mt-3 rounded-xl border border-line p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-xs font-semibold text-fg">Notificações nativas</div>
+            <div className="mt-1 text-[11px] text-faint">
+              Desligadas por padrão; o conteúdo permanece genérico.
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => void updateNotifications({ notificationsEnabled: !settings.notificationsEnabled })}
+            className={`rounded-full px-3 py-1 text-[10px] font-medium ${
+              settings.notificationsEnabled ? "bg-good/20 text-good" : "bg-white/[0.06] text-mute"
+            }`}
+          >
+            {settings.notificationsEnabled ? "Ativadas" : "Desativadas"}
+          </button>
+        </div>
+        <label className="mt-3 flex items-center justify-between gap-3 text-[11px] text-faint">
+          Conteúdo
+          <select
+            value={settings.notificationContentMode}
+            onChange={(event) =>
+              void updateNotifications({
+                notificationContentMode: event.target.value as "generic" | "preview",
+              })
+            }
+            className="rounded border border-line bg-bg px-2 py-1 text-[10px] text-fg"
+          >
+            <option value="generic">Genérico</option>
+            <option value="preview">Preview sanitizado</option>
+          </select>
+        </label>
       </div>
     </div>
   );

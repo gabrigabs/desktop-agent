@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@desktop-agent/shared": "workspace:*",
     "@desktop-agent/tool-registry": "workspace:*"
   },
   "devDependencies": {

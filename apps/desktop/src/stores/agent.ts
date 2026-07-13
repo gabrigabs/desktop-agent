@@ -3,6 +3,7 @@ import type {
   ApprovalRequest,
   AppSettings,
   ConnectorConfig,
+  ContextAttachment,
   ExecutionMode,
   FileContextInput,
   RunStatus,
@@ -39,6 +40,7 @@ type State = {
   clipboardText: string;
   ignoreClipboard: boolean;
   fileContext: FileContextInput[];
+  contexts: ContextAttachment[];
   messages: Turn[];
   assistantDraft: string;
   currentConversationId: string | null;
@@ -76,6 +78,11 @@ type State = {
   addFileContext: (files: FileContextInput[]) => void;
   removeFileContext: (path: string) => void;
   clearFileContext: () => void;
+  setContexts: (contexts: ContextAttachment[]) => void;
+  addContext: (context: ContextAttachment) => void;
+  toggleContext: (id: string) => void;
+  removeContext: (id: string) => void;
+  clearContexts: () => void;
   setMessages: (messages: Turn[]) => void;
   addTurn: (turn: Turn) => void;
   updateLastTurn: (update: Partial<Turn>) => void;
@@ -122,6 +129,8 @@ const defaultSettings: AppSettings = {
   windowOpacity: 0.72,
   petSize: 56,
   language: "pt-BR",
+  notificationsEnabled: false,
+  notificationContentMode: "generic",
 };
 
 const defaultConnectors: ConnectorConfig[] = [
@@ -196,6 +205,7 @@ export const useAgentStore = create<State>((set) => ({
   clipboardText: "",
   ignoreClipboard: true,
   fileContext: [],
+  contexts: [],
   messages: [],
   assistantDraft: "",
   currentConversationId: null,
@@ -230,6 +240,15 @@ export const useAgentStore = create<State>((set) => ({
     }),
   removeFileContext: (path) => set((s) => ({ fileContext: s.fileContext.filter((f) => f.path !== path) })),
   clearFileContext: () => set({ fileContext: [] }),
+  setContexts: (contexts) => set({ contexts }),
+  addContext: (context) =>
+    set((s) => ({ contexts: [...s.contexts.filter((item) => item.id !== context.id), context] })),
+  toggleContext: (id) =>
+    set((s) => ({
+      contexts: s.contexts.map((item) => (item.id === id ? { ...item, enabled: !item.enabled } : item)),
+    })),
+  removeContext: (id) => set((s) => ({ contexts: s.contexts.filter((item) => item.id !== id) })),
+  clearContexts: () => set({ contexts: [] }),
   setMessages: (messages) => set({ messages, assistantDraft: "" }),
   addTurn: (turn) => set((s) => ({ messages: [...s.messages, turn] })),
   updateLastTurn: (update) =>
@@ -392,5 +411,6 @@ export const useAgentStore = create<State>((set) => ({
       selectedSkillId: null,
       workflowRun: null,
       agentLogs: [],
+      contexts: [],
     }),
 }));

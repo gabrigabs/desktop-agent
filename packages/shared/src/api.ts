@@ -1,3 +1,4 @@
+import type { ContextAttachment } from "./native";
 import type { MarkdownSource, ParsedDocument } from "./types/parsed-documents";
 import type {
   AgentEvent,
@@ -42,7 +43,14 @@ export type AgentApi = {
     result: ToolResult;
     events: AgentEvent[];
   }>;
-  listTools(): Promise<{ name: string; description: string; category: string }[]>;
+  listTools(): Promise<
+    {
+      name: string;
+      description: string;
+      category: string;
+      executionPolicy?: "standard" | "explicit_approval";
+    }[]
+  >;
   getProviders(): Promise<ProviderConfig[]>;
   getHistory(input?: { limit?: number }): Promise<unknown[]>;
   getSettings(): Promise<AppSettings>;
@@ -58,6 +66,7 @@ export type AgentApi = {
     clipboardText?: string;
     contextText?: string;
     fileContext?: FileContextInput[];
+    contexts?: ContextAttachment[];
     maxSteps?: number;
     history?: { role: "user" | "assistant" | "system"; content: string }[];
     profileId?: string;
@@ -73,7 +82,13 @@ export type AgentApi = {
     events: AgentEvent[];
   }>;
   listCapabilities(): Promise<{
-    tools: { name: string; description: string; category: string; permissionLevel: PermissionLevel }[];
+    tools: {
+      name: string;
+      description: string;
+      category: string;
+      permissionLevel: PermissionLevel;
+      executionPolicy?: "standard" | "explicit_approval";
+    }[];
     connectors: ConnectorConfig[];
     templates: WorkflowTemplate[];
   }>;

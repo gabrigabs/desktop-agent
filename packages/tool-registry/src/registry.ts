@@ -31,11 +31,12 @@ export class ToolRegistry {
 
   list(): ToolDefinition[] {
     return Array.from(this.tools.values()).map(
-      ({ name, description, category, permissionLevel, inputSchema }) => ({
+      ({ name, description, category, permissionLevel, executionPolicy, inputSchema }) => ({
         name,
         description,
         category,
         permissionLevel,
+        executionPolicy,
         inputSchema,
       }),
     );

@@ -25,6 +25,8 @@
 
 Helix is a macOS desktop assistant designed to feel like a natural extension of your workspace. It sits quietly in a small, floating window until you summon it with a global shortcut, then helps you act on selected text, clipboard content, or quick ideas without leaving your flow.
 
+The packaged native bundle targets **macOS 13.0 or newer**. Vision, screen capture and Accessibility stay inside the Tauri host; the agent sidecar receives only typed, derived context.
+
 Copy text, press `Control+Shift+Space`, type what you want, and Helix does the rest.
 
 ## Features
@@ -41,7 +43,7 @@ Copy text, press `Control+Shift+Space`, type what you want, and Helix does the r
 
 ## Quick Start
 
-Requires **macOS**, **Rust 1.77+**, **Bun 1.3+**, and **Xcode Command Line Tools**.
+Requires **macOS 13+**, **Rust 1.77+**, **Bun 1.3+**, and **Xcode Command Line Tools**.
 
 ```bash
 # Install dependencies

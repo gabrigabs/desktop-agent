@@ -1,4 +1,4 @@
-import { Check, Clipboard, FileText, Globe, Layout, Monitor, Plus } from "lucide-react";
+import { Camera, Check, Clipboard, FileText, Globe, Layout, Plus, ScanLine, ScanText } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ContextItem } from "./context-bar";
@@ -22,12 +22,28 @@ export const CONTEXT_SOURCES: ContextMenuSource[] = [
     mock: false,
   },
   {
-    id: "screen",
+    id: "screen-read",
     source: "screen",
-    labelKey: "composer.contextMenu.screen",
-    descriptionKey: "composer.contextMenu.screenDescription",
-    icon: Monitor,
-    mock: true,
+    labelKey: "composer.contextMenu.screenRead",
+    descriptionKey: "composer.contextMenu.screenReadDescription",
+    icon: ScanText,
+    mock: false,
+  },
+  {
+    id: "screen-capture",
+    source: "screen",
+    labelKey: "composer.contextMenu.screenCapture",
+    descriptionKey: "composer.contextMenu.screenCaptureDescription",
+    icon: Camera,
+    mock: false,
+  },
+  {
+    id: "screen-region",
+    source: "screen",
+    labelKey: "composer.contextMenu.screenRegion",
+    descriptionKey: "composer.contextMenu.screenRegionDescription",
+    icon: ScanLine,
+    mock: false,
   },
   {
     id: "file",
@@ -35,7 +51,7 @@ export const CONTEXT_SOURCES: ContextMenuSource[] = [
     labelKey: "composer.contextMenu.file",
     descriptionKey: "composer.contextMenu.fileDescription",
     icon: FileText,
-    mock: true,
+    mock: false,
   },
   {
     id: "active-app",
@@ -43,7 +59,7 @@ export const CONTEXT_SOURCES: ContextMenuSource[] = [
     labelKey: "composer.contextMenu.activeApp",
     descriptionKey: "composer.contextMenu.activeAppDescription",
     icon: Layout,
-    mock: true,
+    mock: false,
   },
   {
     id: "connector",
@@ -51,7 +67,7 @@ export const CONTEXT_SOURCES: ContextMenuSource[] = [
     labelKey: "composer.contextMenu.connector",
     descriptionKey: "composer.contextMenu.connectorDescription",
     icon: Globe,
-    mock: true,
+    mock: false,
   },
 ];
 
@@ -171,7 +187,7 @@ export function ContextMenuPopup({
           [&::-webkit-scrollbar-thumb]:rounded-full
           [&::-webkit-scrollbar-thumb]:bg-line/30
           [&::-webkit-scrollbar-thumb:hover]:bg-line/50
-          ${animateIn ? "max-h-[min(220px,50vh)] pt-1.5 opacity-100" : "max-h-0 pt-0 opacity-0"}`}
+          ${animateIn ? "max-h-[min(340px,58vh)] pt-1.5 opacity-100" : "max-h-0 pt-0 opacity-0"}`}
       >
         <div className="flex items-center gap-1 px-1 pb-1 mb-1 border-b border-line/30">
           <Plus className="h-2.5 w-2.5 text-mute" />
@@ -214,20 +230,25 @@ export function ContextMenuPopup({
               >
                 <Icon className="h-3 w-3" />
               </span>
-              <div className="min-w-0 flex-1 flex items-center gap-1.5">
-                <span
-                  className={`text-[11px] font-medium transition-colors ${
-                    isActive ? "text-signal" : isFocused ? "text-signal" : "text-fg"
-                  }`}
-                >
-                  {t(`helix:${src.labelKey}`)}
-                </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={`text-[11px] font-medium transition-colors ${
+                      isActive ? "text-signal" : isFocused ? "text-signal" : "text-fg"
+                    }`}
+                  >
+                    {t(`helix:${src.labelKey}`)}
+                  </span>
+                  {isActive && !src.mock && <Check className="h-3 w-3 text-signal animate-check-pop" />}
+                </div>
+                <p className="mt-0.5 truncate text-[9px] leading-tight text-faint">
+                  {t(`helix:${src.descriptionKey}`)}
+                </p>
                 {src.mock && (
                   <span className="text-[7px] uppercase tracking-wide text-faint rounded px-1 py-0.5 border border-line/40">
                     {t("helix:contextBar.soon")}
                   </span>
                 )}
-                {isActive && !src.mock && <Check className="h-3 w-3 text-signal animate-check-pop" />}
               </div>
             </button>
           );

@@ -1,4 +1,10 @@
-import type { FileContextInput } from "@desktop-agent/shared";
+import {
+  type FileContextInput,
+  type NativeBoundingBox,
+  type NativeCapturePreview,
+  normalizeNativeError,
+  type VisionAnalysis,
+} from "@desktop-agent/shared";
 import { ArrowUp, Eye, FileText, FolderOpen, Loader2, Paperclip, Plus, Square, X } from "lucide-react";
 import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -10,6 +16,15 @@ import {
 } from "../../components/ui/context-menu-popup";
 import { HelixQuickActions, type QuickActionItem } from "../../components/ui/helix-quick-actions";
 import { ModelSelector } from "../../components/ui/model-selector";
+import { ScreenRegionModal } from "../../components/ui/screen-region-modal";
+import {
+  analyzeNativeCapture,
+  discardNativeCapture,
+  getNativeActiveWindow,
+  prepareNativeCapture,
+  requestNativePermission,
+} from "../../lib/rpc";
+import { useAgentStore } from "../../stores/agent";
 import { useModelSelector } from "./hooks/useModelSelector";
 
 const CLIPBOARD_MARKER = "[CLIPBOARD]";
@@ -18,6 +33,33 @@ function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes}B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+}
+
+function formatNativeError(error: unknown, fallback: string): string {
+  const normalized = normalizeNativeError(error);
+  return normalized.message && normalized.message !== "[object Object]" ? normalized.message : fallback;
+}
+
+function screenAnalysisContent(analysis: VisionAnalysis): string {
+  const parts: string[] = [];
+  const text = analysis.text?.content.trim();
+  if (text) parts.push(text);
+
+  const classifications = analysis.classifications?.slice(0, 5) ?? [];
+  if (classifications.length > 0) {
+    parts.push(
+      `Elementos visuais: ${classifications
+        .map((item) => `${item.identifier} (${Math.round(item.confidence * 100)}%)`)
+        .join(", ")}`,
+    );
+  }
+
+  const barcodes = analysis.barcodes?.filter((item) => item.payload) ?? [];
+  if (barcodes.length > 0) {
+    parts.push(`Códigos detectados: ${barcodes.map((item) => item.payload).join(", ")}`);
+  }
+
+  return parts.join("\n\n");
 }
 
 interface ComposerProps {
@@ -72,6 +114,14 @@ export function Composer({
   const { t } = useTranslation("helix");
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
   const [clipboardModalOpen, setClipboardModalOpen] = useState(false);
+  const [contextError, setContextError] = useState<string | null>(null);
+  const [pendingRegionCapture, setPendingRegionCapture] = useState<NativeCapturePreview | null>(null);
+  const [screenBusy, setScreenBusy] = useState(false);
+  const contexts = useAgentStore((state) => state.contexts);
+  const connectors = useAgentStore((state) => state.connectors);
+  const addContext = useAgentStore((state) => state.addContext);
+  const toggleContext = useAgentStore((state) => state.toggleContext);
+  const removeContext = useAgentStore((state) => state.removeContext);
 
   useEffect(() => {
     onContextMenuOpenChange?.(contextMenuOpen);
@@ -181,12 +231,162 @@ export function Composer({
     onQuickAction?.(action);
   };
 
-  const handleContextToggle = (src: ContextMenuSource) => {
+  const ensureScreenPermission = async () => {
+    const permission = await requestNativePermission("screen_recording");
+    if (permission !== "granted") {
+      throw new Error(t("helix:composer.screenCapture.permissionDenied"));
+    }
+  };
+
+  const analyzeScreenCapture = async (
+    preview: NativeCapturePreview,
+    action: "screen-read" | "screen-capture" | "screen-region",
+    crop?: NativeBoundingBox,
+  ) => {
+    const isRead = action === "screen-read";
+    const analysis = await analyzeNativeCapture({
+      captureId: preview.captureId,
+      features: isRead ? ["text"] : ["text", "classification", "barcode", "saliency"],
+      crop,
+      displayName: action === "screen-region" ? "selected-region" : `display-${preview.displayId}`,
+    });
+    const content = screenAnalysisContent(analysis);
+    const labelKey =
+      action === "screen-read"
+        ? "screenReadLabel"
+        : action === "screen-region"
+          ? "screenRegionLabel"
+          : "screenCaptureLabel";
+
+    addContext({
+      id: action,
+      source: "screen",
+      label: t(`helix:composer.screenCapture.${labelKey}`),
+      preview:
+        content.slice(0, 180) ||
+        t("helix:composer.screenCapture.noVisibleContent", {
+          width: preview.width,
+          height: preview.height,
+        }),
+      content,
+      metadata: {
+        mode: action,
+        displayId: preview.displayId,
+        width: preview.width,
+        height: preview.height,
+        crop,
+        processedOnDevice: analysis.processedOnDevice,
+      },
+      policy: "include",
+      sensitive: true,
+      enabled: true,
+    });
+  };
+
+  const startScreenAction = async (action: "screen-read" | "screen-capture" | "screen-region") => {
+    setContextError(null);
+    setScreenBusy(true);
+    try {
+      await ensureScreenPermission();
+      const preview = await prepareNativeCapture({ excludeHelix: true });
+      if (action === "screen-region") {
+        setPendingRegionCapture(preview);
+        return;
+      }
+      try {
+        await analyzeScreenCapture(preview, action);
+      } finally {
+        await discardNativeCapture(preview.captureId).catch(() => undefined);
+      }
+    } catch (error) {
+      setContextError(formatNativeError(error, t("helix:composer.screenCapture.failed")));
+    } finally {
+      setScreenBusy(false);
+    }
+  };
+
+  const cancelRegionCapture = useCallback(() => {
+    const capture = pendingRegionCapture;
+    setPendingRegionCapture(null);
+    if (capture) void discardNativeCapture(capture.captureId).catch(() => undefined);
+  }, [pendingRegionCapture]);
+
+  const confirmRegionCapture = async (crop: NativeBoundingBox) => {
+    const preview = pendingRegionCapture;
+    if (!preview) return;
+    setScreenBusy(true);
+    setContextError(null);
+    try {
+      await analyzeScreenCapture(preview, "screen-region", crop);
+      setPendingRegionCapture(null);
+    } catch (error) {
+      setContextError(formatNativeError(error, t("helix:composer.screenCapture.failed")));
+    } finally {
+      setPendingRegionCapture(null);
+      await discardNativeCapture(preview.captureId).catch(() => undefined);
+      setScreenBusy(false);
+    }
+  };
+
+  const handleContextToggle = async (src: ContextMenuSource) => {
     if (src.id === "clipboard") {
       if (clipboardEnabled) {
         removeClipboardMarker();
       } else {
         insertClipboardMarker();
+      }
+    } else if (src.id === "file") {
+      await handleAttachFile();
+    } else if (src.id === "screen-read" || src.id === "screen-capture" || src.id === "screen-region") {
+      await startScreenAction(src.id);
+    } else if (src.id === "active-app") {
+      try {
+        setContextError(null);
+        const permission = await requestNativePermission("accessibility");
+        if (permission !== "granted") {
+          removeContext("active-app");
+          throw new Error(`PERMISSION_${permission.toUpperCase()}`);
+        }
+        const snapshot = await getNativeActiveWindow();
+        const hasVisibleText = Boolean(snapshot.content.trim());
+        addContext({
+          id: "active-app",
+          source: "active_app",
+          label: snapshot.appName || "App ativo",
+          preview: hasVisibleText
+            ? snapshot.content.slice(0, 180)
+            : `${snapshot.windowTitle || "Janela ativa"} · sem texto útil; use Tela para Vision explícita`,
+          content: hasVisibleText ? snapshot.content : undefined,
+          metadata: {
+            bundleId: snapshot.bundleId,
+            pid: snapshot.pid,
+            windowTitle: snapshot.windowTitle,
+            truncated: snapshot.truncated,
+            redactions: snapshot.redactedCount,
+            fallbackAvailable: !hasVisibleText,
+          },
+          policy: "include",
+          sensitive: true,
+          enabled: true,
+        });
+      } catch (error) {
+        setContextError(formatNativeError(error, t("helix:composer.activeAppFailed")));
+      }
+    } else if (src.id === "connector") {
+      const connector = connectors.find((item) => item.enabled);
+      if (!connector) {
+        setContextError("Nenhum connector habilitado para esta execução.");
+      } else {
+        addContext({
+          id: "connector",
+          source: "connector",
+          label: connector.name,
+          preview: "Servidor selecionado para esta execução",
+          metadata: { mcpAllowlist: [connector.id], serverId: connector.id },
+          policy: "reference",
+          sensitive: true,
+          enabled: true,
+        });
       }
     }
     setContextMenuOpen(false);
@@ -194,9 +394,12 @@ export function Composer({
 
   const activeSources = new Set<string>();
   if (clipboardEnabled) activeSources.add("clipboard");
+  for (const context of contexts) {
+    activeSources.add(context.id);
+  }
 
   const activeSourceItems = useMemo(
-    () => CONTEXT_SOURCES.filter((s) => activeSources.has(s.id) && !s.mock),
+    () => CONTEXT_SOURCES.filter((s) => activeSources.has(s.id)),
     [activeSources],
   );
 
@@ -246,6 +449,14 @@ export function Composer({
 
   return (
     <div className={`w-full flex flex-col gap-2.5 ${widthClass}`}>
+      {pendingRegionCapture && (
+        <ScreenRegionModal
+          preview={pendingRegionCapture}
+          busy={screenBusy}
+          onCancel={cancelRegionCapture}
+          onConfirm={(crop) => void confirmRegionCapture(crop)}
+        />
+      )}
       {isDraggingFile && (
         <div className="absolute inset-0 z-50 rounded-xl border-2 border-dashed border-signal/50 bg-signal/10 backdrop-blur-sm flex items-center justify-center pointer-events-none">
           <div className="flex items-center gap-2 text-signal">
@@ -254,11 +465,13 @@ export function Composer({
           </div>
         </div>
       )}
+      {contextError && <div className="px-1 text-[10px] text-bad">{contextError}</div>}
       {activeSourceItems.length > 0 && (
         <div className="flex items-center gap-1.5 px-0.5 flex-wrap">
           {activeSourceItems.map((src) => {
             const Icon = src.icon;
             const isClipboard = src.id === "clipboard";
+            const context = contexts.find((item) => item.id === src.id);
             return (
               <div
                 key={src.id}
@@ -280,6 +493,17 @@ export function Composer({
                     </span>
                     <Eye className="h-2.5 w-2.5 text-signal/60 transition-colors group-hover:text-signal" />
                   </button>
+                ) : context ? (
+                  <button
+                    type="button"
+                    onClick={() => toggleContext(context.id)}
+                    className={`text-[10px] font-medium truncate ${
+                      context.enabled ? "text-signal" : "text-mute"
+                    } ${mode === "expanded" ? "max-w-[120px]" : "max-w-[60px]"}`}
+                    title={context.preview}
+                  >
+                    {context.label}
+                  </button>
                 ) : (
                   <span
                     className={`text-[10px] font-medium text-signal truncate ${mode === "expanded" ? "max-w-[120px]" : "max-w-[60px]"}`}
@@ -289,7 +513,10 @@ export function Composer({
                 )}
                 <button
                   type="button"
-                  onClick={() => handleContextToggle(src)}
+                  onClick={() => {
+                    if (!isClipboard && context) removeContext(context.id);
+                    else void handleContextToggle(src);
+                  }}
                   className="rounded p-0.5 text-signal/40 transition-all hover:text-bad hover:bg-bad/10 shrink-0"
                   aria-label={t("helix:contextBar.remove")}
                 >

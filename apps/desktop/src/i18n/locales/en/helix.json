@@ -85,15 +85,37 @@
       "title": "Add context",
       "clipboard": "Clipboard",
       "clipboardDescription": "Include copied content in the message.",
-      "screen": "Screen",
-      "screenDescription": "Attach a capture of the current screen.",
+      "screenRead": "Read screen text",
+      "screenReadDescription": "Extract visible text with on-device Vision.",
+      "screenCapture": "Capture screen",
+      "screenCaptureDescription": "Analyze the entire screen as context.",
+      "screenRegion": "Capture region",
+      "screenRegionDescription": "Select a specific area of the screen.",
       "file": "File",
       "fileDescription": "Attach a file from your computer.",
       "activeApp": "Active app",
       "activeAppDescription": "Include context from the focused application.",
       "connector": "Connector",
       "connectorDescription": "Use an active connection to fetch context."
-    }
+    },
+    "screenCapture": {
+      "permissionDenied": "Allow Screen Recording in System Settings to continue.",
+      "failed": "The screen could not be captured.",
+      "screenReadLabel": "Screen reading",
+      "screenCaptureLabel": "Screen capture",
+      "screenRegionLabel": "Screen region",
+      "noVisibleContent": "Capture {{width}}×{{height}} analyzed locally with no visible text."
+    },
+    "screenRegion": {
+      "title": "Select a region",
+      "description": "Drag over the preview. The image stays on-device and is discarded after analysis.",
+      "previewAlt": "Screen preview for region selection",
+      "selectionHint": "Drag to mark the area Helix should analyze.",
+      "selectionReady": "Region ready for analysis.",
+      "cancel": "Cancel",
+      "confirm": "Analyze region"
+    },
+    "activeAppFailed": "The active application could not be read."
   },
   "contextBar": {
     "clipboard": "Clipboard",
@@ -510,7 +532,7 @@
     "copyError": "Error copying response",
     "extractedText": "Extracted text",
     "noTextDetected": "No text detected in image.",
-    "ocrFailed": "OCR failed. Make sure tesseract is installed or configure OCR_SPACE_API_KEY.",
+    "ocrFailed": "Native visual analysis failed. Try again or check the image permission.",
     "sources": "Sources ({{count}})",
     "searchFailed": "Could not search right now. Check your connection.",
     "analyzingContext": "Analyzing context...",

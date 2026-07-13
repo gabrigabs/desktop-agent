@@ -584,6 +584,7 @@ dependencies = [
 name = "desktop-agent"
 version = "0.1.0"
 dependencies = [
+ "cc",
  "serde",
  "serde_json",
  "tauri",
@@ -593,6 +594,7 @@ dependencies = [
  "tauri-plugin-global-shortcut",
  "tauri-plugin-positioner",
  "tauri-plugin-shell",
+ "uuid",
 ]
 
 [[package]]

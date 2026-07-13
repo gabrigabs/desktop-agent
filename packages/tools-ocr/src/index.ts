@@ -1,140 +1,216 @@
-import { execFile } from "node:child_process";
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { promisify } from "node:util";
+import type {
+  HostBridgeApi,
+  NativeCaptureAnalysisRequest,
+  NativeCaptureRequest,
+  VisionAnalysis,
+  VisionFeature,
+} from "@desktop-agent/shared";
 import type { RegisteredTool } from "@desktop-agent/tool-registry";
 import { z } from "zod";
 
-const execFileAsync = promisify(execFile);
-
-export type OcrToolContext = {
+export type VisionToolContext = {
+  bridge?: HostBridgeApi;
+  isPathAuthorized?: (path: string) => Promise<boolean>;
+  /** Test-only compatibility hook. Production uses the on-device native bridge. */
   runOcr?: (input: { imagePath: string; language: string }) => Promise<string>;
+  /** Test-only compatibility hook. Production uses the ephemeral native capture bridge. */
   captureScreenshot?: () => Promise<string>;
-  getEnv?: (key: string) => string | undefined;
 };
+
+export type OcrToolContext = VisionToolContext;
 
 const imageSchema = z.object({
   imagePath: z.string().min(1),
   language: z.string().optional(),
-  apiKey: z.string().optional(),
+  features: z.array(z.enum(["text", "classification", "barcode", "saliency"])).optional(),
 });
 
-const screenshotSchema = z.object({
+const captureSchema = z.object({
   instruction: z.string().optional(),
-  language: z.string().optional(),
-  apiKey: z.string().optional(),
+  displayId: z.number().int().positive().optional(),
+  crop: z.object({ x: z.number(), y: z.number(), width: z.number(), height: z.number() }).optional(),
+  features: z.array(z.enum(["text", "classification", "barcode", "saliency"])).optional(),
 });
 
-function getEnv(ctx: OcrToolContext | undefined, key: string) {
-  if (ctx?.getEnv) return ctx.getEnv(key);
-  return process.env[key];
+const visionFeatures = (features: VisionFeature[] | undefined): VisionFeature[] =>
+  features?.length ? [...new Set(features)] : ["text"];
+
+function requireBridge(ctx: VisionToolContext | undefined): HostBridgeApi {
+  if (!ctx?.bridge) throw new Error("BRIDGE_UNAVAILABLE: native Vision bridge is not connected");
+  return ctx.bridge;
 }
 
-async function runTesseract(imagePath: string, language: string) {
-  try {
-    const { stdout } = await execFileAsync("tesseract", [imagePath, "stdout", "-l", language]);
-    return stdout.trim();
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    throw new Error(
-      `OCR local indisponível. Instale tesseract ou configure OCR_SPACE_API_KEY. Detalhe: ${message}`,
-    );
+function withAliasMetadata(analysis: VisionAnalysis, alias: string) {
+  return { ...analysis, deprecatedAlias: alias };
+}
+
+async function analyzeImage(
+  ctx: VisionToolContext | undefined,
+  input: z.infer<typeof imageSchema>,
+  features: VisionFeature[],
+) {
+  if (!ctx?.runOcr) {
+    if (!ctx?.isPathAuthorized || !(await ctx.isPathAuthorized(input.imagePath))) {
+      throw new Error(
+        "INVALID_RESOURCE: a imagem precisa estar dentro de um arquivo autorizado pelo usuário",
+      );
+    }
   }
-}
-
-async function runOcrSpace(imagePath: string, language: string, apiKey: string) {
-  const form = new FormData();
-  form.append("apikey", apiKey);
-  form.append("language", language);
-  form.append("isOverlayRequired", "false");
-  form.append("file", Bun.file(imagePath));
-
-  const res = await fetch("https://api.ocr.space/parse/image", {
-    method: "POST",
-    body: form,
-  });
-
-  if (!res.ok) {
-    throw new Error(`OCR.space retornou HTTP ${res.status}`);
-  }
-
-  const data = (await res.json()) as {
-    IsErroredOnProcessing?: boolean;
-    ErrorMessage?: string | string[];
-    ParsedResults?: Array<{ ParsedText?: string }>;
-  };
-  if (data.IsErroredOnProcessing) {
-    const error = Array.isArray(data.ErrorMessage) ? data.ErrorMessage.join("; ") : data.ErrorMessage;
-    throw new Error(error || "OCR.space não conseguiu processar a imagem.");
-  }
-
-  return (data.ParsedResults ?? [])
-    .map((item) => item.ParsedText ?? "")
-    .join("\n")
-    .trim();
-}
-
-async function captureScreenshot() {
-  const dir = await mkdtemp(join(tmpdir(), "desktop-agent-ocr-"));
-  const imagePath = join(dir, "screenshot.png");
-  await execFileAsync("screencapture", ["-x", imagePath]);
-  return imagePath;
-}
-
-async function runOcr(ctx: OcrToolContext | undefined, imagePath: string, language: string, apiKey?: string) {
   if (ctx?.runOcr) {
-    return ctx.runOcr({ imagePath, language });
+    const text = await ctx.runOcr({ imagePath: input.imagePath, language: input.language ?? "por" });
+    return {
+      processedOnDevice: true as const,
+      features: ["text" as const],
+      text: { content: text, observations: [], truncated: false },
+      source: { kind: "file" as const, displayName: input.imagePath },
+      durationMs: 0,
+    } satisfies VisionAnalysis;
   }
-
-  const ocrSpaceKey = apiKey || getEnv(ctx, "OCR_SPACE_API_KEY");
-  if (ocrSpaceKey) {
-    return runOcrSpace(imagePath, language, ocrSpaceKey);
-  }
-
-  return runTesseract(imagePath, language);
+  return requireBridge(ctx).analyzeNativeImage({
+    path: input.imagePath,
+    features,
+    displayName: input.imagePath.split(/[\\/]/).pop(),
+  });
 }
 
-export function createOcrImageTool(ctx?: OcrToolContext): RegisteredTool {
+export function createVisionTextTool(ctx?: VisionToolContext): RegisteredTool {
   return {
-    name: "ocr.image",
-    description: "Extrai texto de uma imagem local usando OCR local ou OCR.space opcional",
+    name: "vision.text",
+    description: "Extrai texto de uma imagem usando o Apple Vision Framework no dispositivo",
     category: "ocr",
     permissionLevel: "local.read",
     inputSchema: imageSchema,
     async handler(input) {
       const parsed = imageSchema.parse(input);
-      const language = parsed.language ?? "por";
-      const text = await runOcr(ctx, parsed.imagePath, language, parsed.apiKey);
-      return {
-        imagePath: parsed.imagePath,
-        language,
-        text,
-        empty: text.trim().length === 0,
-      };
+      return analyzeImage(ctx, parsed, visionFeatures(parsed.features ?? ["text"]));
     },
   };
 }
 
-export function createScreenshotOcrTool(ctx?: OcrToolContext): RegisteredTool {
+export function createVisionClassificationTool(ctx?: VisionToolContext): RegisteredTool {
+  return {
+    name: "vision.classify",
+    description: "Classifica uma imagem local no dispositivo usando o Apple Vision Framework",
+    category: "ocr",
+    permissionLevel: "local.read",
+    inputSchema: imageSchema,
+    async handler(input) {
+      const parsed = imageSchema.parse(input);
+      return analyzeImage(ctx, parsed, visionFeatures(parsed.features ?? ["classification"]));
+    },
+  };
+}
+
+export function createVisionBarcodeTool(ctx?: VisionToolContext): RegisteredTool {
+  return {
+    name: "vision.barcode",
+    description: "Detecta códigos de barras em uma imagem local sem enviar a imagem para a nuvem",
+    category: "ocr",
+    permissionLevel: "local.read",
+    inputSchema: imageSchema,
+    async handler(input) {
+      const parsed = imageSchema.parse(input);
+      return analyzeImage(ctx, parsed, visionFeatures(parsed.features ?? ["barcode"]));
+    },
+  };
+}
+
+export function createVisionSaliencyTool(ctx?: VisionToolContext): RegisteredTool {
+  return {
+    name: "vision.saliency",
+    description: "Retorna regiões salientes de uma imagem sem persistir heatmaps",
+    category: "ocr",
+    permissionLevel: "local.read",
+    inputSchema: imageSchema,
+    async handler(input) {
+      const parsed = imageSchema.parse(input);
+      return analyzeImage(ctx, parsed, visionFeatures(parsed.features ?? ["saliency"]));
+    },
+  };
+}
+
+export function createOcrImageTool(ctx?: VisionToolContext): RegisteredTool {
+  if (ctx?.runOcr) {
+    return {
+      name: "ocr.image",
+      description: "Alias depreciado de vision.text; extrai texto com o Apple Vision Framework",
+      category: "ocr",
+      permissionLevel: "local.read",
+      inputSchema: imageSchema,
+      async handler(input) {
+        const parsed = imageSchema.parse(input);
+        const text = await ctx.runOcr?.({ imagePath: parsed.imagePath, language: parsed.language ?? "por" });
+        return {
+          imagePath: parsed.imagePath,
+          language: parsed.language ?? "por",
+          text: text ?? "",
+          empty: !(text ?? "").trim(),
+          deprecatedAlias: "ocr.image",
+        };
+      },
+    };
+  }
+  return {
+    ...createVisionTextTool(ctx),
+    name: "ocr.image",
+    description: "Alias depreciado de vision.text; extrai texto com o Apple Vision Framework",
+  };
+}
+
+export function createScreenshotOcrTool(ctx?: VisionToolContext): RegisteredTool {
+  if (ctx?.captureScreenshot && ctx.runOcr) {
+    return {
+      name: "ocr.screenshot",
+      description: "Alias depreciado de vision.text para captura efêmera de tela após aprovação explícita",
+      category: "ocr",
+      permissionLevel: "screen.read",
+      executionPolicy: "explicit_approval",
+      inputSchema: captureSchema,
+      async handler(input) {
+        const parsed = captureSchema.parse(input);
+        const imagePath = await ctx.captureScreenshot?.();
+        const text = await ctx.runOcr?.({ imagePath: imagePath ?? "", language: "por" });
+        return {
+          imagePath,
+          text: text ?? "",
+          instruction: parsed.instruction ?? "",
+          deprecatedAlias: "ocr.screenshot",
+        };
+      },
+    };
+  }
   return {
     name: "ocr.screenshot",
-    description: "Captura a tela e extrai texto com OCR após permissão explícita",
+    description: "Alias depreciado de vision.text para captura efêmera de tela após aprovação explícita",
     category: "ocr",
     permissionLevel: "screen.read",
-    inputSchema: screenshotSchema,
+    executionPolicy: "explicit_approval",
+    inputSchema: captureSchema,
     async handler(input) {
-      const parsed = screenshotSchema.parse(input);
-      const imagePath = ctx?.captureScreenshot ? await ctx.captureScreenshot() : await captureScreenshot();
-      const language = parsed.language ?? "por";
-      const text = await runOcr(ctx, imagePath, language, parsed.apiKey);
-      return {
-        imagePath,
-        language,
-        text,
-        empty: text.trim().length === 0,
-        instruction: parsed.instruction ?? "",
-      };
+      const parsed = captureSchema.parse(input);
+      if (ctx?.captureScreenshot) {
+        const imagePath = await ctx.captureScreenshot();
+        const analysis = await analyzeImage(ctx, { imagePath }, visionFeatures(parsed.features));
+        return withAliasMetadata(analysis, "ocr.screenshot");
+      }
+
+      const bridge = requireBridge(ctx);
+      const preview = await bridge.prepareNativeCapture({
+        displayId: parsed.displayId,
+        excludeHelix: true,
+      } satisfies NativeCaptureRequest);
+      const request = {
+        captureId: preview.captureId,
+        features: visionFeatures(parsed.features),
+        crop: parsed.crop,
+        displayName: `display-${preview.displayId}`,
+      } satisfies NativeCaptureAnalysisRequest;
+      try {
+        const analysis = await bridge.analyzeNativeCapture(request);
+        return { ...analysis, instruction: parsed.instruction ?? "", deprecatedAlias: "ocr.screenshot" };
+      } finally {
+        await bridge.discardNativeCapture({ captureId: preview.captureId }).catch(() => undefined);
+      }
     },
   };
 }

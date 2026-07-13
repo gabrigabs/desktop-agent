@@ -1,11 +1,14 @@
 use tauri::Manager;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
+mod native;
+
 const NORMAL_WIDTH: f64 = 520.0;
 const NORMAL_HEIGHT: f64 = 820.0;
 
 pub fn run() {
     tauri::Builder::default()
+        .manage(native::NativeState::default())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
@@ -29,6 +32,7 @@ pub fn run() {
         .setup(|app| {
             #[cfg(target_os = "macos")]
             {
+                native::start_app_tracking();
                 app.set_activation_policy(tauri::ActivationPolicy::Accessory);
             }
 
@@ -48,10 +52,28 @@ pub fn run() {
             let tray_menu = tauri::menu::Menu::with_items(
                 app,
                 &[
-                    &tauri::menu::MenuItem::with_id(app, "show", "Mostrar Helix", true, None::<&str>)?,
-                    &tauri::menu::MenuItem::with_id(app, "hide", "Ocultar Helix", true, None::<&str>)?,
+                    &tauri::menu::MenuItem::with_id(
+                        app,
+                        "show",
+                        "Mostrar Helix",
+                        true,
+                        None::<&str>,
+                    )?,
+                    &tauri::menu::MenuItem::with_id(
+                        app,
+                        "hide",
+                        "Ocultar Helix",
+                        true,
+                        None::<&str>,
+                    )?,
                     &tauri::menu::PredefinedMenuItem::separator(app)?,
-                    &tauri::menu::MenuItem::with_id(app, "quit", "Sair do Helix", true, None::<&str>)?,
+                    &tauri::menu::MenuItem::with_id(
+                        app,
+                        "quit",
+                        "Sair do Helix",
+                        true,
+                        None::<&str>,
+                    )?,
                 ],
             )?;
 
@@ -71,9 +93,10 @@ pub fn run() {
                             let _ = window.set_fullscreen(false);
                             let _ = window.set_simple_fullscreen(false);
                             let _ = window.unmaximize();
-                            let _ = window.set_size(tauri::Size::Logical(
-                                tauri::LogicalSize::new(NORMAL_WIDTH, NORMAL_HEIGHT),
-                            ));
+                            let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize::new(
+                                NORMAL_WIDTH,
+                                NORMAL_HEIGHT,
+                            )));
                             let _ = window.move_window(Position::TrayCenter);
                             let _ = window.emit("tray-click", "normal");
                             let _ = window.show();
@@ -130,6 +153,17 @@ pub fn run() {
                 std::process::exit(0);
             }
         })
+        .invoke_handler(tauri::generate_handler![
+            native::get_native_permission_state,
+            native::request_native_permission,
+            native::prepare_native_capture,
+            native::analyze_native_capture,
+            native::discard_native_capture,
+            native::analyze_native_image,
+            native::snapshot_active_window,
+            native::get_native_system_context,
+            native::send_native_notification,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

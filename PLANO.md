@@ -1,7 +1,7 @@
 # Plano Helix
 
 > Fonte principal do produto. `BACKLOG.md` fica como histórico/status resumido.
-> Última atualização: 2026-07-11.
+> Última atualização: 2026-07-13.
 > Foco atual: fechar pendências do redesign, consolidar Settings e contexto explícito, adicionar trabalho seguro com arquivos e ferramentas nativas e manter Workspaces contínuos e Follow-up Sessions no roadmap ativo.
 
 ---
@@ -541,7 +541,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### C01 — Context Bar orientada a permissões
 
-- Status: parcialmente concluído — Clipboard está funcional; Tela, App ativo, Arquivo e Connector estão consolidados visualmente como mocks honestos, ainda sem captura ou permissão real.
+- Status: implementação e bundle `.app` validados em 2026-07-13. Clipboard e arquivo permanecem funcionais; Tela oferece leitura, captura integral e seleção de região, enquanto App ativo e Connector usam fluxos explícitos de permissão/contexto. A matriz manual de TCC/apps externos permanece aberta.
 - Objetivo: mostrar claramente o que o Helix está vendo e o que será enviado.
 - Arquivos: `ContextBar.tsx`, `ContextChipBar.tsx`, `useContextChips.ts`, `Composer.tsx`, inspector do expanded.
 - Implementação: consolidar Clipboard, Tela, App ativo, arquivo e connectors; cada origem oferece Ver, Usar/Não usar e Remover quando aplicável.
@@ -752,7 +752,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### CL04 — Concluir radial, resultado e Context Bar (`A02`, `R01`, `C01`)
 
-- Status: parcialmente concluído — `A02` e `R01` concluídos; `C01` depende da integração real de Tela, App ativo, Arquivo e Connector.
+- Status: `A02` e `R01` concluídos; implementação e bundle de `C01` validados em 2026-07-13, com matriz manual de TCC/apps externos ainda aberta.
 - Objetivo: concluir a segunda órbita, o resultado compacto e o contexto orientado a permissões como uma experiência coerente.
 - Implementação:
   1. Segunda órbita para Clipboard, Tela, Workflow e Espaços.
@@ -838,7 +838,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### MER01 — Renderizador Mermaid no chat
 
-- Status: pendente.
+- Status: concluído em 2026-07-13 — SVG é validado pelo Mermaid, renderizado como imagem `data:` e recua para código quando falha ou é rejeitado.
 - Objetivo: renderizar blocos `mermaid` no Markdown sem comprometer segurança ou legibilidade.
 - Implementação: renderização isolada, tema Helix, zoom/cópia e fallback para código com erro de parse.
 - Aceite:
@@ -847,7 +847,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### MER02 — Tool de geração e validação
 
-- Status: pendente.
+- Status: concluído em 2026-07-13 — `mermaid.generate` gera somente código, valida pelo bridge frontend e limita a três tentativas totais.
 - Objetivo: gerar Mermaid sintaticamente válido a partir de uma descrição.
 - Implementação: tool `mermaid.generate` com tipo de diagrama, validação antes do retorno, retries limitados e erro estruturado.
 - Aceite:
@@ -857,7 +857,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### VIS01 — Ponte nativa do Vision Framework
 
-- Status: pendente.
+- Status: implementação e bundle `.app` validados em 2026-07-13; matriz manual de permissões, Retina/múltiplos displays e fixtures visuais permanece aberta.
 - Objetivo: migrar OCR para APIs nativas da Apple e ampliar análise visual on-device.
 - Implementação:
   1. `vision.text` com `VNRecognizeTextRequest`.
@@ -895,7 +895,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### DESK01 — App ativo, notificações e sistema
 
-- Status: pendente.
+- Status: implementação e bundle `.app` validados em 2026-07-13; pendentes apenas os fixtures manuais de TCC e apps externos.
 - Objetivo: fornecer contexto útil do macOS sem vigilância invisível.
 - Implementação:
   1. `desktop.app` para app e janela ativos, com disclosure de Accessibility.
@@ -906,6 +906,22 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
   - App ativo não é coletado nem persistido sem consentimento.
   - Notificações são configuráveis e não expõem conteúdo sensível por padrão.
   - Revogar permissão remove acesso imediatamente.
+
+### Fase 17 — Capacidades Nativas do Helix (implementação consolidada)
+
+Esta fase substitui os mocks de contexto por contratos e operações nativas explícitas, mantendo Workspaces, Follow-up Sessions e DEV01 fora do escopo.
+
+- Requisito mínimo: macOS 13.0 (`LSMinimumSystemVersion` e `MACOSX_DEPLOYMENT_TARGET`).
+- CP1 — Mermaid: concluído; SVG é validado/sanitizado, exibido como `data:` e `mermaid.generate` limita correções a duas tentativas.
+- CP2 — Fundação nativa: concluído em código; contratos compartilhados, `HostBridgeApi`, erros tipados, permissões e grants one-shot estão no runtime e no host Tauri.
+- CP3 — Vision/captura efêmera: concluído em código e bundle; Vision on-device (texto, classificação, barcode e saliência) e ScreenCaptureKit em memória, com TTL de 120s e descarte explícito. A Context Bar oferece leitura de tela, captura integral e captura por região com prévia local.
+- CP4 — App ativo: concluído em código; Accessibility consentida, snapshot limitado/redigido e fallback visual apenas explícito.
+- CP5 — Sistema/notificações: concluído em código; contexto seguro do sistema e notificações genéricas opt-in no host nativo.
+- CP6 — Propagação ponta a ponta: implementação, testes automatizados e bundle `.app` concluídos; validação final ainda exige a matriz manual de permissões TCC e execução contra apps externos.
+
+Decisão de compatibilidade: como o binding `objc2-vision` não está disponível na linha local do lockfile, as APIs Apple ficam isoladas em um shim Objective-C mínimo ligado ao mesmo binário Tauri; não há CLI externo nem segundo sidecar.
+
+Critérios manuais ainda abertos: validar permissões concedida/negada/revogada no bundle, Retina/múltiplos displays, crop/cancelamento, Safari/Chrome/VS Code/TextEdit e confirmar em runtime a ausência de arquivos temporários de captura. Esses fixtures não bloqueiam o status de implementação/bundle, mas bloqueiam o aceite completo de `C01`, `CL04`, `VIS01` e `DESK01`.
 
 ## Fora Da Rodada Visual Atual
 
