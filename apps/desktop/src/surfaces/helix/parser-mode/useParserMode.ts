@@ -1,6 +1,7 @@
 import type { FileContextInput, MarkdownSource, ParsedDocument } from "@desktop-agent/shared";
 import { useCallback, useEffect, useState } from "react";
 import { getAgent } from "../../../lib/rpc";
+import { enrichFileContextWithAppleVision } from "../../../lib/vision-file-context";
 import { useAgentStore } from "../../../stores/agent";
 
 export type ParseJob = {
@@ -70,6 +71,7 @@ export function useParserMode(
   const [sources, setSources] = useState<MarkdownSource[]>([]);
   const [improvingPath, setImprovingPath] = useState<string | null>(null);
   const [lastImprovedPath, setLastImprovedPath] = useState<string | null>(null);
+  const activeWorkspaceId = useAgentStore((state) => state.activeWorkspaceId);
 
   useEffect(() => {
     let cancelled = false;
@@ -131,14 +133,17 @@ export function useParserMode(
       try {
         const api = await getAgent();
         const result = await api.readFileContext({ paths });
+        const parsedFiles = await Promise.all(
+          result.files.map((file) => enrichFileContextWithAppleVision(file)),
+        );
         const newPaths = new Set(newJobs.map((job) => job.path));
 
         setJobs((prev) => {
           const updatedJobs = prev.map((job) => {
             if (!newPaths.has(job.path)) return job;
             const file =
-              result.files.find((f) => f.path === job.path) ??
-              result.files.find((f) => f.displayName === job.displayName);
+              parsedFiles.find((f) => f.path === job.path) ??
+              parsedFiles.find((f) => f.displayName === job.displayName);
             const parseError = result.errors.find(
               (error) => error.includes(`Failed to parse ${job.displayName}:`) || error.includes(job.path),
             );
@@ -148,6 +153,21 @@ export function useParserMode(
               return updated;
             }
             if (file) {
+              if (file.parsedMetadata?.visionError) {
+                const updated = {
+                  ...job,
+                  path: file.path,
+                  status: "error" as const,
+                  error: `Apple Vision: ${file.parsedMetadata.visionError}`,
+                  preview: file.preview,
+                  format: "image",
+                  metadata: file.parsedMetadata,
+                  size: file.size,
+                  fileContext: file,
+                };
+                void saveJob(updated);
+                return updated;
+              }
               const updated = {
                 ...job,
                 path: file.path,
@@ -370,6 +390,21 @@ export function useParserMode(
     [jobs, onError, onToastSuccess],
   );
 
+  const attachToWorkspace = useCallback(
+    async (path: string) => {
+      const job = jobs.find((item) => item.path === path);
+      if (!activeWorkspaceId || !job?.id) return;
+      try {
+        const api = await getAgent();
+        await api.attachDocumentToWorkspace({ workspaceId: activeWorkspaceId, documentId: job.id });
+        onToastSuccess?.("parserMode.addedToWorkspace");
+      } catch (err) {
+        onError?.(`Failed to attach document: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    },
+    [activeWorkspaceId, jobs, onError, onToastSuccess],
+  );
+
   const selectFile = useCallback((path: string) => {
     setSelectedPath(path);
   }, []);
@@ -381,6 +416,7 @@ export function useParserMode(
     lastImprovedPath,
     selectedPath,
     selectedJob: jobs.find((j) => j.path === selectedPath) ?? null,
+    activeWorkspaceId,
     addFiles,
     addWebFiles,
     indexMarkdownFolder,
@@ -391,6 +427,7 @@ export function useParserMode(
     downloadContent,
     sendToChat,
     improveFile,
+    attachToWorkspace,
     selectFile,
   };
 }

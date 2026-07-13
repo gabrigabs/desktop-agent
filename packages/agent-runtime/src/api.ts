@@ -21,11 +21,15 @@ import type {
   WorkflowRun,
 } from "@desktop-agent/shared";
 import {
+  addMemoryFact as addStoredMemoryFact,
+  archiveWorkspace as archiveStoredWorkspace,
+  attachDocument as attachStoredDocument,
   createAgentProfile,
   createConversation,
   createPromptTemplate,
   createSkill,
   createMcpServer as createStoredMcpServer,
+  createWorkspace as createStoredWorkspace,
   createWorkflowRun,
   deleteAgentProfile,
   deleteAllMarkdownSources as deleteAllStoredMarkdownSources,
@@ -33,8 +37,11 @@ import {
   deletePromptTemplate,
   deleteSkill,
   deleteMcpServer as deleteStoredMcpServer,
+  deleteMemoryFact as deleteStoredMemoryFact,
   deleteParsedDocument as deleteStoredParsedDocument,
+  deleteWorkspace as deleteStoredWorkspace,
   deleteWorkflowTemplate,
+  detachDocument as detachStoredDocument,
   ensureDefaultMcpPresets,
   getAgentProfile,
   getConversation,
@@ -44,15 +51,21 @@ import {
   getSetting,
   getSkill,
   getMcpServer as getStoredMcpServer,
+  getWorkspace as getStoredWorkspace,
   getWorkflowRun,
   getWorkflowTemplate,
+  linkConversation as linkStoredConversation,
   listAgentProfiles,
   listConversations,
   listPromptTemplates,
   listSkills,
+  listConversationsByWorkspace as listStoredConversationsByWorkspace,
   listMarkdownSources as listStoredMarkdownSources,
   listMcpServers as listStoredMcpServers,
+  listMemoryFacts as listStoredMemoryFacts,
   listParsedDocuments as listStoredParsedDocuments,
+  listWorkspaceDocumentIds as listStoredWorkspaceDocumentIds,
+  listWorkspaces as listStoredWorkspaces,
   listTurns,
   listWorkflowRuns,
   listWorkflowTemplates,
@@ -63,7 +76,9 @@ import {
   updateMcpServerStatus,
   updatePromptTemplate,
   updateSkill,
+  updateMemoryFact as updateStoredMemoryFact,
   updateParsedDocument as updateStoredParsedDocument,
+  updateWorkspace as updateStoredWorkspace,
   updateWorkflowRun,
   upsertMarkdownSource,
   upsertMcpServer,
@@ -96,7 +111,12 @@ import {
   createDesktopAppTool,
   createDesktopNotifyTool,
   createDesktopSystemTool,
+  createFilePatchTool,
   createFileWriteTool,
+  createGitDiffTool,
+  createGitLogTool,
+  createGitStatusTool,
+  createShellExecTool,
 } from "@desktop-agent/tools-desktop";
 import {
   createOcrImageTool,
@@ -138,6 +158,18 @@ export function setClientApi(api: unknown) {
 const runningRequests = new Map<string, AbortController>();
 const runningRuns = new Map<string, AbortController>();
 const authorizedFileRoots = new Set<string>();
+const workspaceFolderRoots = new Set<string>();
+
+function syncWorkspaceFolderRoots() {
+  const db = getDb();
+  const workspaces = listStoredWorkspaces(db);
+  workspaceFolderRoots.clear();
+  for (const ws of workspaces) {
+    if (ws.status === "active" && ws.folderPath) {
+      workspaceFolderRoots.add(ws.folderPath);
+    }
+  }
+}
 
 const parserAgent = new ParserAgent({
   getAuthorizedRoots: () => Array.from(authorizedFileRoots),
@@ -146,14 +178,18 @@ const parserAgent = new ParserAgent({
 async function isAuthorizedFilePath(targetPath: string): Promise<boolean> {
   const { promises: fs } = await import("node:fs");
   const path = await import("node:path");
+  const allRoots = new Set<string>([...authorizedFileRoots]);
+  for (const folder of workspaceFolderRoots) {
+    allRoots.add(folder);
+  }
   let canonicalParent: string;
   try {
     canonicalParent = await fs.realpath(path.dirname(path.resolve(targetPath)));
   } catch {
     const resolvedTarget = path.resolve(targetPath);
-    return [...authorizedFileRoots].some((root) => resolvedTarget.startsWith(`${root}${path.sep}`));
+    return [...allRoots].some((root) => resolvedTarget.startsWith(`${root}${path.sep}`));
   }
-  return [...authorizedFileRoots].some(
+  return [...allRoots].some(
     (root) => canonicalParent === root || canonicalParent.startsWith(`${root}${path.sep}`),
   );
 }
@@ -328,6 +364,11 @@ registry.register(createDesktopAppTool(nativeCtx));
 registry.register(createDesktopSystemTool(nativeCtx));
 registry.register(createDesktopNotifyTool(nativeCtx));
 registry.register(createFileWriteTool({ isPathAuthorized: isAuthorizedFilePath }));
+registry.register(createGitStatusTool({ isPathAuthorized: isAuthorizedFilePath }));
+registry.register(createGitDiffTool({ isPathAuthorized: isAuthorizedFilePath }));
+registry.register(createGitLogTool({ isPathAuthorized: isAuthorizedFilePath }));
+registry.register(createShellExecTool({ isPathAuthorized: isAuthorizedFilePath }));
+registry.register(createFilePatchTool({ isPathAuthorized: isAuthorizedFilePath }));
 registry.register(createWebSearchTool());
 registry.register(createWebExtractTool());
 registry.register(createWebCrawlTool());
@@ -546,6 +587,7 @@ export const agentApi: AgentApi = {
   },
 
   async startRun(input) {
+    syncWorkspaceFolderRoots();
     let mode: "simple" | "workflow" = input.mode ?? "workflow";
     let maxSteps = input.maxSteps;
     const workflowTemplateId = input.workflowId;
@@ -587,6 +629,7 @@ export const agentApi: AgentApi = {
     const controller = new AbortController();
     runningRuns.set(run.id, controller);
     runningRequests.set(input.requestId, controller);
+
     const events: AgentEvent[] = [];
     const runner = new WorkflowRunner({
       getLlmProvider,
@@ -611,6 +654,7 @@ export const agentApi: AgentApi = {
         history: input.history ?? [],
         skillId: input.skillId,
         profileId: input.profileId,
+        workspaceId: input.workspaceId,
         signal: controller.signal,
       });
       return { run: completedRun, events };
@@ -1078,6 +1122,113 @@ export const agentApi: AgentApi = {
         profileId: turn.profileId,
       });
     }
+  },
+
+  async listWorkspaces() {
+    const db = getDb();
+    return listStoredWorkspaces(db);
+  },
+
+  async createWorkspace(input) {
+    const db = getDb();
+    const id = createStoredWorkspace(db, {
+      name: input.name,
+      folderPath: input.folderPath,
+      icon: input.icon,
+      color: input.color,
+      purpose: input.purpose,
+      instructions: input.instructions,
+      profileId: input.profileId,
+      preferredLayout: input.preferredLayout,
+    });
+    syncWorkspaceFolderRoots();
+    return { id };
+  },
+
+  async getWorkspace(input) {
+    const db = getDb();
+    return getStoredWorkspace(db, input.id);
+  },
+
+  async updateWorkspace(input) {
+    const db = getDb();
+    updateStoredWorkspace(db, input.id, {
+      name: input.name,
+      purpose: input.purpose,
+      instructions: input.instructions,
+      folderPath: input.folderPath,
+      icon: input.icon,
+      profileId: input.profileId,
+      preferredLayout: input.preferredLayout,
+      memoryEnabled: input.memoryEnabled,
+      color: input.color,
+    });
+    syncWorkspaceFolderRoots();
+  },
+
+  async archiveWorkspace(input) {
+    const db = getDb();
+    archiveStoredWorkspace(db, input.id);
+    syncWorkspaceFolderRoots();
+  },
+
+  async deleteWorkspace(input) {
+    deleteStoredWorkspace(getDb(), input.id);
+    syncWorkspaceFolderRoots();
+  },
+
+  async listWorkspaceDocuments(input) {
+    const db = getDb();
+    return listStoredWorkspaceDocumentIds(db, input.workspaceId)
+      .map((id) => getParsedDocument(db, id))
+      .filter((document): document is NonNullable<typeof document> => Boolean(document))
+      .map(toParsedDocument);
+  },
+
+  async attachDocumentToWorkspace(input) {
+    attachStoredDocument(getDb(), input.workspaceId, input.documentId);
+  },
+
+  async detachDocumentFromWorkspace(input) {
+    detachStoredDocument(getDb(), input.workspaceId, input.documentId);
+  },
+
+  async listMemoryFacts(input) {
+    const db = getDb();
+    return listStoredMemoryFacts(db, input.workspaceId);
+  },
+
+  async addMemoryFact(input) {
+    const db = getDb();
+    const id = addStoredMemoryFact(db, input.workspaceId, {
+      content: input.content,
+      origin: input.origin,
+      sourceTurnId: input.sourceTurnId,
+    });
+    return { id };
+  },
+
+  async updateMemoryFact(input) {
+    const db = getDb();
+    updateStoredMemoryFact(db, input.id, {
+      content: input.content,
+      status: input.status,
+    });
+  },
+
+  async deleteMemoryFact(input) {
+    const db = getDb();
+    deleteStoredMemoryFact(db, input.id);
+  },
+
+  async linkConversationToWorkspace(input) {
+    const db = getDb();
+    linkStoredConversation(db, input.workspaceId, input.conversationId);
+  },
+
+  async listConversationsByWorkspace(input) {
+    const db = getDb();
+    return listStoredConversationsByWorkspace(db, input.workspaceId);
   },
 
   async shutdown() {

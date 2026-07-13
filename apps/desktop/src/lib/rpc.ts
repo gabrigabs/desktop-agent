@@ -373,6 +373,14 @@ export async function analyzeNativeCapture(request: NativeCaptureAnalysisRequest
   return invoke("analyze_native_capture", { request });
 }
 
+export async function analyzeNativeImage(input: {
+  path: string;
+  features: import("@desktop-agent/shared").VisionFeature[];
+  displayName?: string;
+}): Promise<VisionAnalysis> {
+  return invoke("analyze_native_image", { request: input });
+}
+
 export async function discardNativeCapture(captureId: string): Promise<void> {
   await invoke("discard_native_capture", { request: { captureId } });
 }

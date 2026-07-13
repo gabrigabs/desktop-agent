@@ -416,6 +416,13 @@ export type ParsedMetadata = {
   headings?: string[];
   links?: number;
   codeBlocks?: number;
+  vision?: {
+    processedOnDevice: true;
+    labels: Array<{ identifier: string; confidence: number }>;
+    barcodes: Array<{ payload?: string; symbology: string; confidence: number }>;
+    averageTextConfidence?: number;
+  };
+  visionError?: string;
 };
 
 export type FileContextInput = {

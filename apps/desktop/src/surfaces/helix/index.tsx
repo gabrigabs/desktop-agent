@@ -179,7 +179,7 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     if (!pending?.actionId) return;
 
     if (pending.actionId === "artifacts") {
-      setMode("artifacts");
+      setMode("workspace");
       return;
     }
     if (pending.actionId === "workflow") {

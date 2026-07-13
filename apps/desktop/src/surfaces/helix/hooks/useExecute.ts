@@ -136,6 +136,11 @@ export function useExecute(activeProfileId?: string | null) {
       let requestId: string | null = null;
       let runId: string | null = null;
       try {
+        const workspaceProfileId = store.workspaces.find(
+          (workspace) => workspace.id === store.activeWorkspaceId,
+        )?.profileId;
+        const effectiveProfileId =
+          workspaceProfileId ?? store.currentProfileId ?? activeProfileId ?? undefined;
         const rawClipboardText = store.clipboardText || "";
         const hasClipboard = rawClipboardText.trim().length > 0 && !store.ignoreClipboard;
         const sourceMode: "free" | "clipboard" = hasClipboard ? "clipboard" : "free";
@@ -199,7 +204,7 @@ export function useExecute(activeProfileId?: string | null) {
           prompt: resolvedPrompt,
           sourceMode,
           blocks: userBlocks,
-          profileId: store.currentProfileId ?? activeProfileId ?? undefined,
+          profileId: effectiveProfileId,
         });
         store.setQuery("");
         store.setIgnoreClipboard(true);
@@ -260,7 +265,8 @@ export function useExecute(activeProfileId?: string | null) {
           ],
           maxSteps: store.executionMode === "workflow" ? 8 : undefined,
           history,
-          profileId: store.currentProfileId ?? activeProfileId ?? undefined,
+          profileId: effectiveProfileId,
+          workspaceId: store.activeWorkspaceId ?? undefined,
         };
 
         const timeoutMs = Math.max(store.settings.timeout, 10) * 1000 + 5000;
@@ -285,6 +291,19 @@ export function useExecute(activeProfileId?: string | null) {
         setActiveRunId(runId);
         store.setWorkflowRun(res.run);
         store.setResult(res.run.result || "");
+
+        if (store.activeWorkspaceId && store.currentConversationId) {
+          try {
+            const api = await getAgent();
+            await api.linkConversationToWorkspace({
+              workspaceId: store.activeWorkspaceId,
+              conversationId: store.currentConversationId,
+            });
+          } catch {
+            // best-effort, ignore
+          }
+        }
+
         if (res.run.status === "failed" || res.run.status === "cancelled") {
           const msg = res.run.errorMessage || t("helix:errors.workflowEndedNoResult");
           store.setError(msg);

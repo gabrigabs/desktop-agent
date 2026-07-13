@@ -15,18 +15,7 @@ import {
 export type { ParseableExt, ParsedDocument, ParseResult };
 export { PARSEABLE_EXTENSIONS };
 
-const LITEPARSE_EXTS: Set<ParseableExt> = new Set([
-  ".pdf",
-  ".docx",
-  ".pptx",
-  ".xlsx",
-  ".png",
-  ".jpg",
-  ".jpeg",
-  ".tiff",
-  ".tif",
-  ".bmp",
-]);
+const LITEPARSE_EXTS: Set<ParseableExt> = new Set([".pdf", ".docx", ".pptx", ".xlsx"]);
 
 const parserInstances = new Map<boolean, LiteParse>();
 const MAX_SHEET_ROWS = 1_000;

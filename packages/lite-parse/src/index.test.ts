@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import ExcelJS from "exceljs";
-import { parseDocument } from "./index";
+import { isParseable, parseDocument } from "./index";
 
 const dirs: string[] = [];
 
@@ -20,6 +20,14 @@ afterEach(async () => {
 });
 
 describe("parseDocument", () => {
+  test("leaves images to the native Apple Vision pipeline", async () => {
+    expect(isParseable("receipt.png")).toBe(false);
+    expect(await parseDocument("receipt.png")).toEqual({
+      ok: false,
+      error: "Unsupported file extension: .png",
+    });
+  });
+
   test("counts quoted and multiline CSV fields correctly", async () => {
     const filePath = await fixture(
       "sample.csv",

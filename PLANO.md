@@ -577,7 +577,7 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
 
 #### W01 — Criar contrato persistente de Workspace
 
-- Status: pendente.
+- Status: concluído em 2026-07-13 — contrato, migrations 015-016, repository, RPCs e testes de round-trip validados.
 - Objetivo: substituir o catálogo read-only por uma entidade persistente, customizável e explicitamente separada de Profile e Workflow.
 - Arquivos: `packages/shared/src/workspace.ts`, `packages/shared/src/index.ts`, nova migration em `packages/storage/src/migrations/`, `packages/storage/src/repositories/workspaces.ts`, `packages/agent-runtime/src/api.ts`.
 - Contrato mínimo:
@@ -599,10 +599,15 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
   - Um Workspace criado sobrevive ao restart do sidecar.
   - O catálogo legado migra uma única vez e continua utilizável.
   - Testes cobrem criação, atualização, arquivamento e compatibilidade sem alterar migrations antigas.
+- Entregue:
+  - `Workspace` persistente com identidade, pasta, propósito, instruções exclusivas, Profile, ícone, cor, layout e política de memória.
+  - Arquivamento reversível separado de exclusão permanente; a exclusão remove apenas dados e vínculos próprios do Espaço, preservando conversas e documentos originais do Parser.
+  - Migration 016 idempotente atualiza bancos que já haviam aplicado a migration 015 durante o desenvolvimento.
+  - Documentos parseados usam vínculo muitos-para-muitos, sem duplicar conteúdo ou transferir propriedade do Parser.
 
 #### W02 — Criar shell e navegação própria de Workspace
 
-- Status: pendente.
+- Status: concluído em 2026-07-13 — Espaços e Workspaces unificados na UI, seleção persistente e chat contextual validados.
 - Objetivo: fazer Espaços abrirem uma superfície contínua, não apenas preencherem o composer global.
 - Arquivos: novo diretório `apps/desktop/src/surfaces/workspace/`, `ArtifactsPanel.tsx`, `ExpandedView.tsx`, `NormalCommandView.tsx`, `stores/agent.ts`.
 - Implementação:
@@ -614,10 +619,16 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
   - Abrir um Espaço restaura seu último contexto e sua última atividade.
   - Alternar normal/expanded não perde o Workspace ativo.
   - A UI não chama templates read-only de memória persistente.
+- Entregue:
+  - Um único destino “Espaços” substitui a duplicidade entre catálogo de Espaços e Workspace na navegação; chamadas legadas de Artifact são redirecionadas para o shell persistente.
+  - Seleção do Espaço sobrevive a troca de modo, nova conversa e reload; o composer mostra o Espaço ativo e permite sair explicitamente.
+  - Ação “Trabalhar neste Espaço” abre o chat preservando `workspaceId`, Profile e contexto persistente.
+  - Editor permite alterar nome, pasta, descrição, instruções, Profile, ícone, cor, layout e memória.
+  - Refinamento visual remove gradientes e cards decorativos, usando lista editorial, divisores e acentos de cor consistentes com o Helix.
 
 #### W03 — Memória e contexto editáveis
 
-- Status: pendente.
+- Status: parcial em 2026-07-13 — fatos e fontes persistentes, injeção no runtime e controles de edição concluídos; promoção direta de resposta e auditoria por execução permanecem abertas.
 - Objetivo: tornar visível e controlável tudo o que o Workspace sabe.
 - Arquivos: `packages/shared/src/workspace.ts`, repository de memória, `WorkspaceMemoryPanel.tsx`, `WorkspaceContextPanel.tsx`, inspector do expanded.
 - Implementação:
@@ -633,6 +644,15 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
   - O usuário consegue responder “o que este Espaço sabe?” pela própria UI.
   - Cada execução mostra as fontes de contexto usadas.
   - Limpar memória atualiza storage, runtime e UI sem restart.
+- Entregue:
+  - Fatos podem ser adicionados, editados, arquivados, restaurados e excluídos com confirmação; o toggle de memória controla fatos e fontes persistentes no runtime.
+  - Documentos e imagens salvos no Parser podem ser anexados/desanexados no Espaço ou promovidos pelo próprio Parser quando existe um Espaço ativo.
+  - Instruções exclusivas, fatos ativos e conteúdo parseado das fontes fixadas entram automaticamente no prompt do Workspace sem nova extração.
+  - Imagens recebem preview visual no Parser e no painel de fontes do Espaço, mantendo o texto OCR/estruturado como contexto do modelo.
+  - Arquivos fixados e a pasta autorizada do Espaço são explicitamente descritos no contexto do planner para que o chat saiba onde procurar e operar.
+- Aberto:
+  - Adicionar ação explícita para promover uma resposta do chat a `MemoryFact` com origem e `sourceTurnId`.
+  - Persistir e exibir, por execução, o snapshot exato de fatos, instruções e fontes utilizados.
 
 #### W04 — Financeiro como Workspace de referência
 
@@ -858,6 +878,8 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
   - Pastas Markdown podem ser indexadas de forma opt-in, persistem como fontes, reindexam até 100 arquivos em profundidade 5 e removem entradas que deixaram de existir.
   - "Organizar com IA" edita diretamente após confirmação: Markdown/CSV usam escrita atômica no original; formatos binários preservam a origem e geram um arquivo irmão `.organized.md`.
   - Cobertura automatizada dos edge cases de CSV e da estrutura Markdown.
+  - Preview visual para imagens no Parser e promoção do documento selecionado para as fontes persistentes do Espaço ativo.
+  - Imagens não passam pelo LiteParse: são encaminhadas exclusivamente à ponte nativa Apple Vision, com erro de Vision explícito e fallback seguro no chat.
 
 ### Fase 13 — Mermaid Confiável
 
@@ -897,12 +919,13 @@ Cada task abaixo deve ser tratada como uma unidade de entrega commitável.
   - Captura exige disclosure e permissão antes da execução.
   - Resultados incluem confiança, bounding boxes quando disponíveis e erros tipados.
   - Nenhuma imagem é enviada à rede por esta feature.
+  - Imagens selecionadas no Parser não inicializam o LiteParse; OCR, classificação e códigos usam `analyze_native_image` on-device.
 
 ### Fase 15 — Ferramentas De Desenvolvimento
 
 #### DEV01 — Git, shell e patch auditáveis
 
-- Status: pendente.
+- Status: concluído em 2026-07-13 — tools, permissões, cwd autorizado, limites, preview/rollback e testes automatizados validados.
 - Objetivo: permitir que o agente trabalhe em projetos locais dentro de um escopo autorizado.
 - Implementação:
   1. Tools `git.status`, `git.diff` e `git.log` com permissão `local.read`.

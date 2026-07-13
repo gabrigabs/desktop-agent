@@ -1,3 +1,4 @@
+import { convertFileSrc } from "@tauri-apps/api/core";
 import {
   ArrowLeft,
   Braces,
@@ -6,6 +7,7 @@ import {
   Download,
   FileText,
   FolderOpen,
+  Link2,
   Loader2,
   Pencil,
   ScanText,
@@ -171,6 +173,11 @@ export function ParserModePanel({ variant, parser, onBack, setQuery, setMode, on
             onSendToChat={() =>
               parser.selectedJob && parser.sendToChat(parser.selectedJob.path, setQuery, setMode)
             }
+            onAttachToWorkspace={
+              parser.activeWorkspaceId && parser.selectedJob?.id
+                ? () => parser.selectedJob && parser.attachToWorkspace(parser.selectedJob.path)
+                : undefined
+            }
             improving={parser.improvingPath === parser.selectedJob?.path}
             onImprove={() => {
               if (!parser.selectedJob) return;
@@ -202,6 +209,7 @@ function DropZone({
   onIndexFolder: () => void;
   indexFolderLabel: string;
 }) {
+  const { t } = useTranslation("helix");
   return (
     <div
       className={`flex flex-1 flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed transition-all duration-200 ${
@@ -231,6 +239,26 @@ function DropZone({
         <FolderOpen className="h-3.5 w-3.5" />
         {indexFolderLabel}
       </button>
+      <div className="mt-3 grid w-full max-w-md grid-cols-2 border-t border-line pt-3 text-left">
+        <div className="flex items-start gap-2 border-r border-line px-3">
+          <FileText className="mt-0.5 h-3.5 w-3.5 shrink-0 text-faint" />
+          <div>
+            <strong className="block text-[10px] font-medium text-mute">
+              {t("helix:parserMode.documentPipeline")}
+            </strong>
+            <span className="text-[9px] text-faint">LiteParse</span>
+          </div>
+        </div>
+        <div className="flex items-start gap-2 px-3">
+          <ScanText className="mt-0.5 h-3.5 w-3.5 shrink-0 text-good" />
+          <div>
+            <strong className="block text-[10px] font-medium text-mute">
+              {t("helix:parserMode.imagePipeline")}
+            </strong>
+            <span className="text-[9px] text-faint">Apple Vision · on-device</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -280,6 +308,7 @@ function FileList({
               </span>
               <span className="truncate text-[10px] text-faint">
                 {job.format ?? ""}
+                {job.metadata?.vision ? ` · ${t("helix:parserMode.appleVision")}` : ""}
                 {job.metadata && "pages" in job.metadata
                   ? ` · ${job.metadata.pages} ${t("helix:parserMode.pages")}`
                   : ""}
@@ -325,6 +354,7 @@ function PreviewPane({
   onDownloadMd,
   onDownloadTxt,
   onSendToChat,
+  onAttachToWorkspace,
   onImprove,
   improving,
 }: {
@@ -335,6 +365,7 @@ function PreviewPane({
   onDownloadMd: () => void;
   onDownloadTxt: () => void;
   onSendToChat: () => void;
+  onAttachToWorkspace?: () => void;
   onImprove: () => void;
   improving: boolean;
 }) {
@@ -369,10 +400,13 @@ function PreviewPane({
   }
 
   if (job.status === "error") {
+    const visionFailure = job.format === "image" || job.error?.startsWith("Apple Vision:");
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-line bg-white/[0.02]">
-        <XCircle className="h-6 w-6 text-bad" />
-        <span className="text-xs text-bad">{t("helix:parserMode.error")}</span>
+        {visionFailure ? <ScanText className="h-6 w-6 text-bad" /> : <XCircle className="h-6 w-6 text-bad" />}
+        <span className="text-xs text-bad">
+          {t(visionFailure ? "helix:parserMode.visionError" : "helix:parserMode.error")}
+        </span>
         <span className="max-w-md text-center text-[11px] text-faint">{job.error}</span>
       </div>
     );
@@ -419,6 +453,7 @@ function PreviewPane({
               {job.metadata && "pages" in job.metadata
                 ? ` · ${job.metadata.pages} ${t("helix:parserMode.pages")}`
                 : ""}
+              {job.metadata?.vision ? ` · ${t("helix:parserMode.appleVision")}` : ""}
               {job.size > 0 ? ` · ${formatFileSize(job.size)}` : ""}
             </p>
           </div>
@@ -472,6 +507,12 @@ function PreviewPane({
             <Send className="w-3.5 h-3.5" />
             {!compact && t("helix:parserMode.sendToChat")}
           </Button>
+          {onAttachToWorkspace && (
+            <Button variant="ghost" size="sm" onClick={onAttachToWorkspace} className="shrink-0">
+              <Link2 className="h-3.5 w-3.5" />
+              {!compact && t("helix:parserMode.addToWorkspace")}
+            </Button>
+          )}
           <Button variant="primary" size="sm" onClick={onImprove} disabled={improving} className="shrink-0">
             {improving ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -486,7 +527,22 @@ function PreviewPane({
         key={job.path + view}
         className={`helix-view-enter min-h-0 flex-1 overflow-y-auto ${compact ? "px-3 py-3" : "px-5 py-4"}`}
       >
-        {view === "preview" ? (
+        {view === "preview" && job.format === "image" ? (
+          <div className="flex min-h-64 flex-col items-center justify-center gap-4">
+            {Boolean(job.metadata?.vision) && (
+              <div className="flex items-center gap-1.5 self-start rounded-full border border-good/20 bg-good/[0.06] px-2.5 py-1 text-[9px] font-medium text-good">
+                <ScanText className="h-3 w-3" />
+                {t("helix:parserMode.visionOnDevice")}
+              </div>
+            )}
+            <img
+              src={convertFileSrc(job.path)}
+              alt={job.displayName}
+              className="max-h-[28rem] max-w-full rounded-lg border border-line object-contain"
+            />
+            {job.content && <MarkdownRenderer content={job.content} className="w-full max-w-4xl" />}
+          </div>
+        ) : view === "preview" ? (
           <MarkdownRenderer
             key={`${job.path}-preview`}
             content={job.content ?? job.preview ?? ""}

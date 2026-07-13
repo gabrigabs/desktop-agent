@@ -32,16 +32,18 @@ import { Button } from "../../components/ui/button";
 import { HeroHome } from "../../components/ui/hero-home";
 import { RecentConversations } from "../../components/ui/recent-conversations";
 import { useAgentStore } from "../../stores/agent";
-import { ArtifactsPanel } from "./ArtifactsPanel";
 import { ChatView } from "./ChatView";
 import { Composer } from "./Composer";
 import { ConnectorsPanel } from "./ConnectorsPanel";
 import { HistoryList } from "./history-list";
 import type { SaveConnectorInput } from "./hooks/useCapabilities";
 import type { QuickActionItem } from "./hooks/useQuickActions";
+import { useWorkspaces } from "./hooks/useWorkspaces";
 import { ParserModePanel } from "./parser-mode/ParserModePanel";
 import type { ParserModeState } from "./parser-mode/useParserMode";
 import type { HelixMode } from "./types";
+import { WorkspaceInspector } from "./WorkspaceInspector";
+import { WorkspaceShell } from "./WorkspaceShell";
 
 type Props = {
   error: string | null;
@@ -162,28 +164,22 @@ type Props = {
 
 export function ExpandedView(p: Props) {
   const { t } = useTranslation("helix");
-  const showInspector = p.mode === "command" && (p.taskActive || p.messages.length > 0);
   const screenContexts = useAgentStore(useShallow((s) => s.contexts.filter((c) => c.source === "screen")));
+  const workspacesHook = useWorkspaces();
+  const showInspector =
+    p.mode === "command" &&
+    (Boolean(workspacesHook.activeWorkspace) || p.taskActive || p.messages.length > 0);
 
   return (
     <div
       className={`helix-view-enter h-full w-full overflow-hidden grid text-fg ${
-        showInspector ? "grid-cols-[1fr_260px]" : "grid-cols-1"
+        showInspector ? "grid-cols-[minmax(0,1fr)_300px]" : "grid-cols-1"
       }`}
     >
       <main className="min-w-0 min-h-0 overflow-y-auto p-5">
         {p.mode === "history" ? (
           <div className="max-w-5xl">
             <HistoryList variant="page" onSelectConversation={() => p.setMode("command")} />
-          </div>
-        ) : p.mode === "artifacts" ? (
-          <div className="max-w-5xl">
-            <ArtifactsPanel
-              onUseAction={(_artifact, action) => {
-                p.onStarterAction(action.prompt);
-                p.setMode("command");
-              }}
-            />
           </div>
         ) : p.mode === "connectors" ? (
           <div className="max-w-5xl">
@@ -215,6 +211,13 @@ export function ExpandedView(p: Props) {
               onToastError={p.onToastError}
             />
           </div>
+        ) : p.mode === "workspace" || p.mode === "artifacts" ? (
+          <WorkspaceShell
+            ws={workspacesHook}
+            onBack={() => p.setMode("command")}
+            onOpenChat={() => p.setMode("command")}
+            profiles={p.profiles}
+          />
         ) : p.messages.length > 0 ? (
           <ChatActive {...p} />
         ) : p.taskActive ? (
@@ -226,6 +229,12 @@ export function ExpandedView(p: Props) {
 
       {showInspector && (
         <aside className="min-w-0 border-l border-line p-4 flex flex-col gap-4 overflow-y-auto bg-white/[0.01]">
+          <WorkspaceInspector
+            ws={workspacesHook}
+            profiles={p.profiles}
+            onManage={() => p.setMode("workspace")}
+          />
+
           <section className="rounded-xl border border-line p-3 bg-white/[0.02]">
             <div className="text-[10px] text-mute font-medium tracking-tight mb-2">
               {t("helix:normalCommandView.state")}
@@ -281,14 +290,16 @@ export function ExpandedView(p: Props) {
             </section>
           )}
 
-          <section className="rounded-xl border border-line p-3 flex flex-col gap-2 bg-white/[0.02]">
-            <div className="text-[10px] text-mute font-medium tracking-tight">Clipboard</div>
-            <p className="min-h-16 rounded-lg bg-white/[0.03] border border-line p-2.5 text-[11px] text-mute leading-relaxed line-clamp-4 select-text">
-              {p.hasClipboard
-                ? `"${p.clipboardText.slice(0, 260)}${p.clipboardText.length > 260 ? "..." : ""}"`
-                : t("helix:normalCommandView.noClipboardText")}
-            </p>
-          </section>
+          {!workspacesHook.activeWorkspace && (
+            <section className="rounded-xl border border-line p-3 flex flex-col gap-2 bg-white/[0.02]">
+              <div className="text-[10px] text-mute font-medium tracking-tight">Clipboard</div>
+              <p className="min-h-16 rounded-lg bg-white/[0.03] border border-line p-2.5 text-[11px] text-mute leading-relaxed line-clamp-4 select-text">
+                {p.hasClipboard
+                  ? `"${p.clipboardText.slice(0, 260)}${p.clipboardText.length > 260 ? "..." : ""}"`
+                  : t("helix:normalCommandView.noClipboardText")}
+              </p>
+            </section>
+          )}
 
           {screenContexts.length > 0 && (
             <section className="rounded-xl border border-line p-3 flex flex-col gap-2 bg-white/[0.02]">
@@ -317,19 +328,21 @@ export function ExpandedView(p: Props) {
             </section>
           )}
 
-          <section className="rounded-xl border border-line p-3 bg-white/[0.02]">
-            <div className="text-[10px] text-mute font-medium tracking-tight mb-2">
-              {t("helix:normalCommandView.connectorsTitle")}
-            </div>
-            <div className="grid gap-2">
-              {p.connectors.slice(0, 5).map((c) => (
-                <div key={c.id} className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] text-mute truncate">{c.name}</span>
-                  <span className={`w-2 h-2 rounded-full ${c.enabled ? "bg-good" : "bg-faint"}`} />
-                </div>
-              ))}
-            </div>
-          </section>
+          {!workspacesHook.activeWorkspace && (
+            <section className="rounded-xl border border-line p-3 bg-white/[0.02]">
+              <div className="text-[10px] text-mute font-medium tracking-tight mb-2">
+                {t("helix:normalCommandView.connectorsTitle")}
+              </div>
+              <div className="grid gap-2">
+                {p.connectors.slice(0, 5).map((c) => (
+                  <div key={c.id} className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-mute truncate">{c.name}</span>
+                    <span className={`w-2 h-2 rounded-full ${c.enabled ? "bg-good" : "bg-faint"}`} />
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
         </aside>
       )}
     </div>

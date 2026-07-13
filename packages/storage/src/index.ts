@@ -82,3 +82,22 @@ export {
   updateWorkflowRun,
   updateWorkflowStep,
 } from "./repositories/workflows";
+export {
+  addMemoryFact,
+  archiveMemoryFact,
+  archiveWorkspace,
+  attachDocument,
+  createWorkspace,
+  deleteMemoryFact,
+  deleteWorkspace,
+  detachDocument,
+  getWorkspace,
+  linkConversation,
+  listActiveMemoryFacts,
+  listConversationsByWorkspace,
+  listMemoryFacts,
+  listWorkspaceDocumentIds,
+  listWorkspaces,
+  updateMemoryFact,
+  updateWorkspace,
+} from "./repositories/workspaces";

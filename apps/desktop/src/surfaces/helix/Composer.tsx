@@ -45,6 +45,7 @@ import { type StructuredOcr, structureVisionText } from "../../lib/structured-oc
 import { hideMainWindowForCapture, setWindowMode } from "../../lib/window";
 import { useAgentStore } from "../../stores/agent";
 import { useModelSelector } from "./hooks/useModelSelector";
+import { WorkspaceIcon } from "./workspace-visuals";
 
 const CLIPBOARD_MARKER = "[CLIPBOARD]";
 type ScreenAction = "screen-read" | "screen-capture" | "screen-region" | "screen-window";
@@ -151,6 +152,13 @@ export function Composer({
   const screenCapture = useAgentStore((state) => state.screenCapture);
   const activeActionId = useAgentStore((state) => state.activeComposerActionId);
   const setActiveActionId = useAgentStore((state) => state.setActiveComposerActionId);
+  const activeWorkspaceId = useAgentStore((state) => state.activeWorkspaceId);
+  const workspaces = useAgentStore((state) => state.workspaces);
+  const setActiveWorkspaceId = useAgentStore((state) => state.setActiveWorkspaceId);
+  const activeWorkspace = useMemo(
+    () => workspaces.find((workspace) => workspace.id === activeWorkspaceId) ?? null,
+    [activeWorkspaceId, workspaces],
+  );
 
   useEffect(() => {
     onContextMenuOpenChange?.(contextMenuOpen);
@@ -639,6 +647,49 @@ export function Composer({
             <Paperclip className="w-5 h-5" />
             <span className="text-sm font-medium">{t("helix:composer.dropFiles")}</span>
           </div>
+        </div>
+      )}
+      {activeWorkspace && (
+        <div
+          className="relative flex items-center gap-2.5 overflow-hidden rounded-xl border px-3 py-2.5"
+          style={{
+            borderColor: `${activeWorkspace.color}45`,
+            background: `linear-gradient(90deg, ${activeWorkspace.color}1a, transparent 78%)`,
+          }}
+        >
+          <span
+            className="absolute inset-y-0 left-0 w-0.5"
+            style={{ backgroundColor: activeWorkspace.color }}
+          />
+          <span
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+            style={{ color: activeWorkspace.color, backgroundColor: `${activeWorkspace.color}1f` }}
+          >
+            <WorkspaceIcon icon={activeWorkspace.icon} className="h-3.5 w-3.5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <span
+              className="block text-[8px] font-medium uppercase tracking-[0.14em]"
+              style={{ color: activeWorkspace.color }}
+            >
+              {t("helix:workspace.activeSpace")}
+            </span>
+            <span className="block truncate text-xs font-semibold text-fg">{activeWorkspace.name}</span>
+          </div>
+          <span className="hidden max-w-52 truncate text-[10px] text-faint sm:block">
+            {activeWorkspace.purpose}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveWorkspaceId(null);
+              localStorage.removeItem("helix.active-workspace-id");
+            }}
+            className="rounded p-1 text-faint transition-colors hover:bg-white/[0.05] hover:text-fg"
+            title={t("helix:workspace.leaveSpace")}
+          >
+            <X className="h-3 w-3" />
+          </button>
         </div>
       )}
       {contextError && (

@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { getAgent } from "../../../lib/rpc";
+import { enrichFileContextWithAppleVision } from "../../../lib/vision-file-context";
 import { useAgentStore } from "../../../stores/agent";
 
 export function useFileContext(onError?: (message: string) => void) {
@@ -15,7 +16,12 @@ export function useFileContext(onError?: (message: string) => void) {
         const api = await getAgent();
         const result = await api.readFileContext({ paths });
         if (result.files.length > 0) {
-          addFileContext(result.files);
+          const files = await Promise.all(result.files.map((file) => enrichFileContextWithAppleVision(file)));
+          addFileContext(files);
+          const visionErrors = files
+            .filter((file) => file.parsedMetadata?.visionError)
+            .map((file) => `${file.displayName}: ${file.parsedMetadata?.visionError}`);
+          if (visionErrors.length > 0) onError?.(visionErrors.join("\n"));
         }
         if (result.errors.length > 0) onError?.(result.errors.join("\n"));
         return { errors: result.errors };

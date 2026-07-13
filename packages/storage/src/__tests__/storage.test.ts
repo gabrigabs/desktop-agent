@@ -60,12 +60,16 @@ describe("Storage Package Tests", () => {
     expect(tableNames).toContain("agent_profiles");
     expect(tableNames).toContain("parsed_documents");
     expect(tableNames).toContain("markdown_sources");
+    expect(tableNames).toContain("workspaces");
+    expect(tableNames).toContain("workspace_memory");
+    expect(tableNames).toContain("workspace_conversations");
+    expect(tableNames).toContain("workspace_documents");
 
     const migrations = db.query("SELECT version FROM _migrations ORDER BY version").all() as {
       version: number;
     }[];
     expect(migrations.map((migration) => migration.version)).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
     ]);
 
     const settings = db.query("SELECT key, value FROM app_settings ORDER BY key").all() as {

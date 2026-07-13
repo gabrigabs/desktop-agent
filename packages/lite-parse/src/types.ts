@@ -28,21 +28,7 @@ export type ParsedDocument = {
 
 export type ParseResult = { ok: true; document: ParsedDocument } | { ok: false; error: string };
 
-export type ParseableExt =
-  | ".pdf"
-  | ".csv"
-  | ".xlsx"
-  | ".xls"
-  | ".md"
-  | ".markdown"
-  | ".docx"
-  | ".pptx"
-  | ".png"
-  | ".jpg"
-  | ".jpeg"
-  | ".tiff"
-  | ".tif"
-  | ".bmp";
+export type ParseableExt = ".pdf" | ".csv" | ".xlsx" | ".xls" | ".md" | ".markdown" | ".docx" | ".pptx";
 
 export const PARSEABLE_EXTENSIONS: Set<ParseableExt> = new Set([
   ".pdf",
@@ -53,12 +39,6 @@ export const PARSEABLE_EXTENSIONS: Set<ParseableExt> = new Set([
   ".markdown",
   ".docx",
   ".pptx",
-  ".png",
-  ".jpg",
-  ".jpeg",
-  ".tiff",
-  ".tif",
-  ".bmp",
 ]);
 
 export const MAX_CONTENT_CHARS = 500_000;

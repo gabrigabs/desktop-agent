@@ -6,12 +6,14 @@ import type {
   ContextAttachment,
   ExecutionMode,
   FileContextInput,
+  MemoryFact,
   NativeBoundingBox,
   NativeCapturePreview,
   RunStatus,
   Turn,
   WorkflowRun,
   WorkflowStep,
+  Workspace,
 } from "@desktop-agent/shared";
 import { create } from "zustand";
 import { parseAssistantContent } from "../lib/assistant-content";
@@ -81,6 +83,19 @@ type State = {
   screenCapture: ScreenCaptureState;
   pendingScreenAction: "screen-read" | "screen-capture" | "screen-region" | "screen-window" | null;
   activeComposerActionId: string;
+  activeWorkspaceId: string | null;
+  workspaces: Workspace[];
+  memoryFacts: MemoryFact[];
+
+  setActiveWorkspaceId: (id: string | null) => void;
+  setWorkspaces: (workspaces: Workspace[]) => void;
+  setMemoryFacts: (facts: MemoryFact[]) => void;
+  addWorkspace: (workspace: Workspace) => void;
+  updateWorkspaceInList: (id: string, updates: Partial<Workspace>) => void;
+  removeWorkspaceFromList: (id: string) => void;
+  addMemoryFactToStore: (fact: MemoryFact) => void;
+  updateMemoryFactInStore: (id: string, updates: Partial<MemoryFact>) => void;
+  removeMemoryFactFromStore: (id: string) => void;
 
   setConnected: (v: boolean) => void;
   setBootState: (s: BootState) => void;
@@ -255,6 +270,29 @@ export const useAgentStore = create<State>((set) => ({
   },
   pendingScreenAction: null,
   activeComposerActionId: "pergunta-livre",
+  activeWorkspaceId: null,
+  workspaces: [],
+  memoryFacts: [],
+
+  setActiveWorkspaceId: (activeWorkspaceId) => set({ activeWorkspaceId }),
+  setWorkspaces: (workspaces) => set({ workspaces }),
+  setMemoryFacts: (memoryFacts) => set({ memoryFacts }),
+  addWorkspace: (workspace) => set((s) => ({ workspaces: [...s.workspaces, workspace] })),
+  updateWorkspaceInList: (id, updates) =>
+    set((s) => ({
+      workspaces: s.workspaces.map((w) => (w.id === id ? { ...w, ...updates } : w)),
+    })),
+  removeWorkspaceFromList: (id) =>
+    set((s) => ({
+      workspaces: s.workspaces.filter((w) => w.id !== id),
+      activeWorkspaceId: s.activeWorkspaceId === id ? null : s.activeWorkspaceId,
+    })),
+  addMemoryFactToStore: (fact) => set((s) => ({ memoryFacts: [fact, ...s.memoryFacts] })),
+  updateMemoryFactInStore: (id, updates) =>
+    set((s) => ({
+      memoryFacts: s.memoryFacts.map((f) => (f.id === id ? { ...f, ...updates } : f)),
+    })),
+  removeMemoryFactFromStore: (id) => set((s) => ({ memoryFacts: s.memoryFacts.filter((f) => f.id !== id) })),
 
   setConnected: (connected) => set({ connected }),
   setBootState: (bootState) => set({ bootState }),
@@ -470,5 +508,6 @@ export const useAgentStore = create<State>((set) => ({
       },
       pendingScreenAction: null,
       activeComposerActionId: "pergunta-livre",
+      // Keep the selected Space when starting a fresh conversation inside it.
     }),
 }));

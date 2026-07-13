@@ -19,10 +19,15 @@ import {
   createWorkflowStep,
   getAgentProfile,
   getDb,
+  getParsedDocument,
   getSkill,
+  getWorkspace as getStoredWorkspace,
   getWorkflowRun,
   getWorkflowTemplate,
+  listActiveMemoryFacts as listActiveStoredMemoryFacts,
   listWorkflowSteps,
+  listWorkspaceDocumentIds,
+  toFileContextInput,
   updateWorkflowRun,
   updateWorkflowStep,
 } from "@desktop-agent/storage";
@@ -58,12 +63,23 @@ export type RunInput = {
   history?: { role: "user" | "assistant" | "system"; content: string }[];
   skillId?: string;
   profileId?: string;
+  workspaceId?: string;
   signal?: AbortSignal;
 };
 
 export type ResumeInput = RunInput & {
   approved: boolean;
 };
+
+export function mergeWorkspaceFileContext(
+  workspaceFiles: FileContextInput[],
+  sessionFiles: FileContextInput[],
+): FileContextInput[] {
+  const filesByPath = new Map<string, FileContextInput>();
+  for (const file of workspaceFiles) filesByPath.set(file.path, file);
+  for (const file of sessionFiles) filesByPath.set(file.path, file);
+  return Array.from(filesByPath.values());
+}
 
 type StepExecutionContext = {
   requestId: string;
@@ -167,11 +183,46 @@ export class WorkflowRunner {
     resumeApproved?: boolean,
   ): Promise<WorkflowRun> {
     const db = getDb();
-    const fileContextSection = await this.buildFileContext(input.fileContext, input.contextText);
+    const workspace = input.workspaceId ? getStoredWorkspace(db, input.workspaceId) : null;
+    const workspaceDocuments =
+      input.workspaceId && workspace?.memoryEnabled
+        ? listWorkspaceDocumentIds(db, input.workspaceId)
+            .map((id) => getParsedDocument(db, id))
+            .filter((document): document is NonNullable<typeof document> => Boolean(document))
+        : [];
+    const effectiveFileContext = mergeWorkspaceFileContext(
+      workspaceDocuments.map(toFileContextInput),
+      input.fileContext ?? [],
+    );
+    const fileContextSection = await this.buildFileContext(effectiveFileContext, input.contextText);
     const attachmentSection = this.buildAttachmentContext(input.contexts, Boolean(input.fileContext?.length));
+
+    let memorySection = "";
+    let workspaceInstructionSection = "";
+    if (input.workspaceId && workspace) {
+      if (workspace.instructions.trim()) {
+        workspaceInstructionSection = `Workspace instructions (follow for this workspace only):\n${workspace.instructions.trim()}`;
+      }
+      if (workspace.memoryEnabled) {
+        const facts = listActiveStoredMemoryFacts(db, input.workspaceId);
+        if (facts.length > 0) {
+          const factLines = facts.map((f) => `- ${f.content}`).join("\n");
+          memorySection = `Workspace memory (use as persistent context):\n${factLines}`;
+        }
+      }
+    }
+
     const contextSections = [
+      workspace?.folderPath
+        ? `Workspace root folder (authorized local scope): ${workspace.folderPath}\nUse this root when the user asks to inspect, search, edit, run, or discuss files in this Space.`
+        : "",
       fileContextSection.trim() ? `Contexto de arquivos anexados:\n${fileContextSection}` : "",
       attachmentSection,
+      workspaceInstructionSection,
+      memorySection,
+      workspaceDocuments.length > 0
+        ? `Workspace pinned sources available in file context: ${workspaceDocuments.map((document) => document.displayName).join(", ")}`
+        : "",
     ].filter(Boolean);
     const effectivePrompt = contextSections.length
       ? `${input.prompt}\n\n${contextSections.join("\n\n")}`
@@ -179,7 +230,8 @@ export class WorkflowRunner {
     const provider = this.getLlmProvider();
     const model = this.getActiveModel() || "gpt-4o";
 
-    const profileId = input.profileId ?? (run.metadata.profileId as string | undefined);
+    const profileId =
+      input.profileId ?? workspace?.profileId ?? (run.metadata.profileId as string | undefined);
     const profile = profileId ? getAgentProfile(db, profileId) : null;
 
     let template: WorkflowTemplate | null = null;
@@ -197,7 +249,7 @@ export class WorkflowRunner {
         maxSteps: run.maxSteps,
         skill: skill ?? undefined,
         profile: profile ?? undefined,
-        fileContext: input.fileContext,
+        fileContext: effectiveFileContext,
       });
     }
 

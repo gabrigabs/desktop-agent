@@ -56,7 +56,10 @@ export type {
   VisionTextObservation,
 } from "./native";
 export { normalizeNativeError } from "./native";
-export type { MarkdownSource, ParsedDocument } from "./types/parsed-documents";
+export type {
+  MarkdownSource,
+  ParsedDocument,
+} from "./types/parsed-documents";
 export type {
   AgentEvent,
   AgentProfile,
@@ -100,3 +103,11 @@ export type {
   WorkflowTemplate,
   WorkflowTemplateSettings,
 } from "./types/rpc";
+export {
+  artifactToWorkspaceTemplate,
+  type MemoryFact,
+  type Workspace,
+  type WorkspaceDocument,
+  type WorkspaceLayout,
+  type WorkspaceTemplate,
+} from "./workspace";

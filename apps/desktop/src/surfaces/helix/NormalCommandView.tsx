@@ -22,7 +22,6 @@ import { HelixMark } from "../../components/ui/helix-mark";
 import { IconButton } from "../../components/ui/icon-button";
 import { RecentConversations } from "../../components/ui/recent-conversations";
 import { Separator } from "../../components/ui/separator";
-import { ArtifactsPanel } from "./ArtifactsPanel";
 import { ChatView } from "./ChatView";
 import { Composer } from "./Composer";
 import { ConnectorsPanel } from "./ConnectorsPanel";
@@ -30,9 +29,11 @@ import { GLOBAL_SHORTCUT_GLYPH } from "./constants";
 import { HistoryList } from "./history-list";
 import type { SaveConnectorInput } from "./hooks/useCapabilities";
 import type { QuickActionItem } from "./hooks/useQuickActions";
+import { useWorkspaces } from "./hooks/useWorkspaces";
 import { ParserModePanel } from "./parser-mode/ParserModePanel";
 import type { ParserModeState } from "./parser-mode/useParserMode";
 import type { HelixMode } from "./types";
+import { WorkspaceShell } from "./WorkspaceShell";
 
 type Props = {
   error: string | null;
@@ -156,6 +157,7 @@ type Props = {
 
 export function NormalCommandView(p: Props) {
   const { t } = useTranslation("helix");
+  const workspacesHook = useWorkspaces();
   return (
     <div className="helix-view-enter h-full w-full overflow-y-auto p-4 text-fg">
       {p.mode === "command" ? (
@@ -170,16 +172,6 @@ export function NormalCommandView(p: Props) {
         <PanelWrapper title={t("helix:normalCommandView.history")} onBack={() => p.setMode("command")}>
           <HistoryList onSelectConversation={() => p.setMode("command")} />
         </PanelWrapper>
-      ) : p.mode === "artifacts" ? (
-        <PanelWrapper title={t("helix:normalCommandView.artifacts")} onBack={() => p.setMode("command")}>
-          <ArtifactsPanel
-            variant="compact"
-            onUseAction={(_artifact, action) => {
-              p.onStarterAction(action.prompt);
-              p.setMode("command");
-            }}
-          />
-        </PanelWrapper>
       ) : p.mode === "parser" ? (
         <ParserModePanel
           variant="compact"
@@ -190,6 +182,18 @@ export function NormalCommandView(p: Props) {
           onToastSuccess={p.onToastSuccess}
           onToastError={p.onToastError}
         />
+      ) : p.mode === "workspace" || p.mode === "artifacts" ? (
+        <PanelWrapper
+          title={t("helix:navigation.workspace", "Workspace")}
+          onBack={() => p.setMode("command")}
+        >
+          <WorkspaceShell
+            ws={workspacesHook}
+            onBack={() => p.setMode("command")}
+            onOpenChat={() => p.setMode("command")}
+            profiles={p.profiles}
+          />
+        </PanelWrapper>
       ) : (
         <PanelWrapper title={t("helix:normalCommandView.connectors")} onBack={() => p.setMode("command")}>
           <ConnectorsPanel

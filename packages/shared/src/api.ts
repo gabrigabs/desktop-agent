@@ -22,6 +22,18 @@ import type {
   WorkflowTemplate,
   WorkflowTemplateSettings,
 } from "./types/rpc";
+import type { MemoryFact, Workspace, WorkspaceLayout } from "./workspace";
+
+type WorkspaceInput = {
+  name: string;
+  folderPath: string;
+  icon?: string;
+  color?: string;
+  purpose?: string;
+  instructions?: string;
+  profileId?: string;
+  preferredLayout?: WorkspaceLayout;
+};
 
 export type SaveMcpServerInput = {
   id?: string;
@@ -70,6 +82,7 @@ export type AgentApi = {
     maxSteps?: number;
     history?: { role: "user" | "assistant" | "system"; content: string }[];
     profileId?: string;
+    workspaceId?: string;
   }): Promise<{
     run: WorkflowRun;
     events: AgentEvent[];
@@ -155,5 +168,36 @@ export type AgentApi = {
     id: string;
     instruction?: string;
   }): Promise<{ document: ParsedDocument; outputPath: string }>;
+  listWorkspaces(): Promise<Workspace[]>;
+  createWorkspace(input: WorkspaceInput): Promise<{ id: string }>;
+  getWorkspace(input: { id: string }): Promise<Workspace | null>;
+  updateWorkspace(input: {
+    id: string;
+    name?: string;
+    purpose?: string;
+    instructions?: string;
+    folderPath?: string;
+    icon?: string;
+    profileId?: string | null;
+    preferredLayout?: WorkspaceLayout;
+    memoryEnabled?: boolean;
+    color?: string;
+  }): Promise<void>;
+  archiveWorkspace(input: { id: string }): Promise<void>;
+  deleteWorkspace(input: { id: string }): Promise<void>;
+  listWorkspaceDocuments(input: { workspaceId: string }): Promise<ParsedDocument[]>;
+  attachDocumentToWorkspace(input: { workspaceId: string; documentId: string }): Promise<void>;
+  detachDocumentFromWorkspace(input: { workspaceId: string; documentId: string }): Promise<void>;
+  listMemoryFacts(input: { workspaceId: string }): Promise<MemoryFact[]>;
+  addMemoryFact(input: {
+    workspaceId: string;
+    content: string;
+    origin?: "manual" | "assistant";
+    sourceTurnId?: string;
+  }): Promise<{ id: string }>;
+  updateMemoryFact(input: { id: string; content?: string; status?: "active" | "archived" }): Promise<void>;
+  deleteMemoryFact(input: { id: string }): Promise<void>;
+  linkConversationToWorkspace(input: { workspaceId: string; conversationId: string }): Promise<void>;
+  listConversationsByWorkspace(input: { workspaceId: string }): Promise<string[]>;
   shutdown(): Promise<void>;
 };
