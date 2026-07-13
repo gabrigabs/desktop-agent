@@ -651,41 +651,21 @@ export function Composer({
       )}
       {activeWorkspace && (
         <div
-          className="relative flex items-center gap-2.5 overflow-hidden rounded-xl border px-3 py-2.5"
-          style={{
-            borderColor: `${activeWorkspace.color}45`,
-            background: `linear-gradient(90deg, ${activeWorkspace.color}1a, transparent 78%)`,
-          }}
+          className="flex items-center gap-1.5 px-1 text-[11px] leading-none"
+          style={{ color: activeWorkspace.color }}
         >
-          <span
-            className="absolute inset-y-0 left-0 w-0.5"
-            style={{ backgroundColor: activeWorkspace.color }}
-          />
-          <span
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
-            style={{ color: activeWorkspace.color, backgroundColor: `${activeWorkspace.color}1f` }}
-          >
-            <WorkspaceIcon icon={activeWorkspace.icon} className="h-3.5 w-3.5" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <span
-              className="block text-[8px] font-medium uppercase tracking-[0.14em]"
-              style={{ color: activeWorkspace.color }}
-            >
-              {t("helix:workspace.activeSpace")}
-            </span>
-            <span className="block truncate text-xs font-semibold text-fg">{activeWorkspace.name}</span>
-          </div>
-          <span className="hidden max-w-52 truncate text-[10px] text-faint sm:block">
-            {activeWorkspace.purpose}
-          </span>
+          <WorkspaceIcon icon={activeWorkspace.icon} className="h-3.5 w-3.5 shrink-0" />
+          <span className="shrink-0 font-medium">{activeWorkspace.name}</span>
+          {activeWorkspace.purpose && (
+            <span className="hidden truncate text-faint sm:block max-w-48">{activeWorkspace.purpose}</span>
+          )}
           <button
             type="button"
             onClick={() => {
               setActiveWorkspaceId(null);
               localStorage.removeItem("helix.active-workspace-id");
             }}
-            className="rounded p-1 text-faint transition-colors hover:bg-white/[0.05] hover:text-fg"
+            className="shrink-0 rounded p-0.5 opacity-50 transition-opacity hover:opacity-100"
             title={t("helix:workspace.leaveSpace")}
           >
             <X className="h-3 w-3" />
@@ -920,7 +900,7 @@ export function Composer({
                 onClick={() => setContextMenuOpen((v) => !v)}
                 className={`shrink-0 ${contextSize} rounded-lg flex items-center justify-center border transition-all duration-200 cursor-pointer ${
                   contextMenuOpen
-                    ? "border-signal/40 bg-signal/10 text-signal shadow-[0_0_12px_-2px_rgba(196,153,244,0.3)]"
+                    ? "border-signal/40 bg-signal/10 text-signal"
                     : "border-line-strong bg-ink/40 text-fg hover:text-signal hover:border-signal/30 hover:bg-signal/5"
                 }`}
                 title={t("helix:composer.contextMenu.title")}
@@ -985,7 +965,7 @@ export function Composer({
                   streaming
                     ? "bg-signal/20 text-signal hover:bg-bad/20 hover:text-bad"
                     : canSend
-                      ? "bg-signal text-ink hover:bg-signal/80 hover:shadow-[0_0_16px_-2px_rgba(196,153,244,0.4)] active:scale-95"
+                      ? "bg-signal text-ink hover:bg-signal/80 active:scale-95"
                       : "bg-ink/40 text-mute border border-line-strong hover:text-fg active:scale-95"
                 }`}
                 title={

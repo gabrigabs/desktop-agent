@@ -20,10 +20,7 @@ export function WorkspaceInspector({ ws, profiles, onManage }: Props) {
   const profile = profiles.find((item) => item.id === workspace.profileId);
 
   return (
-    <section
-      className="overflow-hidden rounded-lg border bg-white/[0.012]"
-      style={{ borderColor: `${workspace.color}42` }}
-    >
+    <section className="overflow-hidden rounded-lg border border-line">
       <div className="relative p-3.5">
         <span className="absolute inset-y-0 left-0 w-0.5" style={{ backgroundColor: workspace.color }} />
         <div className="flex items-start gap-2.5">

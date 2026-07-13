@@ -252,6 +252,67 @@ export function useWorkspaces() {
     }
   }, []);
 
+  const addFilesAsMemory = useCallback(
+    async (workspaceId: string): Promise<number> => {
+      try {
+        const { open } = await import("@tauri-apps/plugin-dialog");
+        const selected = await open({ multiple: true });
+        if (!selected) return 0;
+        const paths = Array.isArray(selected) ? selected : [selected];
+        if (paths.length === 0) return 0;
+
+        const api = await getAgent();
+        const { files } = await api.readFileContext({ paths });
+        let added = 0;
+
+        for (const file of files) {
+          if (file.content?.trim()) {
+            const truncated = file.content.length > 2000 ? `${file.content.slice(0, 2000)}…` : file.content;
+            const factContent = `[${file.displayName}]\n${truncated}`;
+            const { id } = await api.addMemoryFact({
+              workspaceId,
+              content: factContent,
+              origin: "manual",
+            });
+            const fact: MemoryFact = {
+              id,
+              content: factContent,
+              origin: "manual",
+              status: "active",
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            };
+            addMemoryFactToStore(fact);
+            added++;
+          }
+
+          const doc = await api.saveParsedDocument({
+            document: {
+              path: file.path,
+              displayName: file.displayName,
+              size: file.size,
+              mimeType: file.mimeType,
+              encoding: file.encoding,
+              content: file.content,
+              preview: file.preview,
+              parsedFormat: file.parsedFormat,
+              parsedMetadata: file.parsedMetadata,
+              status: "done",
+            },
+          });
+          await api.attachDocumentToWorkspace({ workspaceId, documentId: doc.id });
+        }
+
+        const attached = await api.listWorkspaceDocuments({ workspaceId });
+        setDocuments(attached);
+        return added;
+      } catch {
+        return 0;
+      }
+    },
+    [addMemoryFactToStore],
+  );
+
   const activeWorkspace: Workspace | null = workspaces.find((w) => w.id === activeWorkspaceId) ?? null;
 
   return {
@@ -272,6 +333,7 @@ export function useWorkspaces() {
     attachDocument,
     detachDocument,
     addMemoryFact,
+    addFilesAsMemory,
     updateMemoryFact,
     deleteMemoryFact,
     linkConversation,

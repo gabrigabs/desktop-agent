@@ -1,5 +1,5 @@
 import type { MemoryFact } from "@desktop-agent/shared";
-import { Archive, Brain, Check, Pencil, Plus, RotateCcw, Trash2, X } from "lucide-react";
+import { Archive, Brain, Check, FileUp, Loader2, Pencil, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/ui/button";
@@ -9,6 +9,7 @@ type Props = {
   memoryEnabled: boolean;
   facts: MemoryFact[];
   onAdd: (workspaceId: string, content: string) => Promise<string | null>;
+  onAddFiles: (workspaceId: string) => Promise<number>;
   onUpdate: (id: string, updates: { content?: string; status?: "active" | "archived" }) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 };
@@ -18,6 +19,7 @@ export function WorkspaceMemoryPanel({
   memoryEnabled,
   facts,
   onAdd,
+  onAddFiles,
   onUpdate,
   onDelete,
 }: Props) {
@@ -25,6 +27,7 @@ export function WorkspaceMemoryPanel({
   const [newFact, setNewFact] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
+  const [uploading, setUploading] = useState(false);
 
   const handleAdd = async () => {
     if (!newFact.trim()) return;
@@ -42,6 +45,12 @@ export function WorkspaceMemoryPanel({
   const handleDelete = async (id: string) => {
     if (!confirm(t("helix:workspace.deleteFactConfirm"))) return;
     await onDelete(id);
+  };
+
+  const handleAddFiles = async () => {
+    setUploading(true);
+    await onAddFiles(workspaceId);
+    setUploading(false);
   };
 
   const activeFacts = facts.filter((f) => f.status === "active");
@@ -68,7 +77,7 @@ export function WorkspaceMemoryPanel({
         </span>
       </div>
 
-      <div className="flex gap-2 mb-4">
+      <div className="flex gap-2 mb-3">
         <input
           className="flex-1 rounded-lg border border-line bg-ink/30 px-3 py-2 text-sm text-fg placeholder:text-faint transition-colors focus:border-signal/40 focus:bg-ink/50 outline-none"
           placeholder={t("helix:workspace.addMemoryPlaceholder")}
@@ -91,6 +100,16 @@ export function WorkspaceMemoryPanel({
           <Plus className="h-3.5 w-3.5" />
         </Button>
       </div>
+
+      <button
+        type="button"
+        onClick={handleAddFiles}
+        disabled={uploading}
+        className="mb-4 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-line py-2.5 text-xs text-faint transition-colors hover:border-line-strong hover:text-mute disabled:opacity-50"
+      >
+        {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileUp className="h-3.5 w-3.5" />}
+        {uploading ? t("helix:workspace.uploading") : t("helix:workspace.addFiles")}
+      </button>
 
       {activeFacts.length === 0 && archivedFacts.length === 0 ? (
         <div className="flex flex-col items-center py-8 text-center">

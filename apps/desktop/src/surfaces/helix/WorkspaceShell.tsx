@@ -19,7 +19,7 @@ import {
   X,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/ui/button";
 import type { useWorkspaces } from "./hooks/useWorkspaces";
@@ -180,8 +180,7 @@ function AppearancePicker({
 function WorkspacePreview({ form }: { form: FormState }) {
   const { t } = useTranslation("helix");
   return (
-    <div className="relative overflow-hidden rounded-lg border border-line bg-white/[0.015] p-4">
-      <span className="absolute inset-x-0 top-0 h-0.5" style={{ backgroundColor: form.color }} />
+    <div className="rounded-lg border border-line p-4">
       <div className="flex items-start gap-3">
         <div
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-line"
@@ -198,10 +197,10 @@ function WorkspacePreview({ form }: { form: FormState }) {
           </p>
         </div>
       </div>
-      <div className="mt-5 flex items-center gap-2 border-t border-white/[0.06] pt-3 text-[9px] uppercase tracking-[0.1em] text-faint">
+      <div className="mt-4 flex items-center gap-2 border-t border-line pt-3 text-[10px] text-faint">
         <Brain className="h-3 w-3" />
         {form.memoryEnabled ? t("helix:workspace.memoryActive") : t("helix:workspace.memoryDisabled")}
-        <span className="ml-auto">{form.preferredLayout}</span>
+        <span className="ml-auto capitalize">{form.preferredLayout}</span>
       </div>
     </div>
   );
@@ -222,10 +221,6 @@ function WorkspaceEditor({
   return (
     <div className="grid gap-5">
       <section className="grid gap-3">
-        <div className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-[0.12em] text-mute">
-          <span className="font-mono text-[9px] text-faint">01</span>
-          {t("helix:workspace.identitySection")}
-        </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <FormField label={t("helix:workspace.nameLabel")}>
             <input
@@ -263,10 +258,6 @@ function WorkspaceEditor({
       </section>
 
       <section className="grid gap-3 border-t border-line pt-5">
-        <div className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-[0.12em] text-mute">
-          <span className="font-mono text-[9px] text-faint">02</span>
-          {t("helix:workspace.behaviorSection")}
-        </div>
         <FormField
           label={t("helix:workspace.instructionsLabel")}
           hint={t("helix:workspace.instructionsHint")}
@@ -315,11 +306,9 @@ function WorkspaceEditor({
       </section>
 
       <section className="grid gap-3 border-t border-line pt-5">
-        <div className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-[0.12em] text-mute">
-          <span className="font-mono text-[9px] text-faint">03</span>
-          {t("helix:workspace.appearanceSection")}
-        </div>
-        <AppearancePicker form={form} update={update} />
+        <FormField label={t("helix:workspace.appearanceSection")}>
+          <AppearancePicker form={form} update={update} />
+        </FormField>
       </section>
     </div>
   );
@@ -396,7 +385,7 @@ export function WorkspaceShell({ ws, onBack, onOpenChat, profiles }: Props) {
       </header>
 
       {showCreate && (
-        <div className="mb-6 overflow-hidden rounded-lg border border-line bg-white/[0.015] helix-view-enter">
+        <div className="mb-6 overflow-hidden rounded-lg border border-line helix-view-enter">
           <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
             <div>
               <h3 className="text-sm font-semibold text-fg">{t("helix:workspace.createTitle")}</h3>
@@ -459,7 +448,7 @@ export function WorkspaceShell({ ws, onBack, onOpenChat, profiles }: Props) {
           </Button>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-line bg-white/[0.01]">
+        <div className="overflow-hidden rounded-lg border border-line">
           {ws.workspaces.map((workspace, index) => {
             const active = workspace.id === ws.activeWorkspaceId;
             return (
@@ -467,16 +456,15 @@ export function WorkspaceShell({ ws, onBack, onOpenChat, profiles }: Props) {
                 key={workspace.id}
                 type="button"
                 onClick={() => void handleOpenWorkspace(workspace.id)}
-                className="group relative grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-line px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-white/[0.025] md:grid-cols-[minmax(0,1fr)_minmax(140px,0.6fr)_auto] helix-view-enter"
-                style={{
-                  animationDelay: `${index * 35}ms`,
-                  backgroundColor: active ? `${workspace.color}0b` : undefined,
-                }}
+                className="group relative grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-line px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-white/[0.02] md:grid-cols-[minmax(0,1fr)_minmax(140px,0.6fr)_auto] helix-view-enter"
+                style={{ animationDelay: `${index * 35}ms` }}
               >
-                <span
-                  className="absolute inset-y-0 left-0 w-0.5 opacity-80"
-                  style={{ backgroundColor: workspace.color }}
-                />
+                {active && (
+                  <span
+                    className="absolute inset-y-0 left-0 w-0.5"
+                    style={{ backgroundColor: workspace.color }}
+                  />
+                )}
                 <div className="flex items-start gap-3">
                   <div
                     className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-line"
@@ -600,8 +588,7 @@ function WorkspaceDetail({
         <ArrowLeft className="h-3.5 w-3.5" />
         {t("helix:workspace.allSpaces")}
       </button>
-      <header className="relative border-y border-line py-5">
-        <span className="absolute inset-y-0 left-0 w-0.5" style={{ backgroundColor: workspace.color }} />
+      <header className="border-y border-line py-5">
         <div className="flex flex-wrap items-start gap-4">
           <div
             className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-line"
@@ -700,6 +687,7 @@ function WorkspaceDetail({
             memoryEnabled={workspace.memoryEnabled}
             facts={ws.memoryFacts}
             onAdd={ws.addMemoryFact}
+            onAddFiles={ws.addFilesAsMemory}
             onUpdate={ws.updateMemoryFact}
             onDelete={ws.deleteMemoryFact}
           />
@@ -776,49 +764,99 @@ function WorkspaceSources({ workspace, ws }: { workspace: Workspace; ws: Props["
       ),
     [ws.availableDocuments, ws.documents],
   );
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showDropdown) return;
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showDropdown]);
+
   return (
-    <section className="border-b border-line pb-5">
+    <section className="pb-5">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-fg">{t("helix:workspace.sources")}</h3>
           <p className="mt-1 text-xs leading-relaxed text-faint">{t("helix:workspace.sourcesHint")}</p>
         </div>
-        <select
-          className="max-w-60 rounded-lg border border-line bg-ink/60 px-3 py-2 text-xs text-fg"
-          defaultValue=""
-          onChange={(event) => {
-            if (event.target.value) void ws.attachDocument(workspace.id, event.target.value);
-            event.target.value = "";
-          }}
-        >
-          <option value="">{t("helix:workspace.attachSource")}</option>
-          {available.map((document) => (
-            <option key={document.id} value={document.id}>
-              {document.displayName}
-            </option>
-          ))}
-        </select>
+        {available.length > 0 && (
+          <div className="relative" ref={dropdownRef}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setShowDropdown((v) => !v)}
+              className="gap-1.5"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {t("helix:workspace.attachSource")}
+              <ChevronRight className={`h-3 w-3 transition-transform ${showDropdown ? "rotate-90" : ""}`} />
+            </Button>
+            {showDropdown && (
+              <div className="absolute right-0 top-full z-20 mt-1.5 max-h-64 w-64 overflow-y-auto rounded-lg border border-line bg-ink/95 p-1 shadow-xl backdrop-blur-md helix-view-enter">
+                {available.map((document) => (
+                  <button
+                    key={document.id}
+                    type="button"
+                    onClick={() => {
+                      void ws.attachDocument(workspace.id, document.id);
+                      setShowDropdown(false);
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left transition-colors hover:bg-white/[0.05]"
+                  >
+                    {document.parsedFormat === "image" ? (
+                      <img
+                        src={convertFileSrc(document.path)}
+                        alt=""
+                        className="h-8 w-8 shrink-0 rounded-md border border-line object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-line text-faint">
+                        {document.mimeType.startsWith("image/") ? (
+                          <ImageIcon className="h-3.5 w-3.5" />
+                        ) : (
+                          <FileText className="h-3.5 w-3.5" />
+                        )}
+                      </div>
+                    )}
+                    <span className="min-w-0 flex-1 truncate text-xs text-fg">{document.displayName}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
       {ws.documents.length === 0 ? (
-        <div className="flex flex-col items-center border border-dashed border-line py-12 text-center">
-          <FileText className="h-6 w-6 text-faint" />
-          <p className="mt-3 text-xs text-mute">{t("helix:workspace.noSources")}</p>
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-line py-14 text-center">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg border border-line">
+            <FileText className="h-4 w-4 text-faint" />
+          </div>
+          <p className="text-xs font-medium text-mute">{t("helix:workspace.noSources")}</p>
+          {available.length > 0 && (
+            <p className="mt-1 text-[10px] text-faint">{t("helix:workspace.sourcesHint")}</p>
+          )}
         </div>
       ) : (
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {ws.documents.map((document) => (
             <article
               key={document.id}
-              className="group flex min-w-0 items-center gap-3 border-b border-line p-3 transition-colors last:border-b-0 hover:bg-white/[0.02]"
+              className="group flex min-w-0 items-center gap-3 rounded-lg border border-line p-3 transition-colors hover:border-line-strong"
             >
               {document.parsedFormat === "image" ? (
                 <img
                   src={convertFileSrc(document.path)}
                   alt=""
-                  className="h-11 w-11 rounded-lg border border-line object-cover"
+                  className="h-10 w-10 shrink-0 rounded-lg border border-line object-cover"
                 />
               ) : (
-                <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-signal/10 text-signal">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-line text-faint">
                   {document.mimeType.startsWith("image/") ? (
                     <ImageIcon className="h-4 w-4" />
                   ) : (
