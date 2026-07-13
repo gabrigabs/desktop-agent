@@ -7,7 +7,20 @@ import {
   normalizeNativeError,
   type VisionAnalysis,
 } from "@desktop-agent/shared";
-import { ArrowUp, Eye, FileText, FolderOpen, Loader2, Paperclip, Plus, Square, X } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowUp,
+  Eye,
+  FileText,
+  FolderOpen,
+  Loader2,
+  Monitor,
+  Paperclip,
+  Plus,
+  RotateCcw,
+  Square,
+  X,
+} from "lucide-react";
 import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CapturePreviewModal } from "../../components/ui/capture-preview";
@@ -28,6 +41,7 @@ import {
   prepareNativeCapture,
   requestNativePermission,
 } from "../../lib/rpc";
+import { type StructuredOcr, structureVisionText } from "../../lib/structured-ocr";
 import { hideMainWindowForCapture, setWindowMode } from "../../lib/window";
 import { useAgentStore } from "../../stores/agent";
 import { useModelSelector } from "./hooks/useModelSelector";
@@ -48,9 +62,9 @@ function formatNativeError(error: unknown, fallback: string): string {
   return normalized.message && normalized.message !== "[object Object]" ? normalized.message : fallback;
 }
 
-function screenAnalysisContent(analysis: VisionAnalysis): string {
+function screenAnalysisContent(analysis: VisionAnalysis, structuredOcr: StructuredOcr | null): string {
   const parts: string[] = [];
-  const text = analysis.text?.content.trim();
+  const text = structuredOcr?.markdown ?? analysis.text?.content.trim();
   if (text) parts.push(text);
 
   const classifications = analysis.classifications?.slice(0, 5) ?? [];
@@ -280,7 +294,8 @@ export function Composer({
             ? "selected-region"
             : `display-${preview.displayId}`,
     });
-    const content = screenAnalysisContent(analysis);
+    const structuredOcr = structureVisionText(analysis.text);
+    const content = screenAnalysisContent(analysis, structuredOcr);
     const labelKey =
       intent === "extract_text" && crop
         ? "screenRegionTextLabel"
@@ -296,7 +311,7 @@ export function Composer({
     const imageWidth = croppedPreview?.width ?? preview.width;
     const imageHeight = croppedPreview?.height ?? preview.height;
 
-    addContext({
+    const draft: ContextAttachment = {
       id: action,
       source: "screen",
       label: t(`helix:composer.screenCapture.${labelKey}`),
@@ -315,17 +330,20 @@ export function Composer({
         height: imageHeight,
         crop,
         analysisIntent: intent,
+        structuredOcr,
         processedOnDevice: analysis.processedOnDevice,
       },
       policy: "include",
       sensitive: true,
       enabled: true,
-    });
+    };
     setScreenCapture({
       preview: { ...preview, previewDataUrl: imageDataUrl, width: imageWidth, height: imageHeight },
       busy: false,
       error: null,
       editorAction: null,
+      failedAction: null,
+      draft,
       crop: null,
     });
   };
@@ -333,7 +351,14 @@ export function Composer({
   const startScreenAction = async (action: ScreenAction, target?: NativeCaptureTarget) => {
     setContextError(null);
     setScreenBusy(true);
-    setScreenCapture({ busy: true, error: null, editorAction: null, crop: null });
+    setScreenCapture({
+      busy: true,
+      error: null,
+      editorAction: null,
+      failedAction: null,
+      draft: null,
+      crop: null,
+    });
     let restoreWindow: (() => Promise<void>) | null = null;
     try {
       await ensureScreenPermission();
@@ -354,6 +379,7 @@ export function Composer({
           busy: false,
           error: null,
           editorAction,
+          failedAction: null,
           crop: editorAction === "screen-region" ? null : { x: 0, y: 0, width: 1, height: 1 },
         });
         return;
@@ -371,6 +397,8 @@ export function Composer({
         busy: false,
         error: message,
         editorAction: null,
+        failedAction: action,
+        draft: null,
         crop: null,
       });
     } finally {
@@ -415,6 +443,8 @@ export function Composer({
         busy: false,
         error: message,
         editorAction: null,
+        failedAction: action,
+        draft: null,
         crop: null,
       });
     } finally {
@@ -546,6 +576,8 @@ export function Composer({
   const sendSize = mode === "expanded" ? "w-9 h-9" : "w-8 h-8";
   const contextIconSize = mode === "expanded" ? "w-4 h-4" : "w-3.5 h-3.5";
   const sendIconSize = mode === "expanded" ? "w-4 h-4" : "w-4 h-4";
+  const inspectorContext = screenCapture.draft ?? previewModalContext;
+  const isReviewingDraft = Boolean(screenCapture.draft);
 
   return (
     <div className={`w-full flex flex-col gap-2.5 ${widthClass}`}>
@@ -560,26 +592,42 @@ export function Composer({
           onCaptureFull={() => setScreenCapture({ crop: { x: 0, y: 0, width: 1, height: 1 } })}
         />
       )}
-      {previewModalContext && (
+      {inspectorContext && (
         <CapturePreviewModal
-          context={previewModalContext}
-          preview={useAgentStore.getState().screenCapture.preview}
-          onClose={() => setPreviewModalContext(null)}
+          context={inspectorContext}
+          preview={screenCapture.preview}
+          pendingConfirmation={isReviewingDraft}
+          onConfirm={
+            isReviewingDraft
+              ? () => {
+                  const draft = useAgentStore.getState().screenCapture.draft;
+                  if (!draft) return;
+                  addContext(draft);
+                  clearScreenCapture();
+                }
+              : undefined
+          }
+          onClose={() => {
+            if (isReviewingDraft) clearScreenCapture();
+            else setPreviewModalContext(null);
+          }}
           onCrop={() => {
-            const ctx = previewModalContext;
+            const ctx = inspectorContext;
+            if (isReviewingDraft) clearScreenCapture();
             setPreviewModalContext(null);
             if (ctx) void queueScreenAction("screen-region");
           }}
           onRecapture={() => {
-            const ctx = previewModalContext;
+            const ctx = inspectorContext;
+            if (isReviewingDraft) clearScreenCapture();
             setPreviewModalContext(null);
             if (ctx) void queueScreenAction((ctx.metadata?.mode as ScreenAction) ?? "screen-read");
           }}
           onRemove={() => {
-            const ctx = previewModalContext;
+            const ctx = inspectorContext;
             setPreviewModalContext(null);
             if (ctx) {
-              removeContext(ctx.id);
+              if (!isReviewingDraft) removeContext(ctx.id);
               clearScreenCapture();
             }
           }}
@@ -593,7 +641,55 @@ export function Composer({
           </div>
         </div>
       )}
-      {contextError && <div className="px-1 text-[10px] text-bad">{contextError}</div>}
+      {contextError && (
+        <div
+          role="alert"
+          className="flex items-start justify-between gap-3 rounded-xl border border-bad/20 bg-bad/[0.055] px-3 py-2.5"
+        >
+          <div className="flex min-w-0 items-start gap-2">
+            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-bad" />
+            <div className="min-w-0">
+              <p className="text-[11px] font-medium text-fg">
+                {t("helix:composer.screenCapture.errorTitle")}
+              </p>
+              <p className="mt-0.5 text-[10px] leading-relaxed text-mute">{contextError}</p>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5">
+            {screenCapture.failedAction && (
+              <button
+                type="button"
+                onClick={() => void queueScreenAction(screenCapture.failedAction as ScreenAction)}
+                className="flex items-center gap-1 rounded-lg border border-line-strong px-2 py-1 text-[9px] font-medium text-mute transition-colors hover:border-signal/30 hover:text-fg"
+              >
+                <RotateCcw className="h-2.5 w-2.5" />
+                {t("helix:composer.screenCapture.retry")}
+              </button>
+            )}
+            {screenCapture.failedAction === "screen-window" && (
+              <button
+                type="button"
+                onClick={() => void queueScreenAction("screen-capture")}
+                className="flex items-center gap-1 rounded-lg border border-signal/25 bg-signal/[0.06] px-2 py-1 text-[9px] font-medium text-signal transition-colors hover:bg-signal/10"
+              >
+                <Monitor className="h-2.5 w-2.5" />
+                {t("helix:composer.screenCapture.useDisplay")}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setContextError(null);
+                setScreenCapture({ error: null, failedAction: null });
+              }}
+              className="rounded-md p-1 text-faint transition-colors hover:bg-white/[0.05] hover:text-fg"
+              aria-label={t("helix:composer.screenCapture.dismissError")}
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        </div>
+      )}
       {activeSourceItems.length > 0 && (
         <div className="flex items-center gap-1.5 px-0.5 flex-wrap">
           {activeSourceItems.map((src) => {

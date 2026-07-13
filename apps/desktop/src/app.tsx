@@ -158,7 +158,7 @@ export function App() {
                   ? { actionId: action.id, secondaryId: secondaryAction.id }
                   : { actionId: action.id };
                 sessionStorage.setItem("helix.pending-action", JSON.stringify(pending));
-                void applyWindowMode("normal");
+                void applyWindowMode(action.category === "screen" ? "expanded" : "normal");
               }}
             />
           )}

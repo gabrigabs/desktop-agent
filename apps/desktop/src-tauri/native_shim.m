@@ -294,7 +294,8 @@ char *helix_analyze_image(const uint8_t *bytes, size_t length, const char *featu
         VNRecognizeTextRequest *request = [[VNRecognizeTextRequest alloc] init];
         request.regionOfInterest = region;
         request.recognitionLevel = VNRequestTextRecognitionLevelAccurate;
-        request.usesLanguageCorrection = NO;
+        request.usesLanguageCorrection = YES;
+        request.automaticallyDetectsLanguage = YES;
         if ([handler performRequests:@[request] error:nil]) {
             NSMutableArray *observations = [NSMutableArray array];
             NSMutableArray *lines = [NSMutableArray array];
@@ -402,10 +403,18 @@ static NSString *helix_ax_string(AXUIElementRef element, CFStringRef attribute) 
 static NSRunningApplication *helix_last_external_application = nil;
 static dispatch_once_t helix_tracking_once;
 
-static void helix_remember_external_application(NSRunningApplication *application) {
+static BOOL helix_is_external_application(NSRunningApplication *application) {
+    if (!application || application.terminated) return NO;
     NSString *bundleId = application.bundleIdentifier ?: @"";
     NSString *ownBundleId = NSBundle.mainBundle.bundleIdentifier ?: @"";
-    if (bundleId.length == 0 || [bundleId isEqualToString:ownBundleId]) return;
+    if (bundleId.length == 0 || [bundleId isEqualToString:ownBundleId]) return NO;
+    return ![bundleId isEqualToString:@"com.apple.dock"] &&
+           ![bundleId isEqualToString:@"com.apple.systemuiserver"] &&
+           ![bundleId isEqualToString:@"com.apple.WindowManager"];
+}
+
+static void helix_remember_external_application(NSRunningApplication *application) {
+    if (!helix_is_external_application(application)) return;
     @synchronized ([NSWorkspace class]) {
         helix_last_external_application = application;
     }
@@ -413,10 +422,11 @@ static void helix_remember_external_application(NSRunningApplication *applicatio
 
 void helix_start_app_tracking(void) {
     dispatch_once(&helix_tracking_once, ^{
-        helix_remember_external_application(NSWorkspace.sharedWorkspace.frontmostApplication);
-        [[NSNotificationCenter defaultCenter]
+        NSWorkspace *workspace = NSWorkspace.sharedWorkspace;
+        helix_remember_external_application(workspace.frontmostApplication);
+        [workspace.notificationCenter
             addObserverForName:NSWorkspaceDidActivateApplicationNotification
-                        object:NSWorkspace.sharedWorkspace
+                        object:workspace
                          queue:[NSOperationQueue mainQueue]
                     usingBlock:^(NSNotification *notification) {
                         NSRunningApplication *application = notification.userInfo[NSWorkspaceApplicationKey];
@@ -425,11 +435,42 @@ void helix_start_app_tracking(void) {
     });
 }
 
+static NSRunningApplication *helix_topmost_external_application(void) {
+    NSRunningApplication *frontmost = NSWorkspace.sharedWorkspace.frontmostApplication;
+    if (helix_is_external_application(frontmost)) return frontmost;
+
+    CFArrayRef windows = CGWindowListCopyWindowInfo(
+        kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements,
+        kCGNullWindowID
+    );
+    if (!windows) return nil;
+    pid_t ownPid = NSProcessInfo.processInfo.processIdentifier;
+    NSRunningApplication *result = nil;
+    for (NSDictionary *window in (__bridge NSArray *)windows) {
+        NSNumber *layer = window[(id)kCGWindowLayer];
+        NSNumber *ownerPid = window[(id)kCGWindowOwnerPID];
+        NSNumber *alpha = window[(id)kCGWindowAlpha];
+        if (layer.integerValue != 0 || ownerPid.intValue == ownPid || alpha.doubleValue <= 0.0) continue;
+        NSRunningApplication *candidate = [NSRunningApplication runningApplicationWithProcessIdentifier:ownerPid.intValue];
+        if (helix_is_external_application(candidate)) {
+            result = candidate;
+            break;
+        }
+    }
+    CFRelease(windows);
+    return result;
+}
+
 static NSRunningApplication *helix_target_application(void) {
     helix_start_app_tracking();
+    NSRunningApplication *remembered = nil;
     @synchronized ([NSWorkspace class]) {
-        return helix_last_external_application;
+        remembered = helix_last_external_application;
     }
+    if (helix_is_external_application(remembered)) return remembered;
+    NSRunningApplication *fallback = helix_topmost_external_application();
+    if (fallback) helix_remember_external_application(fallback);
+    return fallback;
 }
 
 static BOOL helix_ax_hidden(AXUIElementRef element) {

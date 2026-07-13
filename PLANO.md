@@ -87,6 +87,12 @@ Resolvido nesta rodada:
 - `active_window` exige Screen Recording e Accessibility; falha de Accessibility ou de leitura do frame não faz mais fallback silencioso para o display inteiro.
 - O frame da janela ativa usa coordenadas globais CoreGraphics e escolhe o display de maior interseção, preservando Retina e múltiplos monitores.
 - Trocar o tamanho da janela não reinicia a quick action ativa, a captura pendente nem o recorte em andamento.
+- O rastreamento de app ativo usa o `notificationCenter` correto do `NSWorkspace` e possui fallback seguro pela ordem das janelas, sem selecionar Helix, Dock ou SystemUIServer.
+- Falhas de janela ativa oferecem recuperação explícita na UI: tentar novamente ou abrir a bancada com o display inteiro.
+- OCR é ordenado pelas bounding boxes do Vision, agrupado em blocos de leitura e persistido como texto limpo, Markdown e metadados estruturados.
+- A prévia do texto mostra ordem de leitura, tipo de bloco, confiança média e ação para copiar o conteúdo normalizado.
+- Capturas analisadas permanecem como rascunho de revisão e só entram no contexto do chat após confirmação explícita.
+- Ações de tela iniciadas pelo radial abrem diretamente na bancada expandida, sem a transição intermediária que reabria a janela.
 
 Pontos ainda abertos:
 

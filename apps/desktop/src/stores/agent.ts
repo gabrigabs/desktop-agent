@@ -27,6 +27,8 @@ export type ScreenCaptureState = {
   busy: boolean;
   error: string | null;
   editorAction: "screen-capture" | "screen-region" | "screen-window" | null;
+  failedAction: "screen-read" | "screen-capture" | "screen-region" | "screen-window" | null;
+  draft: ContextAttachment | null;
   crop: NativeBoundingBox | null;
 };
 
@@ -242,7 +244,15 @@ export const useAgentStore = create<State>((set) => ({
   uiMode: "normal",
   settings: defaultSettings,
   agentLogs: [],
-  screenCapture: { preview: null, busy: false, error: null, editorAction: null, crop: null },
+  screenCapture: {
+    preview: null,
+    busy: false,
+    error: null,
+    editorAction: null,
+    failedAction: null,
+    draft: null,
+    crop: null,
+  },
   pendingScreenAction: null,
   activeComposerActionId: "pergunta-livre",
 
@@ -420,7 +430,17 @@ export const useAgentStore = create<State>((set) => ({
   clearAgentLogs: () => set({ agentLogs: [] }),
   setScreenCapture: (partial) => set((s) => ({ screenCapture: { ...s.screenCapture, ...partial } })),
   clearScreenCapture: () =>
-    set({ screenCapture: { preview: null, busy: false, error: null, editorAction: null, crop: null } }),
+    set({
+      screenCapture: {
+        preview: null,
+        busy: false,
+        error: null,
+        editorAction: null,
+        failedAction: null,
+        draft: null,
+        crop: null,
+      },
+    }),
   setPendingScreenAction: (action) => set({ pendingScreenAction: action }),
   setActiveComposerActionId: (activeComposerActionId) => set({ activeComposerActionId }),
   reset: () =>
@@ -439,7 +459,15 @@ export const useAgentStore = create<State>((set) => ({
       workflowRun: null,
       agentLogs: [],
       contexts: [],
-      screenCapture: { preview: null, busy: false, error: null, editorAction: null, crop: null },
+      screenCapture: {
+        preview: null,
+        busy: false,
+        error: null,
+        editorAction: null,
+        failedAction: null,
+        draft: null,
+        crop: null,
+      },
       pendingScreenAction: null,
       activeComposerActionId: "pergunta-livre",
     }),

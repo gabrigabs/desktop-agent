@@ -104,6 +104,10 @@
       "permissionDenied": "Allow Screen Recording in System Settings to continue.",
       "accessibilityDenied": "Allow Accessibility in System Settings to capture only the active window.",
       "failed": "The screen could not be captured.",
+      "errorTitle": "Capture could not be completed",
+      "retry": "Try again",
+      "useDisplay": "Use full display",
+      "dismissError": "Dismiss error",
       "screenReadLabel": "Screen reading",
       "screenCaptureLabel": "Screen capture",
       "screenRegionLabel": "Screen region",
@@ -141,7 +145,25 @@
     "recapture": "Recapture",
     "remove": "Remove",
     "close": "Close",
+    "cancel": "Discard",
+    "reviewBadge": "Waiting for confirmation",
+    "reviewTitle": "Review before adding",
+    "reviewDescription": "This capture is not part of the chat context yet.",
+    "addToChat": "Add to chat",
     "noText": "No text extracted from this capture.",
+    "ocr": {
+      "blocks": "blocks",
+      "lines": "lines",
+      "confidence": "confidence",
+      "copy": "Copy text",
+      "copied": "Copied",
+      "kind": {
+        "heading": "Heading",
+        "list": "List",
+        "key_value": "Field",
+        "paragraph": "Text"
+      }
+    },
     "meta": {
       "mode": "Mode",
       "dimensions": "Dimensions",
@@ -768,6 +790,7 @@
     "closeMenuHint": "Click to close menu",
     "openMenuHint": "Click to open menu, drag to move",
     "back": "Back",
+    "openingAction": "Preparing workspace…",
     "secondaryActions": "Secondary actions"
   },
   "sidebar": {

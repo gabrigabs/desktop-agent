@@ -104,6 +104,10 @@
       "permissionDenied": "Autorize a gravação de tela nos Ajustes do Sistema para continuar.",
       "accessibilityDenied": "Autorize Acessibilidade nos Ajustes do Sistema para capturar somente a janela ativa.",
       "failed": "Não foi possível capturar a tela.",
+      "errorTitle": "A captura não foi concluída",
+      "retry": "Tentar novamente",
+      "useDisplay": "Usar tela inteira",
+      "dismissError": "Fechar erro",
       "screenReadLabel": "Leitura da tela",
       "screenCaptureLabel": "Captura da tela",
       "screenRegionLabel": "Região da tela",
@@ -141,7 +145,25 @@
     "recapture": "Recapturar",
     "remove": "Remover",
     "close": "Fechar",
+    "cancel": "Descartar",
+    "reviewBadge": "Aguardando confirmação",
+    "reviewTitle": "Revise antes de adicionar",
+    "reviewDescription": "A captura ainda não faz parte do contexto do chat.",
+    "addToChat": "Adicionar ao chat",
     "noText": "Nenhum texto extraído desta captura.",
+    "ocr": {
+      "blocks": "blocos",
+      "lines": "linhas",
+      "confidence": "confiança",
+      "copy": "Copiar texto",
+      "copied": "Copiado",
+      "kind": {
+        "heading": "Título",
+        "list": "Lista",
+        "key_value": "Campo",
+        "paragraph": "Texto"
+      }
+    },
     "meta": {
       "mode": "Modo",
       "dimensions": "Dimensões",
@@ -768,6 +790,7 @@
     "closeMenuHint": "Clique para fechar menu",
     "openMenuHint": "Clique para abrir menu, arraste para mover",
     "back": "Voltar",
+    "openingAction": "Preparando a bancada…",
     "secondaryActions": "Ações secundárias"
   },
   "sidebar": {

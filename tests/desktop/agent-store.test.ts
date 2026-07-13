@@ -54,4 +54,27 @@ describe("agent streaming store", () => {
     expect(next.screenCapture.editorAction).toBe("screen-region");
     expect(next.screenCapture.crop).toEqual({ x: 0.1, y: 0.2, width: 0.3, height: 0.4 });
   });
+
+  test("keeps an analyzed capture out of chat context until it is confirmed", () => {
+    const store = useAgentStore.getState();
+    const draft = {
+      id: "screen-read",
+      source: "screen" as const,
+      policy: "include" as const,
+      label: "Leitura da tela",
+      preview: "Texto ordenado",
+      content: "Texto ordenado",
+      sensitive: true,
+      enabled: true,
+    };
+
+    store.setScreenCapture({ draft });
+    expect(useAgentStore.getState().contexts).toEqual([]);
+    expect(useAgentStore.getState().screenCapture.draft).toEqual(draft);
+
+    store.addContext(draft);
+    store.clearScreenCapture();
+    expect(useAgentStore.getState().contexts).toEqual([draft]);
+    expect(useAgentStore.getState().screenCapture.draft).toBeNull();
+  });
 });

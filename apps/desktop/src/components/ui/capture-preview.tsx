@@ -1,7 +1,21 @@
 import type { ContextAttachment, NativeBoundingBox, NativeCapturePreview } from "@desktop-agent/shared";
-import { Crop, Eye, FileText, Hand, Info, RotateCcw, Trash2, X, ZoomIn, ZoomOut } from "lucide-react";
+import {
+  Check,
+  Copy,
+  Crop,
+  Eye,
+  FileText,
+  Hand,
+  Info,
+  RotateCcw,
+  Trash2,
+  X,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { StructuredOcr } from "../../lib/structured-ocr";
 
 interface CapturePreviewModalProps {
   context: ContextAttachment;
@@ -10,6 +24,8 @@ interface CapturePreviewModalProps {
   onCrop?: () => void;
   onRecapture?: () => void;
   onRemove?: () => void;
+  pendingConfirmation?: boolean;
+  onConfirm?: () => void;
 }
 
 const MIN_ZOOM = 1;
@@ -22,6 +38,8 @@ export function CapturePreviewModal({
   onCrop,
   onRecapture,
   onRemove,
+  pendingConfirmation = false,
+  onConfirm,
 }: CapturePreviewModalProps) {
   const { t } = useTranslation("helix");
   const [tab, setTab] = useState<"image" | "text" | "metadata">("image");
@@ -38,6 +56,7 @@ export function CapturePreviewModal({
   const height = (meta?.height as number) ?? preview?.height;
   const crop = meta?.crop as NativeBoundingBox | undefined;
   const processedOnDevice = meta?.processedOnDevice as boolean | undefined;
+  const structuredOcr = meta?.structuredOcr as StructuredOcr | null | undefined;
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -70,6 +89,11 @@ export function CapturePreviewModal({
       <header className="flex items-center justify-between gap-4 border-b border-line/40 px-4 py-2.5 shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           <h2 className="text-sm font-semibold text-fg truncate">{context.label}</h2>
+          {pendingConfirmation && (
+            <span className="rounded-full border border-signal/20 bg-signal/[0.07] px-2 py-0.5 text-[9px] font-medium text-signal">
+              {t("helix:capturePreview.reviewBadge")}
+            </span>
+          )}
           {width && height && (
             <span className="text-[10px] text-faint shrink-0">
               {width}×{height}
@@ -222,11 +246,15 @@ export function CapturePreviewModal({
       )}
 
       {tab === "text" && (
-        <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3">
-          {context.content ? (
-            <pre className="whitespace-pre-wrap break-words text-[12px] leading-relaxed text-fg font-mono">
-              {context.content}
-            </pre>
+        <div className="flex-1 min-h-0 overflow-y-auto bg-[radial-gradient(circle_at_top_left,rgba(196,153,244,0.06),transparent_38%)] px-4 py-4">
+          {structuredOcr?.blocks?.length ? (
+            <StructuredOcrView ocr={structuredOcr} />
+          ) : context.content ? (
+            <div className="mx-auto max-w-3xl rounded-xl border border-line/60 bg-black/20 p-4">
+              <pre className="whitespace-pre-wrap break-words font-mono text-[12px] leading-relaxed text-fg">
+                {context.content}
+              </pre>
+            </div>
           ) : (
             <p className="text-[11px] text-mute">{t("helix:capturePreview.noText")}</p>
           )}
@@ -260,6 +288,111 @@ export function CapturePreviewModal({
           </dl>
         </div>
       )}
+
+      {pendingConfirmation && onConfirm && (
+        <footer className="flex shrink-0 items-center justify-between gap-4 border-t border-line/40 bg-[#100e16]/95 px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium text-fg">{t("helix:capturePreview.reviewTitle")}</p>
+            <p className="mt-0.5 truncate text-[9px] text-mute">
+              {t("helix:capturePreview.reviewDescription")}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-line px-3 py-1.5 text-[10px] font-medium text-mute transition-colors hover:bg-white/[0.04] hover:text-fg"
+            >
+              {t("helix:capturePreview.cancel")}
+            </button>
+            <button
+              type="button"
+              onClick={onConfirm}
+              className="flex items-center gap-1.5 rounded-lg border border-signal/40 bg-signal px-3.5 py-1.5 text-[10px] font-semibold text-ink shadow-[0_0_18px_-5px_rgba(196,153,244,0.55)] transition-all hover:bg-signal/85 active:scale-[0.98] motion-reduce:transition-none"
+            >
+              <Check className="h-3 w-3" />
+              {t("helix:capturePreview.addToChat")}
+            </button>
+          </div>
+        </footer>
+      )}
+    </div>
+  );
+}
+
+function StructuredOcrView({ ocr }: { ocr: StructuredOcr }) {
+  const { t } = useTranslation("helix");
+  const [copied, setCopied] = useState(false);
+  const confidence = Math.round(ocr.averageConfidence * 100);
+
+  const copyText = async () => {
+    try {
+      await navigator.clipboard.writeText(ocr.plainText);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  return (
+    <div className="mx-auto flex max-w-3xl flex-col gap-3">
+      <section className="flex items-center justify-between gap-4 rounded-xl border border-signal/15 bg-signal/[0.045] px-3 py-2.5">
+        <div className="flex items-center gap-5">
+          <OcrMetric value={ocr.blocks.length} label={t("helix:capturePreview.ocr.blocks")} />
+          <OcrMetric value={ocr.lines.length} label={t("helix:capturePreview.ocr.lines")} />
+          <OcrMetric value={`${confidence}%`} label={t("helix:capturePreview.ocr.confidence")} />
+        </div>
+        <button
+          type="button"
+          onClick={() => void copyText()}
+          className="flex items-center gap-1.5 rounded-lg border border-line-strong bg-black/20 px-2.5 py-1.5 text-[10px] font-medium text-mute transition-all hover:border-signal/30 hover:text-fg active:scale-[0.98] motion-reduce:transition-none"
+        >
+          {copied ? <Check className="h-3 w-3 text-good" /> : <Copy className="h-3 w-3" />}
+          {copied ? t("helix:capturePreview.ocr.copied") : t("helix:capturePreview.ocr.copy")}
+        </button>
+      </section>
+
+      <div className="overflow-hidden rounded-xl border border-line/60 bg-black/20 shadow-[0_18px_50px_-38px_rgba(196,153,244,0.45)]">
+        {ocr.blocks.map((block, index) => (
+          <article
+            key={block.id}
+            className="group relative px-4 py-3.5 transition-colors hover:bg-white/[0.025] motion-reduce:transition-none [&:not(:last-child)]:border-b [&:not(:last-child)]:border-line/40"
+          >
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[8px] tabular-nums text-signal/60">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <span className="text-[9px] font-semibold uppercase tracking-[0.16em] text-signal/75">
+                  {t(`helix:capturePreview.ocr.kind.${block.kind}`)}
+                </span>
+              </div>
+              <span className="font-mono text-[9px] tabular-nums text-faint">
+                {Math.round(block.confidence * 100)}%
+              </span>
+            </div>
+            <p
+              className={`whitespace-pre-wrap break-words text-fg select-text ${
+                block.kind === "heading"
+                  ? "text-[14px] font-semibold leading-snug"
+                  : "text-[12px] leading-relaxed"
+              }`}
+            >
+              {block.text}
+            </p>
+          </article>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function OcrMetric({ value, label }: { value: string | number; label: string }) {
+  return (
+    <div className="flex items-baseline gap-1.5">
+      <strong className="font-mono text-[12px] font-semibold tabular-nums text-fg">{value}</strong>
+      <span className="text-[9px] text-faint">{label}</span>
     </div>
   );
 }

@@ -56,6 +56,7 @@ export function HelixLauncher(props: HelixLauncherProps) {
   const [clickingIndex, setClickingIndex] = useState<number | null>(null);
   const [secondaryOpen, setSecondaryOpen] = useState(false);
   const [secondaryIndex, setSecondaryIndex] = useState(0);
+  const [launchingLabel, setLaunchingLabel] = useState<string | null>(null);
 
   const activeAction = menuOpen ? actions[selectedIndex] : undefined;
   const activeAngle = menuOpen ? START_ANGLE - selectedIndex * (360 / actions.length) : 0;
@@ -206,12 +207,14 @@ export function HelixLauncher(props: HelixLauncherProps) {
     if (!action) return;
 
     setClickingIndex(index);
+    setLaunchingLabel(action.label);
     setTimeout(() => {
       setClickingIndex(null);
       props.onAction(action.source);
       setMenuOpen(false);
       setSecondaryOpen(false);
       setSecondaryIndex(0);
+      setLaunchingLabel(null);
     }, 140);
   };
 
@@ -221,12 +224,14 @@ export function HelixLauncher(props: HelixLauncherProps) {
     if (!action || !secondary) return;
 
     setClickingIndex(primaryIndex);
+    setLaunchingLabel(secondary.label);
     setTimeout(() => {
       setClickingIndex(null);
       props.onAction(action.source, secondary.source);
       setMenuOpen(false);
       setSecondaryOpen(false);
       setSecondaryIndex(0);
+      setLaunchingLabel(null);
     }, 140);
   };
 
@@ -537,9 +542,16 @@ export function HelixLauncher(props: HelixLauncherProps) {
         </button>
 
         {menuOpen && activeAction && !secondaryOpen && (
-          <div className="pointer-events-none absolute left-1/2 top-[calc(50%+45px)] z-40 w-[178px] -translate-x-1/2 text-center radial-preview">
-            <div className="text-[10px] font-semibold tracking-wide text-fg">{activeAction.label}</div>
-            <div className="mt-0.5 text-[8px] leading-tight text-mute">{activeAction.description}</div>
+          <div
+            className="pointer-events-none absolute left-1/2 top-[calc(50%+45px)] z-40 w-[178px] -translate-x-1/2 text-center radial-preview"
+            aria-live="polite"
+          >
+            <div className="text-[10px] font-semibold tracking-wide text-fg">
+              {launchingLabel ?? activeAction.label}
+            </div>
+            <div className="mt-0.5 text-[8px] leading-tight text-mute">
+              {launchingLabel ? t("helix:helixLauncher.openingAction") : activeAction.description}
+            </div>
           </div>
         )}
       </div>
