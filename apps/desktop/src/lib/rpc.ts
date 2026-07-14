@@ -185,8 +185,14 @@ async function doInitializeRpc(attempt: number): Promise<AgentApi> {
             break;
           case "agent.thought":
             store.addAgentLog({ type: "thought", text: event.thought });
+            store.appendAssistantBlock({ type: "thinking", content: event.thought, collapsed: true });
             break;
           case "agent.chunk": {
+            const store = useAgentStore.getState();
+            const last = store.messages[store.messages.length - 1];
+            if (last?.role === "assistant" && last.blocks[last.blocks.length - 1]?.type !== "text") {
+              store.appendAssistantBlock({ type: "text", content: "" });
+            }
             queueChunk(event.chunk);
             break;
           }
@@ -246,24 +252,62 @@ async function doInitializeRpc(attempt: number): Promise<AgentApi> {
                     : i18n.t("helix:rpcLogs.workflowEnded"),
             });
             break;
-          case "tool.started":
+          case "tool.started": {
             store.addAgentLog({
               type: "tool_start",
               text: i18n.t("helix:rpcLogs.usingTool", { toolName: event.toolName }),
             });
+            const runningIndex = store.messages[store.messages.length - 1]?.blocks?.findIndex(
+              (b) => b.type === "tool_call" && b.toolName === event.toolName && b.status === "running",
+            );
+            if (runningIndex === -1) {
+              store.appendAssistantBlock({
+                type: "tool_call",
+                toolName: event.toolName,
+                status: "running",
+                input: event.input,
+              });
+            }
             break;
-          case "tool.completed":
+          }
+          case "tool.completed": {
             store.addAgentLog({
               type: "tool_complete",
               text: i18n.t("helix:rpcLogs.toolCompleted", { toolName: event.toolName }),
             });
+            const blocks = store.messages[store.messages.length - 1]?.blocks ?? [];
+            let lastIdx = -1;
+            for (let i = blocks.length - 1; i >= 0; i--) {
+              const b = blocks[i];
+              if (b && b.type === "tool_call" && b.toolName === event.toolName && b.status === "running") {
+                lastIdx = i;
+                break;
+              }
+            }
+            if (lastIdx !== -1) {
+              store.updateAssistantBlock(lastIdx, { status: "done", output: event.output });
+            }
             break;
-          case "tool.failed":
+          }
+          case "tool.failed": {
             store.addAgentLog({
               type: "tool_fail",
               text: i18n.t("helix:rpcLogs.toolFailed", { toolName: event.toolName, error: event.error }),
             });
+            const failBlocks = store.messages[store.messages.length - 1]?.blocks ?? [];
+            let failIdx = -1;
+            for (let i = failBlocks.length - 1; i >= 0; i--) {
+              const b = failBlocks[i];
+              if (b && b.type === "tool_call" && b.toolName === event.toolName && b.status === "running") {
+                failIdx = i;
+                break;
+              }
+            }
+            if (failIdx !== -1) {
+              store.updateAssistantBlock(failIdx, { status: "failed", output: event.error });
+            }
             break;
+          }
           case "agent.cancelled":
             flushChunksNow();
             if (event.requestId === activeRequestId) activeRequestId = null;

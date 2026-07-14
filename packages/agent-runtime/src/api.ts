@@ -111,7 +111,9 @@ import {
   createDesktopAppTool,
   createDesktopNotifyTool,
   createDesktopSystemTool,
+  createDirectoryListTool,
   createFilePatchTool,
+  createFileReadTool,
   createFileWriteTool,
   createGitDiffTool,
   createGitLogTool,
@@ -189,7 +191,16 @@ async function isAuthorizedFilePath(targetPath: string): Promise<boolean> {
     const resolvedTarget = path.resolve(targetPath);
     return [...allRoots].some((root) => resolvedTarget.startsWith(`${root}${path.sep}`));
   }
-  return [...allRoots].some(
+  const canonicalRoots = await Promise.all(
+    [...allRoots].map(async (root) => {
+      try {
+        return await fs.realpath(root);
+      } catch {
+        return root;
+      }
+    }),
+  );
+  return canonicalRoots.some(
     (root) => canonicalParent === root || canonicalParent.startsWith(`${root}${path.sep}`),
   );
 }
@@ -364,6 +375,8 @@ registry.register(createDesktopAppTool(nativeCtx));
 registry.register(createDesktopSystemTool(nativeCtx));
 registry.register(createDesktopNotifyTool(nativeCtx));
 registry.register(createFileWriteTool({ isPathAuthorized: isAuthorizedFilePath }));
+registry.register(createFileReadTool({ isPathAuthorized: isAuthorizedFilePath }));
+registry.register(createDirectoryListTool({ isPathAuthorized: isAuthorizedFilePath }));
 registry.register(createGitStatusTool({ isPathAuthorized: isAuthorizedFilePath }));
 registry.register(createGitDiffTool({ isPathAuthorized: isAuthorizedFilePath }));
 registry.register(createGitLogTool({ isPathAuthorized: isAuthorizedFilePath }));

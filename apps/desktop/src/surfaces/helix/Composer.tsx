@@ -228,15 +228,18 @@ export function Composer({
     setIgnoreClipboard(true);
   }, [query, setQuery, setIgnoreClipboard]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setQuery(e.target.value);
-    if (!ignoreClipboard && !e.target.value.includes(CLIPBOARD_MARKER)) {
-      setIgnoreClipboard(true);
-    }
-    if (e.target.value.trim().length === 0) {
-      setActiveActionId("pergunta-livre");
-    }
-  };
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      setQuery(e.target.value);
+      if (!ignoreClipboard && !e.target.value.includes(CLIPBOARD_MARKER)) {
+        setIgnoreClipboard(true);
+      }
+      if (e.target.value.trim().length === 0) {
+        setActiveActionId("pergunta-livre");
+      }
+    },
+    [setQuery, ignoreClipboard, setIgnoreClipboard, setActiveActionId],
+  );
 
   const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const pastedText = e.clipboardData.getData("text/plain");
@@ -260,21 +263,24 @@ export function Composer({
     });
   };
 
-  const handleQuickAction = (action: QuickActionItem) => {
-    const el = textareaRef.current;
-    const usesClipboard = action.requiredContext?.includes("clipboard");
-    const prefix = action.prompt ? `${action.prompt} ` : "";
-    const next = usesClipboard ? `${prefix}${CLIPBOARD_MARKER}`.trim() : action.prompt;
-    setActiveActionId(action.id);
-    setQuery(next);
-    setIgnoreClipboard(!usesClipboard);
-    requestAnimationFrame(() => {
-      if (!el) return;
-      el.focus();
-      el.setSelectionRange(next.length, next.length);
-    });
-    onQuickAction?.(action);
-  };
+  const handleQuickAction = useCallback(
+    (action: QuickActionItem) => {
+      const el = textareaRef.current;
+      const usesClipboard = action.requiredContext?.includes("clipboard");
+      const prefix = action.prompt ? `${action.prompt} ` : "";
+      const next = usesClipboard ? `${prefix}${CLIPBOARD_MARKER}`.trim() : action.prompt;
+      setActiveActionId(action.id);
+      setQuery(next);
+      setIgnoreClipboard(!usesClipboard);
+      requestAnimationFrame(() => {
+        if (!el) return;
+        el.focus();
+        el.setSelectionRange(next.length, next.length);
+      });
+      onQuickAction?.(action);
+    },
+    [textareaRef, setActiveActionId, setQuery, setIgnoreClipboard, onQuickAction],
+  );
 
   const ensureScreenPermission = async () => {
     const permission = await requestNativePermission("screen_recording");
@@ -490,10 +496,8 @@ export function Composer({
         addContext({
           id: "active-app",
           source: "active_app",
-          label: snapshot.appName || "App ativo",
-          preview: hasVisibleText
-            ? snapshot.content.slice(0, 180)
-            : `${snapshot.windowTitle || "Janela ativa"} · sem texto útil; use Tela para Vision explícita`,
+          label: snapshot.appName || t("helix:composer.activeAppLabel"),
+          preview: hasVisibleText ? snapshot.content.slice(0, 180) : t("helix:composer.activeAppNoText"),
           content: hasVisibleText ? snapshot.content : undefined,
           metadata: {
             bundleId: snapshot.bundleId,
@@ -513,13 +517,13 @@ export function Composer({
     } else if (src.id === "connector") {
       const connector = connectors.find((item) => item.enabled);
       if (!connector) {
-        setContextError("Nenhum connector habilitado para esta execução.");
+        setContextError(t("helix:composer.noConnectorEnabled"));
       } else {
         addContext({
           id: "connector",
           source: "connector",
           label: connector.name,
-          preview: "Servidor selecionado para esta execução",
+          preview: t("helix:composer.connectorSelected"),
           metadata: { mcpAllowlist: [connector.id], serverId: connector.id },
           policy: "reference",
           sensitive: true,
@@ -530,11 +534,14 @@ export function Composer({
     setContextMenuOpen(false);
   };
 
-  const activeSources = new Set<string>();
-  if (clipboardEnabled) activeSources.add("clipboard");
-  for (const context of contexts) {
-    activeSources.add(context.id);
-  }
+  const activeSources = useMemo(() => {
+    const set = new Set<string>();
+    if (clipboardEnabled) set.add("clipboard");
+    for (const context of contexts) {
+      set.add(context.id);
+    }
+    return set;
+  }, [clipboardEnabled, contexts]);
 
   const activeSourceItems = useMemo(
     () => CONTEXT_SOURCES.filter((s) => activeSources.has(s.id)),
@@ -857,8 +864,8 @@ export function Composer({
       <div className="relative">
         <div
           ref={composerRef}
-          className={`composer-field flex flex-col rounded-xl border border-line bg-white/[0.04] transition-all duration-200 ${
-            clipboardEnabled ? "border-signal/30 bg-signal/[0.03]" : ""
+          className={`composer-field group flex flex-col rounded-2xl border border-line bg-white/[0.04] transition-all duration-300 focus-within:border-signal/40 focus-within:bg-signal/[0.02] focus-within:shadow-[0_0_0_1px_var(--color-signal,theme(colors.signal/40)),0_0_24px_-8px_var(--color-signal,theme(colors.signal.DEFAULT))] ${
+            clipboardEnabled ? "border-signal/25 bg-signal/[0.02]" : ""
           } ${shellClasses}`}
         >
           <div className={`flex flex-col ${inputPadding} ${inputHeight}`}>
@@ -891,16 +898,16 @@ export function Composer({
           </div>
 
           <div
-            className={`flex items-center justify-between gap-2 border-t ${contextMenuOpen ? "border-line/50 bg-black/[0.15]" : mode === "expanded" ? "border-line/40" : "border-line/20"} ${toolbarPadding}`}
+            className={`flex items-center justify-between gap-2 border-t ${contextMenuOpen ? "border-signal/20 bg-signal/[0.04]" : mode === "expanded" ? "border-line/40" : "border-line/20"} transition-colors duration-200 ${toolbarPadding}`}
           >
             <div className="flex items-center gap-1.5 min-w-0">
               <button
                 ref={contextButtonRef}
                 type="button"
                 onClick={() => setContextMenuOpen((v) => !v)}
-                className={`shrink-0 ${contextSize} rounded-lg flex items-center justify-center border transition-all duration-200 cursor-pointer ${
+                className={`shrink-0 ${contextSize} rounded-xl flex items-center justify-center border transition-all duration-200 cursor-pointer ${
                   contextMenuOpen
-                    ? "border-signal/40 bg-signal/10 text-signal"
+                    ? "border-signal/40 bg-signal/10 text-signal rotate-0"
                     : "border-line-strong bg-ink/40 text-fg hover:text-signal hover:border-signal/30 hover:bg-signal/5"
                 }`}
                 title={t("helix:composer.contextMenu.title")}
@@ -961,11 +968,11 @@ export function Composer({
                 disabled={!canSend && !streaming}
                 onMouseEnter={() => setHoveringSend(true)}
                 onMouseLeave={() => setHoveringSend(false)}
-                className={`shrink-0 ${sendSize} rounded-lg flex items-center justify-center transition-all duration-200 cursor-pointer disabled:cursor-default ${
+                className={`shrink-0 ${sendSize} rounded-xl flex items-center justify-center transition-all duration-200 cursor-pointer disabled:cursor-default ${
                   streaming
                     ? "bg-signal/20 text-signal hover:bg-bad/20 hover:text-bad"
                     : canSend
-                      ? "bg-signal text-ink hover:bg-signal/80 active:scale-95"
+                      ? "bg-signal text-ink hover:bg-signal/90 hover:shadow-[0_0_20px_-4px_var(--color-signal,theme(colors.signal.DEFAULT))] active:scale-95"
                       : "bg-ink/40 text-mute border border-line-strong hover:text-fg active:scale-95"
                 }`}
                 title={

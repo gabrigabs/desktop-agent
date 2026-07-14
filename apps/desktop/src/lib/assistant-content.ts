@@ -1,6 +1,8 @@
 import type { MessageBlock } from "@desktop-agent/shared";
 
 const THINKING_TAG = /<\/?think(?:ing)?>/gi;
+const TOOL_CALL_TAG = /<tool_call\s+name="([^"]+)"\s*>/i;
+const TOOL_CALL_CLOSE = /<\/tool_call>/i;
 const TAG_PREFIXES = ["<think>", "</think>", "<thinking>", "</thinking>"];
 
 function trimBoundaryLines(text: string): string {
@@ -20,6 +22,7 @@ export function parseAssistantContent(raw: string, streaming: boolean): MessageB
   let cursor = 0;
   let thinking = false;
   let seenAnyTag = false;
+  let seenToolCall = false;
   let match = THINKING_TAG.exec(raw);
 
   const push = (type: "text" | "thinking", value: string) => {
@@ -66,11 +69,56 @@ export function parseAssistantContent(raw: string, streaming: boolean): MessageB
     }
   }
 
-  if (streaming && !seenAnyTag && !hadPartialTag) {
+  if (TOOL_CALL_TAG.test(remainder)) {
+    seenToolCall = true;
+  }
+
+  if (streaming && !seenAnyTag && !hadPartialTag && !seenToolCall) {
     push("thinking", remainder);
   } else {
     push(thinking ? "thinking" : "text", remainder);
   }
 
-  return blocks;
+  return parseToolCallBlocks(blocks);
+}
+
+function parseToolCallBlocks(blocks: MessageBlock[]): MessageBlock[] {
+  const result: MessageBlock[] = [];
+  for (const block of blocks) {
+    if (block.type !== "text") {
+      result.push(block);
+      continue;
+    }
+    let content = block.content;
+    while (content.length > 0) {
+      const openMatch = content.match(TOOL_CALL_TAG);
+      if (!openMatch) {
+        result.push({ type: "text", content });
+        break;
+      }
+      const toolName = openMatch[1] as string;
+      const startIndex = openMatch.index as number;
+      const before = content.slice(0, startIndex);
+      if (before.trim()) {
+        result.push({ type: "text", content: before });
+      }
+      const closeMatch = content.match(TOOL_CALL_CLOSE);
+      if (!closeMatch) {
+        const inner = content.slice(startIndex + openMatch[0].length);
+        result.push({ type: "tool_call", toolName, status: "running", input: inner });
+        break;
+      }
+      const closeIndex = closeMatch.index as number;
+      const closeLength = closeMatch[0].length;
+      const inner = content.slice(startIndex + openMatch[0].length, closeIndex);
+      result.push({
+        type: "tool_call",
+        toolName,
+        status: "running",
+        input: inner,
+      });
+      content = content.slice(closeIndex + closeLength);
+    }
+  }
+  return result;
 }

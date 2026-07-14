@@ -1,6 +1,16 @@
 import type { MessageBlock, Turn } from "@desktop-agent/shared";
 import { unwrapAgentResponse } from "@desktop-agent/shared";
-import { AlertCircle, Check, Clipboard, ExternalLink, RefreshCw, Sparkles, Wrench } from "lucide-react";
+import {
+  AlertCircle,
+  Check,
+  ChevronDown,
+  Clipboard,
+  ExternalLink,
+  Loader2,
+  RefreshCw,
+  Sparkles,
+  Terminal,
+} from "lucide-react";
 import { memo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { MarkdownRenderer } from "../../components/ui/markdown-renderer";
@@ -89,7 +99,9 @@ export function ResponseBubble({
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-[10px] text-mute font-medium tracking-tight">Helix</span>
+          <span className="text-[10px] text-mute font-medium tracking-tight">
+            {t("helix:responseBubble.helixName")}
+          </span>
           <span className="text-[10px] text-faint">{relativeTime(turn.timestamp)}</span>
           {turn.status === "error" && (
             <span className="text-[10px] font-mono uppercase text-bad">
@@ -177,7 +189,7 @@ function WebSourceItem({ title, url, snippet }: { title?: string; url?: string; 
   };
 
   return (
-    <div className="rounded-md bg-white/[0.03] border border-line px-2.5 py-1.5">
+    <div className="rounded-lg bg-white/[0.03] border border-line px-3 py-2">
       <div className="flex items-start gap-1.5">
         <a
           href={url}
@@ -224,7 +236,7 @@ function BlockRenderer({ block, isStreaming }: { block: MessageBlock; isStreamin
     case "text":
       return <StreamingTextBlock content={block.content} isStreaming={isStreaming} />;
     case "thinking":
-      return <ThinkingBlock isStreaming={isStreaming} />;
+      return <ThinkingBlock isStreaming={isStreaming} content={block.content} />;
     case "tool_call": {
       const isWebSearch = block.toolName === "web.search";
       const webResults =
@@ -235,21 +247,49 @@ function BlockRenderer({ block, isStreaming }: { block: MessageBlock; isStreamin
       const ocrText =
         isOcr && block.output ? (block.output as { text?: string; empty?: boolean }).text : undefined;
       const ocrEmpty = isOcr && block.output ? (block.output as { empty?: boolean }).empty : undefined;
+      const inputSummary = JSON.stringify(block.input ?? "", null, 2).slice(0, 300);
+      const outputSummary =
+        typeof block.output === "string"
+          ? block.output.slice(0, 300)
+          : JSON.stringify(block.output ?? "", null, 2).slice(0, 300);
+      const statusConfig = {
+        running: {
+          icon: <Loader2 className="w-3 h-3 animate-spin" />,
+          label: t("helix:responseBubble.toolRunning"),
+          color: "text-warn",
+          border: "border-warn/25",
+          bg: "bg-warn/[0.04]",
+        },
+        done: {
+          icon: <Check className="w-3 h-3" />,
+          label: t("helix:responseBubble.toolDone"),
+          color: "text-good",
+          border: "border-good/20",
+          bg: "bg-good/[0.03]",
+        },
+        failed: {
+          icon: <AlertCircle className="w-3 h-3" />,
+          label: t("helix:responseBubble.toolFailed"),
+          color: "text-bad",
+          border: "border-bad/20",
+          bg: "bg-bad/[0.04]",
+        },
+      } as const;
+      const sc = statusConfig[block.status];
       return (
         <div className="my-1.5">
-          <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-white/[0.04] border border-line">
-            <Wrench className="w-3 h-3 text-mute shrink-0" />
-            <span className="text-[10px] font-mono text-mute truncate">{block.toolName}</span>
-            <span
-              className={`text-[9px] font-mono uppercase ml-auto shrink-0 ${
-                block.status === "done" ? "text-good" : block.status === "failed" ? "text-bad" : "text-warn"
-              }`}
-            >
-              {block.status}
+          <div
+            className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${sc.border} ${sc.bg} transition-all duration-200`}
+          >
+            <Terminal className={`w-3.5 h-3.5 shrink-0 ${sc.color}`} />
+            <span className="text-[10px] font-mono text-fg/80 truncate flex-1 min-w-0">{block.toolName}</span>
+            <span className={`flex items-center gap-1 text-[9px] font-medium uppercase shrink-0 ${sc.color}`}>
+              {sc.icon}
+              {sc.label}
             </span>
           </div>
           {isOcr && block.status === "done" && ocrText && !ocrEmpty && (
-            <div className="mt-1.5 rounded-md bg-white/[0.03] border border-line px-2.5 py-2">
+            <div className="mt-1.5 rounded-lg bg-white/[0.03] border border-line px-3 py-2">
               <div className="text-[9px] text-faint uppercase font-bold mb-1">
                 {t("helix:responseBubble.extractedText")}
               </div>
@@ -257,13 +297,13 @@ function BlockRenderer({ block, isStreaming }: { block: MessageBlock; isStreamin
             </div>
           )}
           {isOcr && block.status === "done" && ocrEmpty && (
-            <div className="mt-1.5 flex items-center gap-1.5 rounded-md bg-white/[0.03] border border-line px-2.5 py-2">
+            <div className="mt-1.5 flex items-center gap-1.5 rounded-lg bg-white/[0.03] border border-line px-3 py-2">
               <AlertCircle className="w-3 h-3 text-faint shrink-0" />
               <span className="text-[10px] text-faint">{t("helix:responseBubble.noTextDetected")}</span>
             </div>
           )}
           {isOcr && block.status === "failed" && (
-            <div className="mt-1.5 flex items-start gap-1.5 rounded-md bg-bad/5 border border-bad/20 px-2.5 py-1.5">
+            <div className="mt-1.5 flex items-start gap-1.5 rounded-lg bg-bad/5 border border-bad/20 px-3 py-1.5">
               <AlertCircle className="w-3 h-3 text-bad shrink-0 mt-0.5" />
               <span className="text-[10px] text-bad leading-relaxed">
                 {t("helix:responseBubble.ocrFailed")}
@@ -287,19 +327,31 @@ function BlockRenderer({ block, isStreaming }: { block: MessageBlock; isStreamin
             </div>
           )}
           {isWebSearch && block.status === "failed" && (
-            <div className="mt-1.5 flex items-start gap-1.5 rounded-md bg-bad/5 border border-bad/20 px-2.5 py-1.5">
+            <div className="mt-1.5 flex items-start gap-1.5 rounded-lg bg-bad/5 border border-bad/20 px-3 py-1.5">
               <AlertCircle className="w-3 h-3 text-bad shrink-0 mt-0.5" />
               <span className="text-[10px] text-bad leading-relaxed">
                 {t("helix:responseBubble.searchFailed")}
               </span>
             </div>
           )}
+          {!isOcr && !isWebSearch && (
+            <ToolCallDetails
+              inputLabel={t("helix:responseBubble.toolInput")}
+              outputLabel={t("helix:responseBubble.toolOutput")}
+              inputSummary={inputSummary}
+              outputSummary={outputSummary}
+              status={block.status}
+              hasInput={block.input !== undefined}
+              hasOutput={block.status === "done" && block.output !== undefined}
+              failedOutput={block.status === "failed" ? String(block.output ?? "") : undefined}
+            />
+          )}
         </div>
       );
     }
     case "error":
       return (
-        <div className="text-xs text-bad bg-bad/8 rounded-md px-3 py-2 my-1 border border-bad/15">
+        <div className="text-xs text-bad bg-bad/[0.06] rounded-lg px-3 py-2 my-1 border border-bad/15">
           {block.message}
         </div>
       );
@@ -321,22 +373,105 @@ const MemoizedBlockRenderer = memo(BlockRenderer, (prev, next) => {
   return false;
 });
 
-function ThinkingBlock({ isStreaming }: { isStreaming: boolean }) {
-  const { t } = useTranslation("helix");
+function ToolCallDetails({
+  inputLabel,
+  outputLabel,
+  inputSummary,
+  outputSummary,
+  status: _,
+  hasInput,
+  hasOutput,
+  failedOutput,
+}: {
+  inputLabel: string;
+  outputLabel: string;
+  inputSummary: string;
+  outputSummary: string;
+  status: string;
+  hasInput: boolean;
+  hasOutput: boolean;
+  failedOutput?: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const hasDetails = hasInput || hasOutput || failedOutput !== undefined;
+  if (!hasDetails) return null;
   return (
-    <div className="my-2 flex items-center gap-2 rounded-md border border-line bg-white/[0.025] px-2.5 py-1.5 animate-status-enter">
-      <Sparkles className={`w-3 h-3 ${isStreaming ? "text-signal" : "text-faint"}`} />
-      <span className="text-[10px] text-mute">
-        {isStreaming
-          ? t("helix:responseBubble.analyzingContext")
-          : t("helix:responseBubble.analysisComplete")}
-      </span>
-      {isStreaming && (
-        <span className="flex items-center gap-0.5 ml-0.5">
-          <span className="w-1 h-1 rounded-full bg-signal animate-thinking-1" />
-          <span className="w-1 h-1 rounded-full bg-signal animate-thinking-2" />
-          <span className="w-1 h-1 rounded-full bg-signal animate-thinking-3" />
+    <div className="mt-1.5 rounded-lg bg-white/[0.02] border border-line/60 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="flex items-center gap-1.5 w-full px-3 py-1.5 text-left cursor-pointer hover:bg-white/[0.02] transition-colors"
+      >
+        <ChevronDown
+          className={`w-3 h-3 text-faint transition-transform duration-200 ${expanded ? "rotate-0" : "-rotate-90"}`}
+        />
+        <span className="text-[9px] text-faint uppercase font-bold">
+          {inputLabel} / {outputLabel}
         </span>
+      </button>
+      {expanded && (
+        <div className="px-3 pb-2 flex flex-col gap-1.5">
+          {hasInput && (
+            <div>
+              <div className="text-[9px] text-faint uppercase font-bold mb-0.5">{inputLabel}</div>
+              <pre className="text-[10px] text-mute leading-relaxed line-clamp-4 font-mono whitespace-pre-wrap">
+                {inputSummary}
+              </pre>
+            </div>
+          )}
+          {hasOutput && (
+            <div>
+              <div className="text-[9px] text-faint uppercase font-bold mb-0.5">{outputLabel}</div>
+              <pre className="text-[10px] text-mute leading-relaxed line-clamp-4 font-mono whitespace-pre-wrap">
+                {outputSummary}
+              </pre>
+            </div>
+          )}
+          {failedOutput !== undefined && (
+            <div className="text-[10px] text-bad leading-relaxed font-mono">{failedOutput}</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ThinkingBlock({ isStreaming, content }: { isStreaming: boolean; content?: string }) {
+  const { t } = useTranslation("helix");
+  const [collapsed, setCollapsed] = useState(false);
+  return (
+    <div className="my-2 rounded-xl border border-line/60 bg-white/[0.02] px-3 py-2 animate-status-enter">
+      <button
+        type="button"
+        onClick={() => setCollapsed(!collapsed)}
+        className="flex items-center gap-2 w-full text-left cursor-pointer"
+      >
+        <Sparkles className={`w-3.5 h-3.5 transition-colors ${isStreaming ? "text-signal" : "text-faint"}`} />
+        <span className="text-[10px] text-mute font-medium">
+          {isStreaming
+            ? t("helix:responseBubble.analyzingContext")
+            : t("helix:responseBubble.analysisComplete")}
+        </span>
+        {isStreaming && (
+          <span className="flex items-center gap-0.5 ml-0.5">
+            <span className="w-1 h-1 rounded-full bg-signal animate-thinking-1" />
+            <span className="w-1 h-1 rounded-full bg-signal animate-thinking-2" />
+            <span className="w-1 h-1 rounded-full bg-signal animate-thinking-3" />
+          </span>
+        )}
+        {content && (
+          <span className="ml-auto flex items-center gap-0.5 text-[10px] text-faint">
+            <ChevronDown
+              className={`w-3 h-3 transition-transform duration-200 ${collapsed ? "-rotate-90" : "rotate-0"}`}
+            />
+            {collapsed ? t("helix:responseBubble.show") : t("helix:responseBubble.hide")}
+          </span>
+        )}
+      </button>
+      {content && !collapsed && (
+        <p className="mt-1.5 text-[10px] text-mute leading-relaxed font-mono whitespace-pre-wrap">
+          {content}
+        </p>
       )}
     </div>
   );

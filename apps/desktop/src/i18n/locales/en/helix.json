@@ -63,6 +63,9 @@
     "placeholderSummarize": "Summarize keeping the main points...",
     "placeholderImprove": "Improve clarity, tone and structure...",
     "placeholderWebSearch": "What do you want to search?",
+    "placeholderPlan": "What do you want to plan?",
+    "placeholderIdeas": "What topic to explore?",
+    "placeholderDraft": "What should I draft?",
     "modelNeedsKey": "API key required",
     "send": "Send",
     "cancel": "Cancel",
@@ -132,7 +135,11 @@
       "resetSelection": "Clear selection",
       "captureFull": "Select full image"
     },
-    "activeAppFailed": "The active application could not be read."
+    "activeAppFailed": "The active application could not be read.",
+    "activeAppLabel": "Active app",
+    "activeAppNoText": "Active window · no useful text; use Screen for explicit Vision",
+    "noConnectorEnabled": "No connector enabled for this run.",
+    "connectorSelected": "Server selected for this run"
   },
   "capturePreview": {
     "inspectorTitle": "Current capture",
@@ -593,7 +600,16 @@
     "analyzingContext": "Analyzing context...",
     "analysisComplete": "Analysis complete",
     "typingResponse": "Typing response...",
-    "thinkingLabel": "Thinking"
+    "thinkingLabel": "Thinking",
+    "show": "Show",
+    "hide": "Hide",
+    "helixName": "Helix",
+    "toolInput": "Input",
+    "toolOutput": "Output",
+    "toolRunning": "Running",
+    "toolDone": "Done",
+    "toolFailed": "Failed",
+    "toolCallLabel": "Tool"
   },
   "queryBubble": {
     "now": "now",

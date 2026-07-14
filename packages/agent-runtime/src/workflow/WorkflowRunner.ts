@@ -35,6 +35,7 @@ import { registry } from "@desktop-agent/tool-registry";
 import type { SupportedLanguage } from "../i18n";
 import { t } from "../i18n";
 import type { ParserAgent } from "../parser";
+import { runAgentLoop } from "./AgentLoop";
 import { requiresApproval } from "./ApprovalEngine";
 import { createExecutionGrant } from "./ExecutionGrant";
 import { McpSessionManager } from "./McpSessionManager";
@@ -595,29 +596,18 @@ export class WorkflowRunner {
     const system = (config.system as string) || "";
     const prompt = (config.prompt as string) || "";
 
-    let result = "";
-    let emittedChunk = false;
-
-    const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
-      { role: "system", content: system },
-      ...ctx.history,
-      { role: "user", content: prompt },
-    ];
-
-    for await (const chunk of provider.stream({ model, temperature, signal: ctx.signal, messages })) {
-      throwIfAborted(ctx.signal);
-      if (chunk.content) {
-        result += chunk.content;
-        emittedChunk = true;
-        ctx.emitter.chunk(chunk.content);
-      }
-    }
-
-    const finalResult = result || t("errors:workflow.emptyResult", this.lang);
-    if (!emittedChunk) {
-      ctx.emitter.chunk(finalResult);
-    }
-    return finalResult;
+    return runAgentLoop({
+      requestId: ctx.requestId,
+      provider,
+      model,
+      systemPrompt: system,
+      messages: [...ctx.history, { role: "user", content: prompt }],
+      toolExecutor: ctx.toolExecutor,
+      emit: ctx.emit,
+      maxSteps: 8,
+      temperature,
+      signal: ctx.signal,
+    });
   }
 
   private async executeToolStep(

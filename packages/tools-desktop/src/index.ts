@@ -1,5 +1,10 @@
 export { createClipboardTool, type DesktopToolContext } from "./clipboard";
-export { createFileWriteTool, type FileToolContext } from "./file";
+export {
+  createDirectoryListTool,
+  createFileReadTool,
+  createFileWriteTool,
+  type FileToolContext,
+} from "./file";
 export {
   createGitDiffTool,
   createGitLogTool,

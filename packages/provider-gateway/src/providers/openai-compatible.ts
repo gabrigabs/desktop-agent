@@ -1,7 +1,64 @@
-import type { CompletionChunk, CompletionInput, CompletionOutput, ProviderKind } from "@desktop-agent/shared";
+import type {
+  CompletionChunk,
+  CompletionInput,
+  CompletionOutput,
+  ProviderKind,
+  ToolCall,
+} from "@desktop-agent/shared";
 import type { LlmProvider } from "../types";
 
 type FetchFn = typeof globalThis.fetch;
+
+type OpenAiMessage = {
+  role: "system" | "user" | "assistant" | "tool";
+  content?: string | null;
+  name?: string;
+  tool_calls?: {
+    id: string;
+    type: "function";
+    function: { name: string; arguments: string };
+  }[];
+  tool_call_id?: string;
+};
+
+function toOpenAiMessages(messages: CompletionInput["messages"]): OpenAiMessage[] {
+  return messages.map((message) => {
+    if (message.role === "tool") {
+      return {
+        role: "tool",
+        content: message.content,
+        tool_call_id: message.tool_call_id,
+      };
+    }
+    return { role: message.role, content: message.content, name: message.name };
+  });
+}
+
+function parseToolCalls(raw: unknown): ToolCall[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const calls: ToolCall[] = [];
+  for (const item of raw) {
+    if (
+      typeof item === "object" &&
+      item !== null &&
+      "id" in item &&
+      "function" in item &&
+      typeof (item as Record<string, unknown>).function === "object" &&
+      (item as Record<string, unknown>).function !== null
+    ) {
+      const fn = (item as Record<string, unknown>).function as Record<string, unknown>;
+      calls.push({
+        id: String((item as Record<string, unknown>).id),
+        type: "function",
+        function: {
+          name: String(fn.name ?? ""),
+          arguments: String(fn.arguments ?? ""),
+        },
+      });
+    }
+  }
+  return calls.length > 0 ? calls : undefined;
+}
 
 function createSignal(signal: CompletionInput["signal"], timeout: number): AbortSignal {
   // Prefer AbortSignal.timeout when available, otherwise fallback to a manual timeout.
@@ -70,6 +127,17 @@ export class OpenAICompatibleProvider implements LlmProvider {
   }
 
   async complete(input: CompletionInput): Promise<CompletionOutput> {
+    const body: Record<string, unknown> = {
+      model: input.model,
+      messages: toOpenAiMessages(input.messages),
+      max_tokens: input.maxTokens,
+      temperature: input.temperature,
+    };
+    if (input.tools && input.tools.length > 0) {
+      body.tools = input.tools;
+      body.tool_choice = input.toolChoice ?? "auto";
+    }
+
     const response = await this.fetchFn(`${this.baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
@@ -77,12 +145,7 @@ export class OpenAICompatibleProvider implements LlmProvider {
         Authorization: `Bearer ${this.apiKey}`,
       },
       signal: createSignal(input.signal, this.timeout),
-      body: JSON.stringify({
-        model: input.model,
-        messages: input.messages,
-        max_tokens: input.maxTokens,
-        temperature: input.temperature,
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
@@ -91,14 +154,21 @@ export class OpenAICompatibleProvider implements LlmProvider {
     }
 
     const data = (await response.json()) as {
-      choices: { message: { content: string } }[];
+      choices: {
+        message: {
+          content?: string | null;
+          tool_calls?: unknown;
+        };
+      }[];
       model: string;
       usage?: { prompt_tokens: number; completion_tokens: number };
     };
 
+    const message = data.choices[0]?.message;
     return {
-      content: data.choices[0]?.message.content ?? "",
+      content: message?.content ?? "",
       model: data.model,
+      toolCalls: parseToolCalls(message?.tool_calls),
       usage: data.usage
         ? {
             promptTokens: data.usage.prompt_tokens,
@@ -109,6 +179,18 @@ export class OpenAICompatibleProvider implements LlmProvider {
   }
 
   async *stream(input: CompletionInput): AsyncIterable<CompletionChunk> {
+    const body: Record<string, unknown> = {
+      model: input.model,
+      messages: toOpenAiMessages(input.messages),
+      max_tokens: input.maxTokens,
+      temperature: input.temperature,
+      stream: true,
+    };
+    if (input.tools && input.tools.length > 0) {
+      body.tools = input.tools;
+      body.tool_choice = input.toolChoice ?? "auto";
+    }
+
     const response = await this.fetchFn(`${this.baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
@@ -116,13 +198,7 @@ export class OpenAICompatibleProvider implements LlmProvider {
         Authorization: `Bearer ${this.apiKey}`,
       },
       signal: createSignal(input.signal, this.timeout),
-      body: JSON.stringify({
-        model: input.model,
-        messages: input.messages,
-        max_tokens: input.maxTokens,
-        temperature: input.temperature,
-        stream: true,
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok || !response.body) {
@@ -132,6 +208,7 @@ export class OpenAICompatibleProvider implements LlmProvider {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
+    const accumulatedToolCalls = new Map<number, ToolCall>();
 
     try {
       while (true) {
@@ -153,16 +230,49 @@ export class OpenAICompatibleProvider implements LlmProvider {
 
           const parsed = JSON.parse(json) as {
             choices?: {
-              delta?: { content?: string };
+              delta?: {
+                content?: string;
+                tool_calls?: {
+                  index?: number;
+                  id?: string;
+                  type?: "function";
+                  function?: { name?: string; arguments?: string };
+                }[];
+              };
               finish_reason?: string | null;
             }[];
           };
           const choice = parsed.choices?.[0];
-          const delta = choice?.delta?.content ?? "";
+          const delta = choice?.delta;
           const isDone = choice?.finish_reason != null;
 
-          if (delta || isDone) {
-            yield { content: delta, done: isDone };
+          if (delta?.tool_calls) {
+            for (const tc of delta.tool_calls) {
+              const index = tc.index ?? 0;
+              const existing = accumulatedToolCalls.get(index);
+              if (existing) {
+                existing.function.arguments += tc.function?.arguments ?? "";
+              } else {
+                accumulatedToolCalls.set(index, {
+                  id: tc.id ?? `${index}`,
+                  type: tc.type ?? "function",
+                  function: {
+                    name: tc.function?.name ?? "",
+                    arguments: tc.function?.arguments ?? "",
+                  },
+                });
+              }
+            }
+          }
+
+          const content = delta?.content ?? "";
+          if (content || isDone) {
+            yield {
+              content,
+              done: isDone,
+              toolCalls:
+                accumulatedToolCalls.size > 0 ? Array.from(accumulatedToolCalls.values()) : undefined,
+            };
           }
         }
       }

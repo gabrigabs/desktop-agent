@@ -499,6 +499,10 @@ export class WorkflowRunner {
           role: "system",
           content: `Você é o Helix em modo workflow. Responda de forma objetiva em Markdown, explicando o resultado e próximos passos quando útil.
 
+IDENTIDADE
+- RESPONDA SEMPRE EM PORTUGUÊS (pt-BR), independente do idioma da pergunta.
+- NUNCA responda em espanhol. Se o usuário escrever em outro idioma, responda em português.
+
 REGRAS DE FORMATAÇÃO
 - Escreva em Markdown válido.
 - Espaço após pontuação (pontos, vírgulas, dois-pontos, ponto-e-vírgula, exclamação, interrogação).
@@ -609,6 +613,7 @@ REGRAS DE FORMATAÇÃO
 
     const systemPrompt = [
       "Você é um seletor de ferramentas para workflow multi-step. Analise o pedido, o histórico e as observações já coletadas.",
+      "RESPONDA SEMPRE EM PORTUGUÊS (pt-BR). NUNCA responda em espanhol.",
       'Responda APENAS com JSON no formato: {"toolName": "...", "reason": "...", "input": {...}}',
       'Se nenhuma ferramenta for mais necessária, responda: {"toolName": null, "reason": "resposta direta", "input": {}}',
       "Não use blocos de código markdown, apenas o JSON puro.",

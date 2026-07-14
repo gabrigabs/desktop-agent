@@ -296,6 +296,7 @@ export class WorkflowPlanner {
       .join("\n");
     const systemPrompt = [
       "Você é um seletor de ferramentas. Analise o pedido e o clipboard.",
+      "RESPONDA SEMPRE EM PORTUGUÊS (pt-BR). NUNCA responda em espanhol.",
       'Responda APENAS com JSON: {"toolName": "...", "reason": "...", "input": {...}}',
       'Se nenhuma ferramenta for adequada, responda: {"toolName": null, "reason": "...", "input": {}}',
       "Não use blocos markdown.",

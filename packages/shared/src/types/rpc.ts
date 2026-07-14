@@ -103,17 +103,42 @@ export type CompletionSignal = {
   removeEventListener(type: "abort", listener: () => void): void;
 };
 
+export type ToolCall = {
+  id: string;
+  type: "function";
+  function: {
+    name: string;
+    arguments: string;
+  };
+};
+
+export type ToolMessage = {
+  role: "tool";
+  tool_call_id: string;
+  content: string;
+};
+
 export type CompletionInput = {
   model: string;
-  messages: { role: "system" | "user" | "assistant"; content: string }[];
+  messages: Array<{ role: "system" | "user" | "assistant"; content: string; name?: string } | ToolMessage>;
   maxTokens?: number;
   temperature?: number;
   signal?: CompletionSignal;
+  tools?: {
+    type: "function";
+    function: {
+      name: string;
+      description: string;
+      parameters: Record<string, unknown>;
+    };
+  }[];
+  toolChoice?: "auto" | "none" | { type: "function"; function: { name: string } };
 };
 
 export type CompletionOutput = {
   content: string;
   model: string;
+  toolCalls?: ToolCall[];
   usage?: {
     promptTokens: number;
     completionTokens: number;
@@ -123,6 +148,7 @@ export type CompletionOutput = {
 export type CompletionChunk = {
   content: string;
   done: boolean;
+  toolCalls?: ToolCall[];
 };
 
 export type AuditEntry = {

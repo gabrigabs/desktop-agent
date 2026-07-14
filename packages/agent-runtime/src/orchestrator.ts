@@ -1,6 +1,5 @@
 import type { LlmProvider } from "@desktop-agent/provider-gateway";
 import type { AgentEvent, ToolResult } from "@desktop-agent/shared";
-import { parseAgentDecision, stripThinkingMarkup } from "@desktop-agent/shared";
 import {
   closeDb,
   createInteraction,
@@ -12,6 +11,8 @@ import {
 import { registry } from "@desktop-agent/tool-registry";
 import type { SupportedLanguage } from "./i18n";
 import { t } from "./i18n";
+import { runAgentLoop } from "./workflow/AgentLoop";
+import { ToolExecutor } from "./workflow/ToolExecutor";
 
 export type OrchestratorConfig = {
   provider: LlmProvider;
@@ -61,7 +62,7 @@ async function sleep(ms: number, signal: AbortSignal | undefined, lang: Supporte
   });
 }
 
-async function emitResponseChunks(
+async function _emitResponseChunks(
   text: string,
   requestId: string,
   emit: (event: AgentEvent) => void,
@@ -251,7 +252,9 @@ export class Orchestrator {
 
 IDENTIDADE
 - Você é o Helix, assistente pessoal local.
-- Comunique-se em português, claro e objetivo.
+- RESPONDA SEMPRE EM PORTUGUÊS (pt-BR), independente do idioma da pergunta.
+- NUNCA responda em espanhol. Se o usuário escrever em outro idioma, responda em português.
+- Comunique-se de forma clara e objetiva.
 
 CAPACIDADES
 - Recebe o comando do usuário, o conteúdo atual do clipboard e acesso a ferramentas locais.
@@ -260,204 +263,53 @@ ${toolsList}
 
 RESTRIÇÕES
 - Use o clipboard apenas quando relevante e não estiver vazio.
-- Se o clipboard estiver vazio, irrelevante ou a pergunta for geral, preencha o campo "directResponse".
-- Se precisar processar texto do clipboard, escolha a ferramenta apropriada no JSON.
 - Não invente conteúdo de clipboard vazio.
 - Não execute ações sem a ferramenta correta.
+- Arquivos/diretórios só podem ser lidos dentro das pastas autorizadas.
 ${profileInstructions}
 
-FORMATO DE SAÍDA
-Você deve responder ESTRITAMENTE com o JSON abaixo, sem texto adicional ou blocos de código markdown:
-{
-  "toolName": null,
-  "toolInput": null,
-  "directResponse": null
-}
-
-REGRAS DE FORMATAÇÃO DO CAMPO "directResponse"
+REGRAS DE FORMATAÇÃO
 - Escreva em Markdown válido.
-- Espaço após pontuação (pontos, vírgulas, dois-pontos, ponto-e-vírgula, exclamação, interrogação).
+- Espaço após pontuação.
 - Parágrafos separados por uma linha em branco.
-- Headings separados do texto por uma linha em branco antes e depois.
-- Listas e blocos de código separados do texto adjacente por uma linha em branco.
+- Headings, listas e blocos de código separados do texto por uma linha em branco.
 - Palavras separadas por espaço; nunca concatene palavras.
-- Use **negrito**, *itálico* e \`código\` para formatação inline.
-- Todo código, comando shell, HTML, JSON, etc. deve estar em um bloco fenced code com linguagem identificada: \`\`\`linguagem ... \`\`\`.
-- Linguagens preferidas: bash (ou sh), html, javascript, typescript, python, json, css, markdown.
-- A primeira linha do bloco deve ser apenas \`\`\`linguagem; nunca coloque código na mesma linha.
-- Não use blocos indentados; sempre fenced blocks.
+- Use **negrito**, *itálico* e \`código\` inline.
+- Todo código, comando, JSON, etc. deve estar em bloco fenced code com linguagem identificada.
+- Não descreva seu raciocínio ou processo interno; use ferramentas para obter dados.
 `;
 
-    const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
-      { role: "system", content: systemPrompt },
+    const messages = [
       ...history,
       {
-        role: "user",
+        role: "user" as const,
         content: `Comando do usuário: "${query}"\nConteúdo do clipboard (${clipboardText ? `${clipboardText.length} caracteres` : "vazio"}): "${clipboardText}"`,
       },
     ];
 
-    let steps = 0;
-    const maxSteps = 5;
-    let finalResult = "";
-    let emittedFinalResponse = false;
+    const toolExecutor = new ToolExecutor(
+      (event) => {
+        if (event.type === "agent.started" || event.type === "agent.completed") return;
+        emit(event);
+      },
+      () => provider.name,
+    );
 
-    while (steps < maxSteps) {
-      steps++;
-      throwIfAborted(signal, lang);
-
-      if (provider.name === "mock") {
-        emit({
-          type: "agent.thought",
-          requestId,
-          thought: t("errors:orchestrator.thinkingNextAction", lang),
-        });
-        await sleep(600, signal, lang);
-
-        let selectedTool = "";
-        const normalizedQuery = query.toLowerCase();
-        if (
-          normalizedQuery.includes("melhor") ||
-          normalizedQuery.includes("rewrite") ||
-          normalizedQuery.includes("corrig")
-        ) {
-          selectedTool = "text.rewrite";
-        } else if (normalizedQuery.includes("resum")) {
-          selectedTool = "text.summarize";
-        } else if (normalizedQuery.includes("traduz")) {
-          selectedTool = "text.translate";
-        }
-
-        if (selectedTool && clipboardText.trim()) {
-          emit({
-            type: "agent.thought",
-            requestId,
-            thought: t("errors:orchestrator.executingTool", lang, { tool: selectedTool, query }),
-          });
-          await sleep(600, signal, lang);
-          throwIfAborted(signal, lang);
-          const executionResult = await this.execute(requestId, selectedTool, {
-            text: clipboardText,
-            instruction: query,
-          });
-          const output = executionResult.result.output;
-          const outputRecord =
-            typeof output === "object" && output !== null ? (output as Record<string, unknown>) : {};
-          const text =
-            [outputRecord.rewritten, outputRecord.summary, outputRecord.translation].find(
-              (value): value is string => typeof value === "string",
-            ) ?? JSON.stringify(output);
-
-          emittedFinalResponse = true;
-          await emitResponseChunks(text, requestId, emit, lang, signal);
-          finalResult = text;
-        } else {
-          const text = `[Mock] Executado com sucesso. Comando: "${query}". Clipboard: "${clipboardText.slice(0, 50)}".`;
-          emittedFinalResponse = true;
-          await emitResponseChunks(text, requestId, emit, lang, signal);
-          finalResult = text;
-        }
-        break;
-      }
-
-      emit({ type: "agent.thought", requestId, thought: t("errors:orchestrator.thinkingNextAction", lang) });
-      throwIfAborted(signal, lang);
-      const res = await provider.complete({
-        model,
-        messages,
-        temperature: 0.2,
-        signal,
-      });
-
-      const responseText = res.content.trim();
-      const parsed = parseAgentDecision(responseText);
-      const decisionMessage = JSON.stringify({
-        toolName: parsed.toolName,
-        toolInput: parsed.toolInput,
-        directResponse: parsed.directResponse,
-      });
-
-      if (parsed.toolName) {
-        emit({
-          type: "agent.thought",
-          requestId,
-          thought: t("errors:orchestrator.executingTool", lang, { tool: parsed.toolName, query }),
-        });
-        try {
-          throwIfAborted(signal, lang);
-          const execution = await this.execute(requestId, parsed.toolName, parsed.toolInput);
-          const outputString = JSON.stringify(execution.result.output);
-
-          messages.push({
-            role: "assistant",
-            content: decisionMessage,
-          });
-          messages.push({
-            role: "user",
-            content: `Resultado da ferramenta ${parsed.toolName}: ${outputString}`,
-          });
-        } catch (toolErr) {
-          const errorMsg = toolErr instanceof Error ? toolErr.message : String(toolErr);
-          messages.push({
-            role: "assistant",
-            content: decisionMessage,
-          });
-          messages.push({
-            role: "user",
-            content: `Erro ao executar ferramenta ${parsed.toolName}: ${errorMsg}`,
-          });
-        }
-      } else {
-        if (parsed.structured && parsed.directResponse?.trim()) {
-          finalResult = parsed.directResponse.trim();
-        } else {
-          emit({ type: "agent.thought", requestId, thought: "Preparando resposta final..." });
-          const recovery = await provider.complete({
-            model,
-            messages: [
-              {
-                role: "system",
-                content: `Você é o Helix. Responda diretamente ao usuário em português.
-
-REGRAS
-- Entregue apenas a resposta final em Markdown.
-- Não retorne JSON.
-- Não descreva seu raciocínio, planejamento, instruções ou processo interno.
-- Preserve espaços, parágrafos, listas e blocos de código válidos.`,
-              },
-              ...history,
-              {
-                role: "user",
-                content: clipboardText.trim()
-                  ? `${query}\n\nContexto opcional do clipboard:\n${clipboardText}`
-                  : query,
-              },
-            ],
-            temperature: 0.3,
-            signal,
-          });
-          const recoveredDecision = parseAgentDecision(recovery.content);
-          finalResult =
-            recoveredDecision.directResponse?.trim() ||
-            stripThinkingMarkup(recovery.content) ||
-            t("errors:orchestrator.finalResponseError", lang);
-        }
-        emittedFinalResponse = true;
-        await emitResponseChunks(finalResult, requestId, emit, lang, signal);
-        break;
-      }
-    }
-
-    if (!finalResult) {
-      finalResult = t("errors:orchestrator.responseError", lang);
-    }
-
-    if (!emittedFinalResponse) {
-      emit({ type: "agent.chunk", requestId, chunk: finalResult });
-    }
+    const result = await runAgentLoop({
+      requestId,
+      provider,
+      model,
+      systemPrompt,
+      messages,
+      toolExecutor,
+      emit,
+      maxSteps: 5,
+      temperature: 0.2,
+      signal,
+    });
 
     emit({ type: "agent.completed", requestId });
-    return finalResult;
+    return result;
   }
 
   shutdown(): void {

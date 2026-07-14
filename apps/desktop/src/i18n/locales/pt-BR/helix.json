@@ -63,6 +63,9 @@
     "placeholderSummarize": "Resuma mantendo os pontos principais...",
     "placeholderImprove": "Melhore clareza, tom e estrutura...",
     "placeholderWebSearch": "O que você quer pesquisar?",
+    "placeholderPlan": "O que você quer planejar?",
+    "placeholderIdeas": "Que tópico explorar?",
+    "placeholderDraft": "O que devo rascunhar?",
     "modelNeedsKey": "API key necessária",
     "send": "Enviar",
     "cancel": "Cancelar",
@@ -132,7 +135,11 @@
       "resetSelection": "Limpar seleção",
       "captureFull": "Selecionar imagem inteira"
     },
-    "activeAppFailed": "Não foi possível ler o aplicativo ativo."
+    "activeAppFailed": "Não foi possível ler o aplicativo ativo.",
+    "activeAppLabel": "App ativo",
+    "activeAppNoText": "Janela ativa · sem texto útil; use Tela para Vision explícita",
+    "noConnectorEnabled": "Nenhum conector habilitado para esta execução.",
+    "connectorSelected": "Servidor selecionado para esta execução"
   },
   "capturePreview": {
     "inspectorTitle": "Captura atual",
@@ -593,7 +600,16 @@
     "analyzingContext": "Analisando contexto...",
     "analysisComplete": "Análise concluída",
     "typingResponse": "Escrevendo resposta...",
-    "thinkingLabel": "Pensando"
+    "thinkingLabel": "Pensando",
+    "show": "Mostrar",
+    "hide": "Ocultar",
+    "helixName": "Helix",
+    "toolInput": "Entrada",
+    "toolOutput": "Saída",
+    "toolRunning": "Executando",
+    "toolDone": "Concluído",
+    "toolFailed": "Falhou",
+    "toolCallLabel": "Ferramenta"
   },
   "queryBubble": {
     "now": "agora",

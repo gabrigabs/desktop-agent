@@ -53,4 +53,21 @@ describe("parseAssistantContent", () => {
     const partial = parseAssistantContent("Resposta inicial.<thi", true);
     expect(partial).toEqual([{ type: "text", content: "Resposta inicial." }]);
   });
+
+  test("parses tool_call blocks from markup", () => {
+    const content = 'Vou verificar<tool_call name="desktop.directory.list">{"path": "/docs"}</tool_call> agora.';
+    expect(parseAssistantContent(content, false)).toEqual([
+      { type: "text", content: "Vou verificar" },
+      { type: "tool_call", toolName: "desktop.directory.list", status: "running", input: '{"path": "/docs"}' },
+      { type: "text", content: " agora." },
+    ]);
+  });
+
+  test("keeps incomplete tool_call as running block during streaming", () => {
+    const partial = parseAssistantContent('Iniciando <tool_call name="desktop.file.read">{"path": "/x"', true);
+    expect(partial).toEqual([
+      { type: "text", content: "Iniciando " },
+      { type: "tool_call", toolName: "desktop.file.read", status: "running", input: '{"path": "/x"' },
+    ]);
+  });
 });

@@ -7,6 +7,7 @@ import type {
   ExecutionMode,
   FileContextInput,
   MemoryFact,
+  MessageBlock,
   NativeBoundingBox,
   NativeCapturePreview,
   RunStatus,
@@ -130,6 +131,8 @@ type State = {
   setResult: (r: string | null) => void;
   setStreaming: (v: boolean) => void;
   addEvent: (e: AgentEvent) => void;
+  appendAssistantBlock: (block: MessageBlock) => void;
+  updateAssistantBlock: (index: number, update: Partial<MessageBlock>) => void;
   setError: (e: string | null) => void;
   setExecutionMode: (mode: ExecutionMode) => void;
   setSelectedWorkflowId: (id: string | null) => void;
@@ -375,11 +378,14 @@ export const useAgentStore = create<State>((set) => ({
       if (last?.role !== "assistant") return s;
 
       const assistantDraft = s.assistantDraft + chunk;
-      const blocks = parseAssistantContent(assistantDraft, last.status === "streaming");
+      const parsedBlocks = parseAssistantContent(assistantDraft, last.status === "streaming");
+
+      const toolCallBlocks = last.blocks.filter((b) => b.type === "tool_call");
+      const blocks = [...toolCallBlocks, ...parsedBlocks];
 
       messages[messages.length - 1] = { ...last, blocks };
 
-      const textContent = blocks
+      const textContent = parsedBlocks
         .filter((b): b is { type: "text"; content: string } => b.type === "text")
         .map((b) => b.content)
         .join("");
@@ -392,12 +398,16 @@ export const useAgentStore = create<State>((set) => ({
       const messages = [...s.messages];
       const last = messages[messages.length - 1];
       if (last?.role !== "assistant" || last.status !== "streaming") return s;
-      const completedBlocks = s.assistantDraft ? parseAssistantContent(s.assistantDraft, false) : last.blocks;
+      const toolCallBlocks = last.blocks.filter((b) => b.type === "tool_call");
+      const parsedBlocks = s.assistantDraft
+        ? parseAssistantContent(s.assistantDraft, false)
+        : last.blocks.filter((b) => b.type !== "tool_call");
+      const completedBlocks = [...toolCallBlocks, ...parsedBlocks];
       const blocks =
         status === "error" && errorMessage
           ? [...completedBlocks, { type: "error" as const, message: errorMessage }]
           : completedBlocks;
-      const result = completedBlocks
+      const result = parsedBlocks
         .filter((block) => block.type === "text")
         .map((block) => (block.type === "text" ? block.content : ""))
         .join("");
@@ -407,6 +417,35 @@ export const useAgentStore = create<State>((set) => ({
   setResult: (result) => set({ result }),
   setStreaming: (streaming) => set({ streaming }),
   addEvent: (event) => set((s) => ({ events: [...s.events, event] })),
+  appendAssistantBlock: (block) =>
+    set((s) => {
+      if (s.messages.length === 0) return s;
+      const messages = [...s.messages];
+      const last = messages[messages.length - 1];
+      if (last?.role !== "assistant") return s;
+      if (block.type === "text" && last.blocks.length > 0) {
+        const lastBlock = last.blocks[last.blocks.length - 1];
+        if (lastBlock?.type === "text") {
+          return s;
+        }
+      }
+      messages[messages.length - 1] = { ...last, blocks: [...last.blocks, block] };
+      return { messages };
+    }),
+  updateAssistantBlock: (index, update) =>
+    set((s) => {
+      if (s.messages.length === 0) return s;
+      const messages = [...s.messages];
+      const last = messages[messages.length - 1];
+      if (last?.role !== "assistant" || !last.blocks[index]) return s;
+      messages[messages.length - 1] = {
+        ...last,
+        blocks: last.blocks.map((block, i) =>
+          i === index ? ({ ...block, ...update } as MessageBlock) : block,
+        ),
+      };
+      return { messages };
+    }),
   setError: (error) => set({ error }),
   setExecutionMode: (executionMode) => set({ executionMode }),
   setSelectedWorkflowId: (selectedWorkflowId) => set({ selectedWorkflowId }),
