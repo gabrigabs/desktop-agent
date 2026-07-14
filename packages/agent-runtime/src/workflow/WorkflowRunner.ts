@@ -36,7 +36,11 @@ import { registry } from "@desktop-agent/tool-registry";
 import type { SupportedLanguage } from "../i18n";
 import { t } from "../i18n";
 import type { ParserAgent } from "../parser";
-import { runAgentLoop } from "./AgentLoop";
+import {
+  AgentLoopApprovalRequiredError,
+  type AgentLoopCheckpoint,
+  runAgentLoop,
+} from "./AgentLoop";
 import { requiresApproval } from "./ApprovalEngine";
 import { createExecutionGrant } from "./ExecutionGrant";
 import { McpSessionManager } from "./McpSessionManager";
@@ -327,6 +331,9 @@ export class WorkflowRunner {
 
         let executionGrant: ExecutionGrant | undefined;
         const plannedTool = step.kind === "tool" ? registry.get(step.toolName ?? "") : undefined;
+        const loopApproval = (step.input as {
+          agentLoopApproval?: { toolName: string; permissionLevel: PermissionLevel; input: unknown };
+        } | undefined)?.agentLoopApproval;
 
         if (step.status === "waiting_approval" && resumeApproved !== undefined) {
           if (!resumeApproved) {
@@ -339,6 +346,13 @@ export class WorkflowRunner {
               plannedTool.name,
               step.permissionLevel,
               resolvedConfig.args ?? {},
+              step.id,
+            );
+          } else if (loopApproval) {
+            executionGrant = createExecutionGrant(
+              loopApproval.toolName,
+              loopApproval.permissionLevel,
+              loopApproval.input,
               step.id,
             );
           }
@@ -400,7 +414,47 @@ export class WorkflowRunner {
           allowedMcpServers: connectorContexts.length > 0 ? allowedMcpServers : undefined,
         };
 
-        const updatedStep = await this.executeStep(step, stepContext);
+        let updatedStep: WorkflowStep;
+        try {
+          updatedStep = await this.executeStep(step, stepContext);
+        } catch (error) {
+          if (!(error instanceof AgentLoopApprovalRequiredError)) throw error;
+          const persistedInput = {
+            ...(typeof step.input === "object" && step.input ? step.input as Record<string, unknown> : {}),
+            agentLoopCheckpoint: error.checkpoint,
+            agentLoopApproval: {
+              toolName: error.toolName,
+              permissionLevel: error.permissionLevel,
+              input: error.input,
+            },
+          };
+          updateWorkflowStep(db, step.id, {
+            status: "waiting_approval",
+            requiresApproval: true,
+            input: persistedInput,
+            detail: `Approval required for ${error.toolName}`,
+          });
+          const waitingStep = listWorkflowSteps(db, run.id).find((item) => item.id === step.id) as WorkflowStep;
+          emitter.stepUpdated(waitingStep);
+          const approval: ApprovalRequest = {
+            id: randomUUID(),
+            runId: run.id,
+            stepId: step.id,
+            toolName: error.toolName,
+            permissionLevel: error.permissionLevel as PermissionLevel,
+            reason: t("errors:workflow.approvalDetail", this.lang, { toolName: error.toolName }),
+            inputPreview: JSON.stringify(error.input).slice(0, 500),
+            createdAt: nowIso(),
+          };
+          updateWorkflowRun(db, run.id, {
+            status: "waiting_approval",
+            currentStep: step.stepIndex,
+            approval,
+          });
+          emitter.runStatusChanged({ ...run, status: "waiting_approval", approval });
+          emitter.approvalRequired(waitingStep, run.id, approval);
+          return getWorkflowRun(db, run.id) as WorkflowRun;
+        }
         workflowContext.steps = listWorkflowSteps(db, run.id);
 
         if (updatedStep.status === "failed") {
@@ -556,10 +610,11 @@ export class WorkflowRunner {
 
   private async executeStep(step: WorkflowStep, ctx: StepExecutionContext): Promise<WorkflowStep> {
     const db = getDb();
+    const hasLoopCheckpoint = Boolean((step.input as { agentLoopCheckpoint?: unknown } | undefined)?.agentLoopCheckpoint);
     updateWorkflowStep(db, step.id, {
       status: "running",
       startedAt: nowIso(),
-      input: resolveVariables(step.config ?? {}, ctx.context),
+      input: hasLoopCheckpoint ? step.input : resolveVariables(step.config ?? {}, ctx.context),
     });
     const runningStep = listWorkflowSteps(db, step.runId).find((s) => s.id === step.id) as WorkflowStep;
     ctx.emitter.stepUpdated(runningStep);
@@ -573,7 +628,7 @@ export class WorkflowRunner {
 
       switch (step.kind) {
         case "llm":
-          output = await this.executeLlmStep(resolvedConfig, ctx);
+          output = await this.executeLlmStep(resolvedConfig, ctx, step);
           break;
         case "tool":
           output = await this.executeToolStep(resolvedConfig, ctx);
@@ -588,6 +643,7 @@ export class WorkflowRunner {
           throw new Error(`Unsupported step kind: ${step.kind}`);
       }
     } catch (err) {
+      if (err instanceof AgentLoopApprovalRequiredError) throw err;
       errorMessage = err instanceof Error ? err.message : String(err);
     }
 
@@ -604,7 +660,11 @@ export class WorkflowRunner {
     return finalStep;
   }
 
-  private async executeLlmStep(config: Record<string, unknown>, ctx: StepExecutionContext): Promise<string> {
+  private async executeLlmStep(
+    config: Record<string, unknown>,
+    ctx: StepExecutionContext,
+    step: WorkflowStep,
+  ): Promise<string> {
     const provider = ctx.provider;
     const model = (config.model as string) || ctx.model;
     const temperature = typeof config.temperature === "number" ? config.temperature : 0.3;
@@ -621,6 +681,9 @@ export class WorkflowRunner {
       emit: ctx.emit,
       maxSteps: 8,
       temperature,
+      toolAllowlist: config.toolAllowlist as string[] | undefined,
+      checkpoint: (step.input as { agentLoopCheckpoint?: AgentLoopCheckpoint } | undefined)?.agentLoopCheckpoint,
+      executionGrant: ctx.executionGrant,
       signal: ctx.signal,
     });
   }

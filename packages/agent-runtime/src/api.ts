@@ -452,6 +452,7 @@ function createQueuedRun(input: {
   workflowTemplateId?: string;
   history?: { role: "user" | "assistant" | "system"; content: string }[];
   profileId?: string;
+  spaceId?: string;
   contexts?: ContextAttachment[];
 }) {
   const db = getDb();
@@ -471,6 +472,7 @@ function createQueuedRun(input: {
       createdBy: "helix",
       timeoutSeconds: config.timeout,
       profileId: input.profileId,
+      spaceId: input.spaceId,
       contexts: input.contexts?.map(({ content, ...context }) => ({ ...context, content })) ?? [],
     },
   });
@@ -664,6 +666,7 @@ export const agentApi: AgentApi = {
       workflowTemplateId,
       history: input.history,
       profileId: input.profileId,
+      spaceId: input.spaceId,
       contexts: input.contexts,
     });
 
@@ -763,6 +766,8 @@ export const agentApi: AgentApi = {
         contexts: Array.isArray(existingRun.metadata.contexts)
           ? (existingRun.metadata.contexts as ContextAttachment[])
           : undefined,
+        profileId: existingRun.metadata.profileId as string | undefined,
+        spaceId: existingRun.metadata.spaceId as string | undefined,
         approved,
         signal: controller.signal,
       });

@@ -70,6 +70,7 @@ export async function runResponseEngine(
     emit,
     maxSteps: config.maxSteps ?? 5,
     temperature,
+    toolAllowlist: config.toolAllowlist,
     signal,
   });
 }

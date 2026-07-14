@@ -3,6 +3,23 @@ import { createInteraction, getDb } from "@desktop-agent/storage";
 import { registry } from "@desktop-agent/tool-registry";
 import { grantKey, hashToolInput } from "./ExecutionGrant";
 
+export class ToolApprovalRequiredError extends Error {
+  constructor(
+    public readonly toolName: string,
+    public readonly permissionLevel: PermissionLevel,
+  ) {
+    super("EXPLICIT_APPROVAL_REQUIRED");
+    this.name = "ToolApprovalRequiredError";
+  }
+}
+
+export class ToolSecurityError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ToolSecurityError";
+  }
+}
+
 export class ToolExecutor {
   constructor(
     private emit: (event: AgentEvent) => void,
@@ -21,27 +38,30 @@ export class ToolExecutor {
     if (!tool) {
       const error = `Unknown tool: ${toolName}`;
       this.emit({ type: "tool.failed", requestId, toolName, error });
-      throw new Error(error);
+      throw new ToolSecurityError(error);
     }
 
     if (tool.executionPolicy === "explicit_approval") {
+      if (!grant) throw new ToolApprovalRequiredError(toolName, tool.permissionLevel);
       const grantError = this.validateGrant(toolName, tool.permissionLevel, input, grant);
       if (grantError) {
         this.emit({ type: "tool.failed", requestId, toolName, error: grantError });
-        throw new Error(grantError);
+        throw new ToolSecurityError(grantError);
       }
     }
 
-    this.emit({ type: "tool.started", requestId, toolName, input });
+    const parsedInput = tool.inputSchema ? tool.inputSchema.parse(input) : input;
+
+    this.emit({ type: "tool.started", requestId, toolName, input: parsedInput });
     const startedAt = Date.now();
 
     try {
-      const output = await tool.handler(input);
+      const output = await tool.handler(parsedInput);
       const durationMs = Date.now() - startedAt;
 
       const result: ToolResult = {
         toolName,
-        input,
+        input: parsedInput,
         output,
         providerId: this.getProviderId(),
         durationMs,
@@ -54,7 +74,7 @@ export class ToolExecutor {
           toolName,
           providerId: this.getProviderId(),
           permissionLevel: tool.permissionLevel,
-          inputPreview: JSON.stringify(input).slice(0, 500),
+          inputPreview: JSON.stringify(parsedInput).slice(0, 500),
           outputPreview: JSON.stringify(output).slice(0, 500),
           durationMs,
           success: true,
