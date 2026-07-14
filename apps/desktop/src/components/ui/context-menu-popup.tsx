@@ -2,12 +2,13 @@ import {
   AppWindow,
   Camera,
   Check,
+  ChevronDown,
   Clipboard,
   FileText,
   FolderOpen,
   Globe,
   Layout,
-  Plus,
+  Monitor,
   ScanLine,
   ScanText,
 } from "lucide-react";
@@ -23,6 +24,13 @@ export interface ContextMenuSource {
   icon: typeof Clipboard;
   mock: boolean;
 }
+
+export type ContextMenuCategory = {
+  id: string;
+  labelKey: string;
+  icon: typeof Clipboard;
+  sources: ContextMenuSource[];
+};
 
 export const CONTEXT_SOURCES: ContextMenuSource[] = [
   {
@@ -99,6 +107,33 @@ export const CONTEXT_SOURCES: ContextMenuSource[] = [
   },
 ];
 
+export const CONTEXT_CATEGORIES: ContextMenuCategory[] = [
+  {
+    id: "context",
+    labelKey: "composer.contextMenu.categoryContext",
+    icon: Clipboard,
+    sources: CONTEXT_SOURCES.filter((s) => s.id === "clipboard"),
+  },
+  {
+    id: "screen",
+    labelKey: "composer.contextMenu.categoryScreen",
+    icon: Monitor,
+    sources: CONTEXT_SOURCES.filter((s) => s.source === "screen"),
+  },
+  {
+    id: "files",
+    labelKey: "composer.contextMenu.categoryFiles",
+    icon: FileText,
+    sources: CONTEXT_SOURCES.filter((s) => s.id === "file" || s.id === "folder"),
+  },
+  {
+    id: "apps",
+    labelKey: "composer.contextMenu.categoryApps",
+    icon: Layout,
+    sources: CONTEXT_SOURCES.filter((s) => s.id === "active-app" || s.id === "connector"),
+  },
+];
+
 interface ContextMenuPopupProps {
   open: boolean;
   onClose: () => void;
@@ -122,6 +157,18 @@ export function ContextMenuPopup({
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [animateIn, setAnimateIn] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(["context"]));
+
+  const allFlatSources = CONTEXT_CATEGORIES.flatMap((cat) => cat.sources);
+
+  const toggleCategory = useCallback((catId: string) => {
+    setExpandedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(catId)) next.delete(catId);
+      else next.add(catId);
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     if (!open) {
@@ -154,7 +201,7 @@ export function ContextMenuPopup({
         e.preventDefault();
         setFocusedIndex((prev) => {
           const next = prev + 1;
-          if (next >= CONTEXT_SOURCES.length) return 0;
+          if (next >= allFlatSources.length) return 0;
           return next;
         });
         return;
@@ -163,14 +210,14 @@ export function ContextMenuPopup({
         e.preventDefault();
         setFocusedIndex((prev) => {
           const next = prev - 1;
-          if (next < 0) return CONTEXT_SOURCES.length - 1;
+          if (next < 0) return allFlatSources.length - 1;
           return next;
         });
         return;
       }
       if (e.key === "Enter" && focusedIndex >= 0) {
         e.preventDefault();
-        const src = CONTEXT_SOURCES[focusedIndex];
+        const src = allFlatSources[focusedIndex];
         if (src && !src.mock) onToggle(src);
         return;
       }
@@ -181,7 +228,7 @@ export function ContextMenuPopup({
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [open, onClose, anchorRef, composerRef, focusedIndex, onToggle]);
+  }, [open, onClose, anchorRef, composerRef, focusedIndex, onToggle, allFlatSources]);
 
   useEffect(() => {
     if (focusedIndex < 0) return;
@@ -197,6 +244,7 @@ export function ContextMenuPopup({
 
   if (!open) return null;
 
+  let flatIndex = 0;
   return (
     <div
       ref={popupRef}
@@ -215,70 +263,97 @@ export function ContextMenuPopup({
           [&::-webkit-scrollbar-thumb]:rounded-full
           [&::-webkit-scrollbar-thumb]:bg-line/30
           [&::-webkit-scrollbar-thumb:hover]:bg-line/50
-          ${animateIn ? "max-h-[min(340px,58vh)] pt-1.5 opacity-100" : "max-h-0 pt-0 opacity-0"}`}
+          ${animateIn ? "max-h-[min(380px,58vh)] pt-1.5 opacity-100" : "max-h-0 pt-0 opacity-0"}`}
       >
-        <div className="flex items-center gap-1 px-1 pb-1 mb-1 border-b border-line/30">
-          <Plus className="h-2.5 w-2.5 text-mute" />
-          <span className="text-[9px] font-medium uppercase tracking-wider text-mute">
-            {t("helix:composer.contextMenu.title")}
-          </span>
-        </div>
-        {CONTEXT_SOURCES.map((src, index) => {
-          const Icon = src.icon;
-          const isActive = activeSources.has(src.id);
-          const isFocused = focusedIndex === index;
+        {CONTEXT_CATEGORIES.map((category) => {
+          const CatIcon = category.icon;
+          const isExpanded = expandedCategories.has(category.id);
+          const hasActive = category.sources.some((s) => activeSources.has(s.id));
           return (
-            <button
-              key={src.id}
-              ref={(el) => {
-                itemRefs.current[index] = el;
-              }}
-              type="button"
-              onClick={() => onToggle(src)}
-              onMouseEnter={() => handleMouseEnter(index)}
-              disabled={src.mock}
-              className={`group flex w-full items-center gap-2 rounded-lg px-1.5 py-1 text-left transition-all duration-150 ${
-                isActive ? "bg-signal/10" : isFocused ? "bg-white/[0.06]" : "hover:bg-white/[0.04]"
-              } disabled:cursor-default disabled:opacity-30`}
-              role="menuitem"
-              style={{
-                transitionDelay: `${index * 25}ms`,
-                transform: animateIn ? "translateY(0)" : "translateY(4px)",
-                opacity: animateIn ? 1 : 0,
-              }}
-            >
-              <span
-                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition-all duration-200 group-hover:scale-110 ${
-                  isActive
-                    ? "border-signal/30 bg-signal/10 text-signal"
-                    : isFocused
-                      ? "border-signal/20 bg-signal/5 text-signal"
-                      : "border-line/60 bg-ink/20 text-mute group-hover:border-signal/20 group-hover:text-signal"
-                }`}
+            <div key={category.id} className="mb-0.5">
+              <button
+                type="button"
+                onClick={() => toggleCategory(category.id)}
+                className="group flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-left transition-colors hover:bg-white/[0.04]"
               >
-                <Icon className="h-3 w-3" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <span
-                    className={`text-[11px] font-medium transition-colors ${
-                      isActive ? "text-signal" : isFocused ? "text-signal" : "text-fg"
-                    }`}
-                  >
-                    {t(`helix:${src.labelKey}`)}
-                  </span>
-                  {isActive && !src.mock && <Check className="h-3 w-3 text-signal animate-check-pop" />}
-                </div>
-                <p className="mt-0.5 truncate text-[9px] leading-tight text-faint">
-                  {t(`helix:${src.descriptionKey}`)}
-                </p>
-                {src.mock && (
-                  <span className="text-[7px] uppercase tracking-wide text-faint rounded px-1 py-0.5 border border-line/40">
-                    {t("helix:contextBar.soon")}
-                  </span>
-                )}
-              </div>
-            </button>
+                <span
+                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-colors ${hasActive ? "text-signal" : "text-mute group-hover:text-fg"}`}
+                >
+                  <CatIcon className="h-3 w-3" />
+                </span>
+                <span
+                  className={`text-[10px] font-semibold uppercase tracking-wider transition-colors ${hasActive ? "text-signal" : "text-mute group-hover:text-fg"}`}
+                >
+                  {t(`helix:${category.labelKey}`)}
+                </span>
+                {hasActive && <span className="h-1 w-1 rounded-full bg-signal shrink-0" />}
+                <ChevronDown
+                  className={`ml-auto h-3 w-3 shrink-0 text-faint transition-transform duration-200 ${isExpanded ? "rotate-0" : "-rotate-90"}`}
+                />
+              </button>
+              {isExpanded &&
+                category.sources.map((src) => {
+                  const index = flatIndex++;
+                  const Icon = src.icon;
+                  const isActive = activeSources.has(src.id);
+                  const isFocused = focusedIndex === index;
+                  return (
+                    <button
+                      key={src.id}
+                      ref={(el) => {
+                        itemRefs.current[index] = el;
+                      }}
+                      type="button"
+                      onClick={() => onToggle(src)}
+                      onMouseEnter={() => handleMouseEnter(index)}
+                      disabled={src.mock}
+                      className={`group flex w-full items-center gap-2 rounded-lg pl-7 pr-1.5 py-1 text-left transition-all duration-150 ${
+                        isActive ? "bg-signal/10" : isFocused ? "bg-white/[0.06]" : "hover:bg-white/[0.04]"
+                      } disabled:cursor-default disabled:opacity-30`}
+                      role="menuitem"
+                      style={{
+                        transitionDelay: `${index * 20}ms`,
+                        transform: animateIn ? "translateY(0)" : "translateY(4px)",
+                        opacity: animateIn ? 1 : 0,
+                      }}
+                    >
+                      <span
+                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition-all duration-200 group-hover:scale-110 ${
+                          isActive
+                            ? "border-signal/30 bg-signal/10 text-signal"
+                            : isFocused
+                              ? "border-signal/20 bg-signal/5 text-signal"
+                              : "border-line/60 bg-ink/20 text-mute group-hover:border-signal/20 group-hover:text-signal"
+                        }`}
+                      >
+                        <Icon className="h-3 w-3" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={`text-[11px] font-medium transition-colors ${
+                              isActive ? "text-signal" : isFocused ? "text-signal" : "text-fg"
+                            }`}
+                          >
+                            {t(`helix:${src.labelKey}`)}
+                          </span>
+                          {isActive && !src.mock && (
+                            <Check className="h-3 w-3 text-signal animate-check-pop" />
+                          )}
+                        </div>
+                        <p className="mt-0.5 truncate text-[10px] leading-tight text-faint">
+                          {t(`helix:${src.descriptionKey}`)}
+                        </p>
+                        {src.mock && (
+                          <span className="text-[7px] uppercase tracking-wide text-faint rounded px-1 py-0.5 border border-line/40">
+                            {t("helix:contextBar.soon")}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+            </div>
           );
         })}
       </div>

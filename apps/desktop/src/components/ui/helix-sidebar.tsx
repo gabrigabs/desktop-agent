@@ -13,60 +13,73 @@ export function HelixSidebar({ mode, onChangeMode, onNewTask }: HelixSidebarProp
   const SettingsIcon = SETTINGS_ITEM.icon;
 
   return (
-    <aside className="flex h-full w-[52px] shrink-0 flex-col items-center border-r border-line bg-ink/30 px-1.5 py-2">
+    <aside className="flex h-full w-[52px] shrink-0 flex-col items-center border-r border-line bg-ink/40 px-2 py-3">
       <button
         type="button"
         onClick={() => {
           onNewTask();
           onChangeMode("command");
         }}
-        className="flex h-9 w-9 items-center justify-center rounded-xl border border-signal/25 bg-signal/[0.08] text-signal transition-colors hover:bg-signal/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/50"
+        className="flex h-9 w-9 items-center justify-center rounded-full bg-signal/[0.12] text-signal transition-colors duration-200 hover:bg-signal/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/40"
         title={t("helix:sidebar.newConversation")}
         aria-label={t("helix:sidebar.newConversation")}
       >
-        <NewTaskIcon className="h-4 w-4 shrink-0 text-signal" />
+        <NewTaskIcon className="h-[18px] w-[18px] shrink-0" />
       </button>
 
-      <nav className="mt-3 grid gap-1" aria-label={t("helix:sidebar.mainNavigation")}>
-        {HELIX_NAV_GROUPS.map((group) => (
-          <section key={group.labelKey}>
-            <div className="grid gap-1">
-              {group.items.map((item) => {
-                const Icon = item.icon;
-                const active = mode === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => onChangeMode(item.id)}
-                    className={`group flex h-9 w-9 items-center justify-center rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/50 ${
-                      active
-                        ? "border-signal/25 bg-signal/[0.1] text-signal"
-                        : "border-transparent text-faint hover:bg-white/[0.045] hover:text-fg"
-                    }`}
-                    title={t(`helix:navigation.${item.id}Description` as const)}
-                    aria-label={t(`helix:navigation.${item.id}` as const)}
-                  >
-                    <Icon
-                      className={`h-4 w-4 shrink-0 ${active ? "text-signal" : "text-faint group-hover:text-mute"}`}
-                    />
-                  </button>
-                );
-              })}
-            </div>
-          </section>
+      <nav
+        className="mt-4 flex flex-1 flex-col items-center gap-1"
+        aria-label={t("helix:sidebar.mainNavigation")}
+      >
+        {HELIX_NAV_GROUPS.map((group, groupIndex) => (
+          <div key={group.labelKey} className="flex flex-col items-center gap-1">
+            {groupIndex > 0 && (
+              <div className="my-1.5 h-px w-5 bg-gradient-to-r from-transparent via-line to-transparent" />
+            )}
+            {group.items.map((item) => {
+              const Icon = item.icon;
+              const active = mode === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => onChangeMode(item.id)}
+                  className={`group relative flex h-8 w-8 items-center justify-center rounded-lg transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/40 ${
+                    active ? "bg-signal/[0.1]" : "hover:bg-white/[0.05]"
+                  }`}
+                  title={t(`helix:navigation.${item.id}Description` as const)}
+                  aria-label={t(`helix:navigation.${item.id}` as const)}
+                >
+                  {active && (
+                    <span className="absolute left-[-6px] top-1/2 h-4 w-[2px] -translate-y-1/2 rounded-full bg-signal" />
+                  )}
+                  <Icon
+                    className={`h-[15px] w-[15px] shrink-0 transition-colors ${active ? "text-signal" : "text-faint group-hover:text-mute"}`}
+                  />
+                </button>
+              );
+            })}
+          </div>
         ))}
       </nav>
 
-      <div className="mt-auto grid gap-1 border-t border-line pt-2">
+      <div className="mt-auto flex flex-col items-center gap-1">
+        <div className="mb-1.5 h-px w-5 bg-gradient-to-r from-transparent via-line to-transparent" />
         <button
           type="button"
           onClick={() => onChangeMode("settings")}
-          className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/50 ${mode === "settings" ? "bg-signal/[0.1] text-signal" : "text-faint hover:bg-white/[0.045] hover:text-fg"}`}
+          className={`group relative flex h-8 w-8 items-center justify-center rounded-lg transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/40 ${
+            mode === "settings" ? "bg-signal/[0.1]" : "hover:bg-white/[0.05]"
+          }`}
           title={t("helix:navigation.settings")}
           aria-label={t("helix:navigation.settings")}
         >
-          <SettingsIcon className="h-4 w-4 shrink-0 text-faint" />
+          {mode === "settings" && (
+            <span className="absolute left-[-6px] top-1/2 h-4 w-[2px] -translate-y-1/2 rounded-full bg-signal" />
+          )}
+          <SettingsIcon
+            className={`h-[15px] w-[15px] shrink-0 transition-colors ${mode === "settings" ? "text-signal" : "text-faint group-hover:text-mute"}`}
+          />
         </button>
       </div>
     </aside>

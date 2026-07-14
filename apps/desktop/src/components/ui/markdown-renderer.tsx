@@ -33,7 +33,7 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
 
   return (
     <div
-      className={`text-sm leading-relaxed text-fg break-words [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 ${className}`}
+      className={`text-sm leading-relaxed text-fg break-words select-text [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 ${className}`}
     >
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}

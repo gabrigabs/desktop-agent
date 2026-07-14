@@ -45,21 +45,21 @@ export function FollowUpDock({ followUp, spaces, open, onOpenChange, compact, on
   return (
     <>
       {session ? (
-        <div className="relative z-30 shrink-0 border-b border-cyan-300/15 bg-[#15141e]/95 px-3 py-2 backdrop-blur-xl">
-          <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/70 to-transparent" />
+        <div className="relative z-30 shrink-0 border-b border-signal/15 bg-ink/95 px-3 py-2 backdrop-blur-xl">
+          <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-signal/70 to-transparent" />
           <div className="mx-auto flex max-w-6xl items-center gap-2">
             <button
               type="button"
               onClick={() => onOpenChange(true)}
-              className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-1.5 py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/50"
+              className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-1.5 py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/50"
             >
               <span
                 className={`h-px w-8 shrink-0 bg-gradient-to-r from-transparent to-current ${
                   session.status === "active"
-                    ? "text-cyan-300 motion-safe:animate-pulse"
+                    ? "text-signal motion-safe:animate-pulse"
                     : session.status === "paused"
-                      ? "text-amber-400"
-                      : "text-red-400"
+                      ? "text-warn"
+                      : "text-bad"
                 }`}
               />
               <span className="min-w-0">
@@ -109,11 +109,11 @@ export function FollowUpDock({ followUp, spaces, open, onOpenChange, compact, on
           </div>
         </div>
       ) : (
-        <div className="shrink-0 border-b border-line/50 bg-[#15141e]/70 px-3 py-1.5">
+        <div className="shrink-0 border-b border-line/50 bg-ink/70 px-3 py-1.5">
           <button
             type="button"
             onClick={() => setCreating(true)}
-            className="mx-auto flex items-center gap-2 text-[10px] text-faint transition-colors hover:text-cyan-300"
+            className="mx-auto flex items-center gap-2 text-[10px] text-faint transition-colors hover:text-signal"
           >
             <Activity className="h-3.5 w-3.5" />
             {t("helix:followUp.start", "Iniciar acompanhamento")}
@@ -132,10 +132,10 @@ export function FollowUpDock({ followUp, spaces, open, onOpenChange, compact, on
               setCreating(false);
             }}
           />
-          <aside className="relative h-full w-full max-w-[390px] overflow-y-auto border-l border-line bg-[#0b0b12] p-4 shadow-2xl">
+          <aside className="relative h-full w-full max-w-[390px] overflow-y-auto border-l border-line bg-ink p-4 shadow-2xl">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Activity className="h-4 w-4 text-cyan-300" />
+                <Activity className="h-4 w-4 text-signal" />
                 <h2 className="text-sm font-semibold text-fg">
                   {t("helix:followUp.title", "Acompanhamento")}
                 </h2>
@@ -180,7 +180,7 @@ export function FollowUpDock({ followUp, spaces, open, onOpenChange, compact, on
                     value={objective}
                     onChange={(event) => setObjective(event.target.value)}
                     rows={5}
-                    className="rounded-lg border border-line bg-ink p-3 text-xs normal-case tracking-normal text-fg outline-none focus:border-cyan-300/45"
+                    className="rounded-lg border border-line bg-ink p-3 text-xs normal-case tracking-normal text-fg outline-none focus:border-signal/45"
                   />
                 </label>
                 <label className="grid gap-1.5 text-[10px] uppercase tracking-[0.12em] text-faint">
@@ -222,7 +222,14 @@ export function FollowUpDock({ followUp, spaces, open, onOpenChange, compact, on
                     onComplete={(summary) => void followUp.completeSession(session.id, summary)}
                   />
                 ) : null}
-                <div className="border-t border-line pt-5">
+                <div className="border-t border-line/50 pt-5">
+                  <div className="mb-3 flex items-center gap-1.5">
+                    <span className="h-px flex-1 bg-line/50" />
+                    <span className="text-[9px] font-semibold uppercase tracking-wider text-faint">
+                      {t("helix:followUp.timeline", "Linha do tempo")}
+                    </span>
+                    <span className="h-px flex-1 bg-line/50" />
+                  </div>
                   <FollowUpTimeline session={session} />
                 </div>
               </div>

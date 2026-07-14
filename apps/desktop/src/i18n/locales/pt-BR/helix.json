@@ -86,6 +86,10 @@
     "dropFiles": "Solte arquivos para anexar",
     "contextMenu": {
       "title": "Adicionar contexto",
+      "categoryContext": "Contexto",
+      "categoryScreen": "Tela",
+      "categoryFiles": "Arquivos",
+      "categoryApps": "Apps & Conexões",
       "clipboard": "Clipboard",
       "clipboardDescription": "Incluir o conteúdo copiado na mensagem.",
       "screenRead": "Ler texto da tela",
@@ -104,6 +108,9 @@
       "activeAppDescription": "Incluir o contexto do aplicativo em foco.",
       "connector": "Conector",
       "connectorDescription": "Usar uma conexão ativa para buscar contexto."
+    },
+    "slashMenu": {
+      "title": "Comandos"
     },
     "screenCapture": {
       "permissionDenied": "Autorize a gravação de tela nos Ajustes do Sistema para continuar.",
@@ -612,6 +619,7 @@
     "toolFailed": "Falhou",
     "toolCallLabel": "Ferramenta",
     "promoteToMemory": "Salvar na memória",
+    "promoting": "Salvando…",
     "promoted": "Salvo",
     "promotedToMemory": "Resposta salva na memória do Espaço",
     "promoteError": "Erro ao salvar resposta na memória"
@@ -654,7 +662,8 @@
     "connectorsTitle": "Conectores",
     "copied": "Copiado",
     "copy": "Copiar",
-    "resultPlaceholder": "A resposta aparece aqui assim que o agente começar a escrever."
+    "resultPlaceholder": "A resposta aparece aqui assim que o agente começar a escrever.",
+    "inspectorEmpty": "Sem contexto ativo. Anexe arquivos ou capturas de tela para vê-los aqui."
   },
   "compactResult": {
     "title": "Resultado",
@@ -749,7 +758,9 @@
     "newConversationHint": "Começar sem contexto anterior",
     "mainNavigation": "Navegação principal",
     "backToQuickPanel": "Voltar ao painel rápido",
-    "whereToWork": "Onde você quer trabalhar?"
+    "whereToWork": "Onde você quer trabalhar?",
+    "space": "Espaço",
+    "manageSpace": "Gerenciar"
   },
   "navigation": {
     "work": "Trabalho",

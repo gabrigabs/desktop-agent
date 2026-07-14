@@ -1,6 +1,7 @@
 import type {
   AgentProfile,
   ConnectorConfig,
+  ContextAttachment,
   FileContextInput,
   McpTestResult,
   PromptTemplate,
@@ -12,15 +13,28 @@ import type {
   WorkflowTemplateSettings,
 } from "@desktop-agent/shared";
 import { unwrapAgentResponse } from "@desktop-agent/shared";
-import { AlertCircle, ArrowLeft, Check, Clipboard, RefreshCw, Sparkles, X } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  Check,
+  Clipboard,
+  Eye,
+  FileText,
+  Monitor,
+  RefreshCw,
+  Sparkles,
+  X,
+} from "lucide-react";
 import type { RefObject } from "react";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useShallow } from "zustand/react/shallow";
 import { AgentIdentity } from "../../components/ui/agent-identity";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { HeroHome } from "../../components/ui/hero-home";
 import { RecentConversations } from "../../components/ui/recent-conversations";
+import { useAgentStore } from "../../stores/agent";
 import { ChatView } from "./ChatView";
 import { Composer } from "./Composer";
 import { ConnectorsPanel } from "./ConnectorsPanel";
@@ -32,6 +46,7 @@ import { ParserModePanel } from "./parser-mode/ParserModePanel";
 import type { ParserModeState } from "./parser-mode/useParserMode";
 import { SourcesPanel } from "./SourcesPanel";
 import { SpaceShell } from "./SpaceShell";
+import { SpaceIcon } from "./space-visuals";
 import type { HelixMode } from "./types";
 
 type Props = {
@@ -155,6 +170,9 @@ type Props = {
 
 export function ExpandedView(p: Props) {
   const spacesHook = p.spaces;
+  const contexts = useAgentStore(useShallow((s) => s.contexts));
+  const screenContexts = contexts.filter((c) => c.source === "screen");
+  const fileContexts = p.fileContext ?? [];
 
   const handlePromoteToMemory = useCallback(
     async (turn: Turn): Promise<string | null> => {
@@ -169,8 +187,20 @@ export function ExpandedView(p: Props) {
     [spacesHook.activeSpaceId, spacesHook.promoteChatResponseToMemoryFact],
   );
 
+  const showInspector =
+    p.mode === "command" &&
+    (Boolean(spacesHook.activeSpace) ||
+      p.taskActive ||
+      p.messages.length > 0 ||
+      contexts.length > 0 ||
+      fileContexts.length > 0);
+
   return (
-    <div className="helix-view-enter h-full w-full overflow-hidden text-fg">
+    <div
+      className={`helix-view-enter h-full w-full overflow-hidden text-fg ${
+        showInspector ? "grid grid-cols-[minmax(0,1fr)_280px]" : "grid-cols-1"
+      }`}
+    >
       <main className="h-full min-w-0 min-h-0 overflow-hidden p-5">
         {p.mode === "history" ? (
           <div className="max-w-5xl">
@@ -244,6 +274,20 @@ export function ExpandedView(p: Props) {
           <CommandHome {...p} />
         )}
       </main>
+
+      {showInspector && (
+        <ContextInspector
+          spaceName={spacesHook.activeSpace?.name}
+          spaceIcon={spacesHook.activeSpace?.icon}
+          spaceId={spacesHook.activeSpaceId}
+          onManageSpace={() => p.setMode("space")}
+          hasClipboard={p.hasClipboard}
+          clipboardText={p.clipboardText}
+          screenContexts={screenContexts}
+          fileContexts={fileContexts}
+          onRemoveFile={p.onRemoveFile}
+        />
+      )}
     </div>
   );
 }
@@ -335,7 +379,7 @@ function ChatActive(p: Props) {
         onToastError={p.onToastError}
       />
 
-      <div className="sticky bottom-0 z-20 -mx-1 shrink-0 bg-ink/95 px-1 pt-2 backdrop-blur-xl w-[calc(100%+0.5rem)]">
+      <div className="sticky bottom-0 z-20 shrink-0 bg-gradient-to-t from-ink via-ink/95 to-transparent pt-3 pb-1">
         <div className="mx-auto w-full max-w-[var(--composer-expanded-width)]">
           <Composer
             mode="expanded"
@@ -488,7 +532,7 @@ function TaskActive(p: Props) {
         </div>
       </section>
 
-      <div className="sticky bottom-0 z-20 -mx-1 shrink-0 bg-ink/95 px-1 pt-2 backdrop-blur-xl w-[calc(100%+0.5rem)]">
+      <div className="sticky bottom-0 z-20 shrink-0 bg-gradient-to-t from-ink via-ink/95 to-transparent pt-3 pb-1">
         <div className="mx-auto w-full max-w-[var(--composer-expanded-width)]">
           <Composer
             mode="expanded"
@@ -516,5 +560,134 @@ function TaskActive(p: Props) {
         </div>
       </div>
     </div>
+  );
+}
+
+function ContextInspector({
+  spaceName,
+  spaceIcon,
+  spaceId,
+  onManageSpace,
+  hasClipboard,
+  clipboardText,
+  screenContexts,
+  fileContexts,
+  onRemoveFile,
+}: {
+  spaceName?: string;
+  spaceIcon?: string;
+  spaceId: string | null;
+  onManageSpace: () => void;
+  hasClipboard: boolean;
+  clipboardText: string;
+  screenContexts: ContextAttachment[];
+  fileContexts: FileContextInput[];
+  onRemoveFile?: (path: string) => void;
+}) {
+  const { t } = useTranslation("helix");
+
+  return (
+    <aside className="min-w-0 border-l border-line bg-ink/20 p-3 flex flex-col gap-3 overflow-y-auto">
+      {spaceName && spaceId && (
+        <section className="rounded-lg border border-line p-2.5 bg-white/[0.02]">
+          <div className="flex items-center gap-2">
+            <SpaceIcon icon={spaceIcon ?? "folder"} className="h-5 w-5 text-signal shrink-0" />
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] text-faint uppercase tracking-wider">
+                {t("helix:sidebar.space")}
+              </div>
+              <div className="text-xs font-medium text-fg truncate">{spaceName}</div>
+            </div>
+            <button
+              type="button"
+              onClick={onManageSpace}
+              className="text-[10px] text-signal hover:text-signal/80 transition-colors shrink-0"
+            >
+              {t("helix:sidebar.manageSpace")}
+            </button>
+          </div>
+        </section>
+      )}
+
+      {hasClipboard && (
+        <section className="rounded-lg border border-line p-2.5 bg-white/[0.02]">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <Clipboard className="h-3 w-3 text-signal shrink-0" />
+            <span className="text-[10px] font-medium uppercase tracking-wider text-mute">
+              {t("helix:composer.contextMenu.clipboard")}
+            </span>
+          </div>
+          <p className="text-[10px] text-faint line-clamp-3 leading-relaxed">
+            {clipboardText.slice(0, 200)}
+            {clipboardText.length > 200 && "..."}
+          </p>
+        </section>
+      )}
+
+      {screenContexts.length > 0 && (
+        <section className="rounded-lg border border-line p-2.5 bg-white/[0.02]">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <Monitor className="h-3 w-3 text-signal shrink-0" />
+            <span className="text-[10px] font-medium uppercase tracking-wider text-mute">
+              {t("helix:composer.contextMenu.categoryScreen")}
+            </span>
+          </div>
+          <div className="grid gap-1.5">
+            {screenContexts.map((ctx) => (
+              <div key={ctx.id} className="flex items-center gap-1.5 rounded-md bg-white/[0.03] px-2 py-1">
+                {ctx.imageDataUrl ? (
+                  <img
+                    src={ctx.imageDataUrl}
+                    alt={ctx.label}
+                    className="h-8 w-12 rounded object-cover shrink-0"
+                  />
+                ) : (
+                  <Eye className="h-3 w-3 text-faint shrink-0" />
+                )}
+                <span className="text-[10px] text-mute truncate">{ctx.label}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {fileContexts.length > 0 && (
+        <section className="rounded-lg border border-line p-2.5 bg-white/[0.02]">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <FileText className="h-3 w-3 text-signal shrink-0" />
+            <span className="text-[10px] font-medium uppercase tracking-wider text-mute">
+              {t("helix:composer.contextMenu.categoryFiles")}
+            </span>
+            <span className="ml-auto text-[9px] text-faint">{fileContexts.length}</span>
+          </div>
+          <div className="grid gap-1">
+            {fileContexts.map((file) => (
+              <div key={file.path} className="flex items-center gap-1.5 rounded-md bg-white/[0.03] px-2 py-1">
+                <FileText className="h-3 w-3 text-faint shrink-0" />
+                <span className="text-[10px] text-mute truncate flex-1 min-w-0">{file.displayName}</span>
+                {onRemoveFile && (
+                  <button
+                    type="button"
+                    onClick={() => onRemoveFile(file.path)}
+                    className="text-faint hover:text-bad transition-colors shrink-0"
+                  >
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {!spaceName && !hasClipboard && screenContexts.length === 0 && fileContexts.length === 0 && (
+        <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+          <Sparkles className="h-5 w-5 text-faint" />
+          <p className="text-[10px] text-faint leading-relaxed">
+            {t("helix:normalCommandView.inspectorEmpty")}
+          </p>
+        </div>
+      )}
+    </aside>
   );
 }

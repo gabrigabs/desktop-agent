@@ -338,10 +338,10 @@ export function SettingsPanel(p: SettingsPanelProps) {
                     key={section.id}
                     type="button"
                     onClick={() => setActiveSection(section.id)}
-                    className={`relative rounded-lg border px-3 py-2 text-left transition-colors ${
+                    className={`relative rounded-lg border px-3 py-2 text-left transition-all duration-200 ${
                       active
                         ? "border-line-strong bg-white/[0.055] text-fg before:absolute before:bottom-2 before:left-0 before:top-2 before:w-px before:bg-signal"
-                        : "border-transparent text-mute hover:bg-white/[0.035] hover:text-fg"
+                        : "border-transparent text-mute hover:bg-white/[0.035] hover:text-fg hover:translate-x-0.5"
                     }`}
                   >
                     <span className="flex items-center gap-2 text-xs font-semibold">
@@ -403,7 +403,7 @@ export function SettingsPanel(p: SettingsPanelProps) {
         </main>
 
         {activeSection !== "profiles" && activeSection !== "workflows" && activeSection !== "skills" && (
-          <footer className="flex min-w-0 items-center gap-2 border-t border-line bg-[#0d0b12]/96 px-5 py-3">
+          <footer className="flex min-w-0 items-center gap-2 border-t border-line bg-ink/96 px-5 py-3">
             <span className="mr-auto text-[10px] text-faint">
               {isDirty ? t("common:unsaved") : t("common:saved")}
             </span>

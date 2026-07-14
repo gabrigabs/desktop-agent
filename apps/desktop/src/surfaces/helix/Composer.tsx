@@ -17,6 +17,7 @@ import {
   Paperclip,
   Plus,
   RotateCcw,
+  Sparkles,
   Square,
   X,
 } from "lucide-react";
@@ -891,10 +892,16 @@ export function Composer({
       )}
       {slashEntries.length > 0 && (
         <div
-          className="overflow-hidden rounded-xl border border-line-strong bg-ink/95 p-1 shadow-xl"
+          className="overflow-hidden rounded-xl border border-line bg-ink/95 p-1 shadow-xl ring-1 ring-white/[0.03]"
           role="listbox"
           aria-label={t("helix:composer.contextMenu.title")}
         >
+          <div className="flex items-center gap-1.5 px-2 py-1.5 border-b border-line/30 mb-1">
+            <Sparkles className="h-3 w-3 text-signal shrink-0" />
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-mute">
+              {t("helix:composer.slashMenu.title")}
+            </span>
+          </div>
           {slashEntries.map((entry) => {
             const Icon = entry.icon;
             return (
@@ -902,12 +909,12 @@ export function Composer({
                 key={entry.id}
                 type="button"
                 onClick={entry.run}
-                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-white/[0.055] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/45"
+                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-white/[0.055] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/45"
               >
-                <Icon className="h-3.5 w-3.5 shrink-0 text-signal" />
+                <Icon className="h-4 w-4 shrink-0 text-signal" />
                 <span className="min-w-0">
-                  <span className="block truncate text-[11px] font-medium text-fg">{entry.label}</span>
-                  <span className="block truncate text-[9px] text-faint">{entry.description}</span>
+                  <span className="block truncate text-xs font-medium text-fg">{entry.label}</span>
+                  <span className="block truncate text-[10px] text-faint">{entry.description}</span>
                 </span>
               </button>
             );
@@ -917,7 +924,7 @@ export function Composer({
       <div className="relative">
         <div
           ref={composerRef}
-          className={`composer-field group flex flex-col rounded-2xl border border-line-strong bg-[#15141e] shadow-[0_10px_30px_rgba(0,0,0,0.24)] transition-colors duration-200 focus-within:border-signal/55 focus-within:bg-[#181622] focus-within:shadow-[0_0_0_1px_rgba(196,153,244,0.25),0_12px_34px_rgba(0,0,0,0.32)] ${
+          className={`composer-field group flex flex-col rounded-2xl border border-line-strong bg-ink/60 shadow-lg transition-colors duration-200 focus-within:border-signal/55 focus-within:bg-ink/70 focus-within:ring-1 focus-within:ring-signal/25 ${
             clipboardEnabled ? "border-signal/25 bg-signal/[0.02]" : ""
           } ${shellClasses}`}
         >

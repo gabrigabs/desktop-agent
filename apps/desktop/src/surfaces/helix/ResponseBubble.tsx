@@ -27,17 +27,7 @@ interface ResponseBubbleProps {
 }
 
 function blockKey(block: MessageBlock, index: number): string {
-  switch (block.type) {
-    case "text":
-    case "thinking":
-      return `block-${block.type}-${block.content.slice(0, 40)}-${index}`;
-    case "tool_call":
-      return `block-tool_call-${block.toolName}-${index}`;
-    case "error":
-      return `block-error-${block.message.slice(0, 40)}-${index}`;
-    default:
-      return `block-${index}`;
-  }
+  return `block-${block.type}-${index}`;
 }
 
 function getResponseText(turn: Turn): string {
@@ -80,19 +70,23 @@ export function ResponseBubble({
   const isTypingPhase = isStreaming && lastBlockType === "text" && text !== "";
 
   const [promoted, setPromoted] = useState(false);
+  const [promoting, setPromoting] = useState(false);
 
   const handlePromote = async () => {
-    if (!onPromoteToMemory || !text) return;
+    if (!onPromoteToMemory || !text || promoted || promoting) return;
+    setPromoting(true);
     try {
       const id = await onPromoteToMemory(turn);
       if (id) {
         setPromoted(true);
-        setTimeout(() => setPromoted(false), 2000);
-        onToastSuccess?.(t("helix:responseBubble.promotedToMemory"));
+        setPromoting(false);
+        onToastSuccess?.(t("helix:responseBubble.promotedToMemory"), 4000);
       } else {
+        setPromoting(false);
         onToastError?.(t("helix:responseBubble.promoteError"));
       }
     } catch {
+      setPromoting(false);
       onToastError?.(t("helix:responseBubble.promoteError"));
     }
   };
@@ -136,7 +130,7 @@ export function ResponseBubble({
           )}
         </div>
 
-        <div className="text-sm leading-relaxed text-fg">
+        <div className="text-sm leading-relaxed text-fg select-text">
           {turn.blocks.map((block, i) => (
             <MemoizedBlockRenderer
               key={blockKey(block, i)}
@@ -180,11 +174,27 @@ export function ResponseBubble({
               <button
                 type="button"
                 onClick={handlePromote}
-                disabled={promoted}
-                className="h-6 px-2 rounded-md text-[10px] font-semibold text-faint hover:text-fg hover:bg-white/[0.04] transition-colors cursor-pointer flex items-center gap-1 disabled:opacity-50"
+                disabled={promoted || promoting}
+                className={`h-6 px-2 rounded-md text-[10px] font-semibold transition-all cursor-pointer flex items-center gap-1 disabled:cursor-default ${
+                  promoted
+                    ? "text-good bg-good/10"
+                    : promoting
+                      ? "text-faint opacity-60"
+                      : "text-faint hover:text-fg hover:bg-white/[0.04]"
+                }`}
               >
-                {promoted ? <Check className="w-3 h-3" /> : <BookMarked className="w-3 h-3" />}
-                {promoted ? t("helix:responseBubble.promoted") : t("helix:responseBubble.promoteToMemory")}
+                {promoting ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : promoted ? (
+                  <Check className="w-3 h-3 animate-check-pop" />
+                ) : (
+                  <BookMarked className="w-3 h-3" />
+                )}
+                {promoted
+                  ? t("helix:responseBubble.promoted")
+                  : promoting
+                    ? t("helix:responseBubble.promoting", "Promovendo…")
+                    : t("helix:responseBubble.promoteToMemory")}
               </button>
             )}
             {onRegenerate && (
@@ -255,7 +265,7 @@ function StreamingTextBlock({ content, isStreaming }: { content: string; isStrea
     );
   }
   return (
-    <div className="min-w-0 text-sm leading-relaxed text-fg break-words whitespace-pre-wrap animate-text-fade">
+    <div className="min-w-0 text-sm leading-relaxed text-fg break-words whitespace-pre-wrap select-text animate-text-fade">
       {unwrapAgentResponse(content)}
       <span className="inline-block w-[2px] h-4 ml-0.5 bg-signal animate-typing-cursor align-text-bottom rounded-sm" />
     </div>
@@ -501,7 +511,7 @@ function ThinkingBlock({ isStreaming, content }: { isStreaming: boolean; content
         )}
       </button>
       {content && !collapsed && (
-        <p className="mt-1.5 text-[10px] text-mute leading-relaxed font-mono whitespace-pre-wrap">
+        <p className="mt-1.5 text-[10px] text-mute leading-relaxed font-mono whitespace-pre-wrap select-text">
           {content}
         </p>
       )}

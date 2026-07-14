@@ -41,25 +41,36 @@ export function FollowUpDebugPanel({ session, onAddObservation, onAddHypothesis,
 
   return (
     <div className="grid gap-4">
-      <section className="rounded-lg border border-line p-3">
-        <h3 className="text-xs font-semibold text-fg">{t("helix:followUp.debug.initialError")}</h3>
-        <p className="mt-2 text-xs text-mute">{session.objective}</p>
+      <section className="rounded-lg border border-line bg-white/[0.02] p-3">
+        <div className="mb-2 flex items-center gap-1.5">
+          <span className="h-1 w-1 rounded-full bg-bad" />
+          <h3 className="text-[10px] font-semibold uppercase tracking-wider text-mute">
+            {t("helix:followUp.debug.initialError")}
+          </h3>
+        </div>
+        <p className="text-xs text-mute leading-relaxed">{session.objective}</p>
       </section>
 
       <section>
-        <h3 className="mb-2 text-xs font-semibold text-fg">
-          {t("helix:followUp.debug.hypothesesAndEvidence")}
-        </h3>
+        <div className="mb-2 flex items-center gap-1.5">
+          <span className="h-1 w-1 rounded-full bg-signal" />
+          <h3 className="text-[10px] font-semibold uppercase tracking-wider text-mute">
+            {t("helix:followUp.debug.hypothesesAndEvidence")}
+          </h3>
+          <span className="ml-auto text-[9px] text-faint">{evidenceByHypothesis.length}</span>
+        </div>
         <div className="grid gap-2">
           {evidenceByHypothesis.length === 0 && (
-            <p className="text-[10px] text-faint">{t("helix:followUp.debug.noHypotheses")}</p>
+            <p className="rounded-lg border border-line/50 bg-white/[0.01] px-3 py-2 text-[10px] text-faint italic">
+              {t("helix:followUp.debug.noHypotheses")}
+            </p>
           )}
           {evidenceByHypothesis.map(({ hypothesis, evidence }) => (
-            <div key={hypothesis.id} className="rounded border border-line p-2">
-              <div className="flex items-center justify-between">
+            <div key={hypothesis.id} className="rounded-lg border border-line bg-white/[0.02] p-2.5">
+              <div className="flex items-center justify-between gap-2">
                 <span className="text-xs text-fg">{hypothesis.text}</span>
                 <span
-                  className={`rounded-full px-2 py-0.5 text-[9px] font-medium ${
+                  className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-medium ${
                     hypothesis.status === "confirmed"
                       ? "bg-good/20 text-good"
                       : hypothesis.status === "refuted"
@@ -75,7 +86,7 @@ export function FollowUpDebugPanel({ session, onAddObservation, onAddHypothesis,
                   {evidence.map((ev) => (
                     <div key={ev.id} className="border-l border-line pl-2">
                       <span className="text-[9px] text-faint">{ev.source}</span>
-                      <p className="text-[10px] text-mute">{ev.content}</p>
+                      <p className="text-[10px] text-mute leading-relaxed">{ev.content}</p>
                     </div>
                   ))}
                 </div>
@@ -85,8 +96,13 @@ export function FollowUpDebugPanel({ session, onAddObservation, onAddHypothesis,
         </div>
       </section>
 
-      <section className="rounded-lg border border-line p-3">
-        <h3 className="mb-2 text-xs font-semibold text-fg">{t("helix:followUp.debug.addEvidence")}</h3>
+      <section className="rounded-lg border border-line bg-white/[0.02] p-3">
+        <div className="mb-2 flex items-center gap-1.5">
+          <span className="h-1 w-1 rounded-full bg-signal" />
+          <h3 className="text-[10px] font-semibold uppercase tracking-wider text-mute">
+            {t("helix:followUp.debug.addEvidence")}
+          </h3>
+        </div>
         <div className="flex gap-2">
           <input
             value={obsText}
@@ -100,8 +116,13 @@ export function FollowUpDebugPanel({ session, onAddObservation, onAddHypothesis,
         </div>
       </section>
 
-      <section className="rounded-lg border border-line p-3">
-        <h3 className="mb-2 text-xs font-semibold text-fg">{t("helix:followUp.debug.addHypothesis")}</h3>
+      <section className="rounded-lg border border-line bg-white/[0.02] p-3">
+        <div className="mb-2 flex items-center gap-1.5">
+          <span className="h-1 w-1 rounded-full bg-signal" />
+          <h3 className="text-[10px] font-semibold uppercase tracking-wider text-mute">
+            {t("helix:followUp.debug.addHypothesis")}
+          </h3>
+        </div>
         <div className="flex gap-2">
           <input
             value={hypText}
@@ -116,8 +137,13 @@ export function FollowUpDebugPanel({ session, onAddObservation, onAddHypothesis,
       </section>
 
       {showComplete ? (
-        <section className="rounded-lg border border-line p-3">
-          <h3 className="mb-2 text-xs font-semibold text-fg">{t("helix:followUp.debug.conclusion")}</h3>
+        <section className="rounded-lg border border-line bg-white/[0.02] p-3">
+          <div className="mb-2 flex items-center gap-1.5">
+            <span className="h-1 w-1 rounded-full bg-signal" />
+            <h3 className="text-[10px] font-semibold uppercase tracking-wider text-mute">
+              {t("helix:followUp.debug.conclusion")}
+            </h3>
+          </div>
           <textarea
             value={summary}
             onChange={(e) => setSummary(e.target.value)}

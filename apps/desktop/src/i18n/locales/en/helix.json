@@ -86,6 +86,10 @@
     "dropFiles": "Drop files to attach",
     "contextMenu": {
       "title": "Add context",
+      "categoryContext": "Context",
+      "categoryScreen": "Screen",
+      "categoryFiles": "Files",
+      "categoryApps": "Apps & Connections",
       "clipboard": "Clipboard",
       "clipboardDescription": "Include copied content in the message.",
       "screenRead": "Read screen text",
@@ -104,6 +108,9 @@
       "activeAppDescription": "Include context from the focused application.",
       "connector": "Connector",
       "connectorDescription": "Use an active connection to fetch context."
+    },
+    "slashMenu": {
+      "title": "Commands"
     },
     "screenCapture": {
       "permissionDenied": "Allow Screen Recording in System Settings to continue.",
@@ -613,6 +620,7 @@
     "toolFailed": "Failed",
     "toolCallLabel": "Tool",
     "promoteToMemory": "Save to memory",
+    "promoting": "Saving…",
     "promoted": "Saved",
     "promotedToMemory": "Response saved to Space memory",
     "promoteError": "Failed to save response to memory"
@@ -655,7 +663,8 @@
     "connectorsTitle": "Connectors",
     "copied": "Copied",
     "copy": "Copy",
-    "resultPlaceholder": "The response appears here as soon as the agent starts writing."
+    "resultPlaceholder": "The response appears here as soon as the agent starts writing.",
+    "inspectorEmpty": "No active context. Attach files or screen captures to see them here."
   },
   "compactResult": {
     "title": "Result",
@@ -750,7 +759,9 @@
     "newConversationHint": "Start without previous context",
     "mainNavigation": "Main navigation",
     "backToQuickPanel": "Back to quick panel",
-    "whereToWork": "Where do you want to work?"
+    "whereToWork": "Where do you want to work?",
+    "space": "Space",
+    "manageSpace": "Manage"
   },
   "navigation": {
     "work": "Work",

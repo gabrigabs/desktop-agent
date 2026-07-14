@@ -11,35 +11,51 @@ export function FollowUpTimeline({ session }: Props) {
   return (
     <div className="grid gap-4">
       <section>
-        <h3 className="mb-2 text-xs font-semibold text-fg">{t("helix:followUp.observations")}</h3>
+        <div className="mb-2 flex items-center gap-1.5">
+          <span className="h-1 w-1 rounded-full bg-signal" />
+          <h3 className="text-[10px] font-semibold uppercase tracking-wider text-mute">
+            {t("helix:followUp.observations")}
+          </h3>
+          <span className="ml-auto text-[9px] text-faint">{session.observations.length}</span>
+        </div>
         <div className="grid gap-1.5">
           {session.observations.length === 0 && (
-            <p className="text-[10px] text-faint">{t("helix:followUp.noObservations")}</p>
+            <p className="rounded-lg border border-line/50 bg-white/[0.01] px-3 py-2 text-[10px] text-faint italic">
+              {t("helix:followUp.noObservations")}
+            </p>
           )}
           {session.observations.map((obs) => (
-            <div key={obs.id} className="rounded border border-line p-2">
+            <div key={obs.id} className="rounded-lg border border-line bg-white/[0.02] p-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-medium text-mute">{obs.source}</span>
+                <span className="text-[10px] font-medium text-signal/80">{obs.source}</span>
                 <span className="text-[9px] text-faint">{obs.timestamp}</span>
               </div>
-              <p className="mt-1 text-xs text-fg">{obs.content}</p>
+              <p className="mt-1 text-xs text-fg leading-relaxed">{obs.content}</p>
             </div>
           ))}
         </div>
       </section>
 
       <section>
-        <h3 className="mb-2 text-xs font-semibold text-fg">{t("helix:followUp.hypotheses")}</h3>
+        <div className="mb-2 flex items-center gap-1.5">
+          <span className="h-1 w-1 rounded-full bg-signal" />
+          <h3 className="text-[10px] font-semibold uppercase tracking-wider text-mute">
+            {t("helix:followUp.hypotheses")}
+          </h3>
+          <span className="ml-auto text-[9px] text-faint">{session.hypotheses.length}</span>
+        </div>
         <div className="grid gap-1.5">
           {session.hypotheses.length === 0 && (
-            <p className="text-[10px] text-faint">{t("helix:followUp.noHypotheses")}</p>
+            <p className="rounded-lg border border-line/50 bg-white/[0.01] px-3 py-2 text-[10px] text-faint italic">
+              {t("helix:followUp.noHypotheses")}
+            </p>
           )}
           {session.hypotheses.map((hyp) => (
-            <div key={hyp.id} className="rounded border border-line p-2">
-              <div className="flex items-center justify-between">
+            <div key={hyp.id} className="rounded-lg border border-line bg-white/[0.02] p-2.5">
+              <div className="flex items-center justify-between gap-2">
                 <span className="text-xs text-fg">{hyp.text}</span>
                 <span
-                  className={`rounded-full px-2 py-0.5 text-[9px] font-medium ${
+                  className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-medium ${
                     hyp.status === "confirmed"
                       ? "bg-good/20 text-good"
                       : hyp.status === "refuted"
@@ -61,7 +77,12 @@ export function FollowUpTimeline({ session }: Props) {
       </section>
 
       <section>
-        <h3 className="mb-2 text-xs font-semibold text-fg">{t("helix:followUp.eventTimeline")}</h3>
+        <div className="mb-2 flex items-center gap-1.5">
+          <span className="h-1 w-1 rounded-full bg-signal" />
+          <h3 className="text-[10px] font-semibold uppercase tracking-wider text-mute">
+            {t("helix:followUp.eventTimeline")}
+          </h3>
+        </div>
         <div className="grid gap-1">
           {session.events.map((event) => (
             <div key={event.id} className="flex items-center gap-2 text-[10px] text-faint">
@@ -75,7 +96,12 @@ export function FollowUpTimeline({ session }: Props) {
       </section>
 
       <section>
-        <h3 className="mb-2 text-xs font-semibold text-fg">{t("helix:followUp.permissionsAudit")}</h3>
+        <div className="mb-2 flex items-center gap-1.5">
+          <span className="h-1 w-1 rounded-full bg-signal" />
+          <h3 className="text-[10px] font-semibold uppercase tracking-wider text-mute">
+            {t("helix:followUp.permissionsAudit")}
+          </h3>
+        </div>
         <div className="grid grid-cols-3 gap-2">
           <PermissionBadge
             label={t("helix:followUp.permScreenCapture")}
@@ -98,8 +124,8 @@ export function FollowUpTimeline({ session }: Props) {
 function PermissionBadge({ label, enabled }: { label: string; enabled: boolean }) {
   return (
     <div
-      className={`rounded-lg border p-2 text-center text-[10px] font-medium ${
-        enabled ? "border-signal/30 bg-signal/10 text-fg" : "border-line text-faint"
+      className={`rounded-lg border p-2 text-center text-[10px] font-medium transition-colors ${
+        enabled ? "border-signal/30 bg-signal/10 text-fg" : "border-line bg-white/[0.01] text-faint"
       }`}
     >
       {label}

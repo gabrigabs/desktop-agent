@@ -382,7 +382,7 @@ function ChatActive(p: Props) {
         onToastError={p.onToastError}
       />
 
-      <div className="sticky bottom-0 z-20 -mx-1 shrink-0 bg-ink/95 px-1 pt-2 backdrop-blur-xl">
+      <div className="sticky bottom-0 z-20 shrink-0 bg-gradient-to-t from-ink via-ink/95 to-transparent pt-3 pb-1">
         <Composer
           mode="normal"
           query={p.query}
@@ -551,7 +551,7 @@ function TaskActive(p: Props) {
         onExpand={p.onExpandedMode}
       />
 
-      <div className="sticky bottom-0 z-20 -mx-1 shrink-0 bg-ink/95 px-1 pt-2 backdrop-blur-xl">
+      <div className="sticky bottom-0 z-20 shrink-0 bg-gradient-to-t from-ink via-ink/95 to-transparent pt-3 pb-1">
         <Composer
           mode="normal"
           query={p.query}
