@@ -38,6 +38,13 @@ import {
   listSpaceRecords,
   updateMemoryFact,
 } from "../repositories/spaces";
+import {
+  completeSession as completeFollowUpSession,
+  createSession as createFollowUpSession,
+  getSession as getFollowUpSession,
+  listActiveSessions as listActiveFollowUpSessions,
+  restoreActiveSessions as restoreActiveFollowUpSessions,
+} from "../repositories/follow-up-sessions";
 
 describe("Storage Package Tests", () => {
   let db: Database;
@@ -180,6 +187,25 @@ describe("Storage Package Tests", () => {
     };
     expect(space).toEqual({ id: "legacy-space", preferred_layout: "collections" });
     expect(memory.space_id).toBe("legacy-space");
+  });
+
+  test("Follow-up survives boot as visible paused state without writing Space memory", () => {
+    const space = createSpace(db, { name: "Acompanhado", folderPath: "" });
+    const session = createFollowUpSession(db, {
+      mode: "writing",
+      objective: "Revisar o texto",
+      spaceId: space.id,
+      memoryScope: "space",
+    });
+    expect(session.status).toBe("active");
+
+    restoreActiveFollowUpSessions(db);
+    expect(getFollowUpSession(db, session.id)?.status).toBe("paused");
+    expect(listActiveFollowUpSessions(db).map((item) => item.id)).toContain(session.id);
+
+    completeFollowUpSession(db, session.id, "Resumo final");
+    expect(listMemoryFacts(db, space.id)).toEqual([]);
+    expect(listActiveFollowUpSessions(db).map((item) => item.id)).not.toContain(session.id);
   });
 
   test("Should log and retrieve interactions", () => {

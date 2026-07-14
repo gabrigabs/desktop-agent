@@ -1,6 +1,6 @@
 import type { FollowUpMode } from "@desktop-agent/shared";
 import { Activity, ChevronRight, Pause, Play, Square, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/ui/button";
 import type { useFollowUp } from "./hooks/useFollowUp";
@@ -26,6 +26,10 @@ export function FollowUpDock({ followUp, spaces, open, onOpenChange, compact, on
   const [mode, setMode] = useState<Extract<FollowUpMode, "writing" | "debug">>("writing");
   const [spaceId, setSpaceId] = useState(spaces.activeSpaceId ?? "");
 
+  useEffect(() => {
+    if (!creating) setSpaceId(spaces.activeSpaceId ?? "");
+  }, [creating, spaces.activeSpaceId]);
+
   const start = async () => {
     if (!objective.trim()) return;
     const created = await followUp.startSession(mode, objective.trim(), {
@@ -50,12 +54,12 @@ export function FollowUpDock({ followUp, spaces, open, onOpenChange, compact, on
               className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-1.5 py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/50"
             >
               <span
-                className={`h-2 w-2 shrink-0 rounded-full ${
+                className={`h-px w-8 shrink-0 bg-gradient-to-r from-transparent to-current ${
                   session.status === "active"
-                    ? "bg-cyan-300 motion-safe:animate-pulse"
+                    ? "text-cyan-300 motion-safe:animate-pulse"
                     : session.status === "paused"
-                      ? "bg-amber-400"
-                      : "bg-red-400"
+                      ? "text-amber-400"
+                      : "text-red-400"
                 }`}
               />
               <span className="min-w-0">
@@ -113,6 +117,12 @@ export function FollowUpDock({ followUp, spaces, open, onOpenChange, compact, on
               </button>
             </div>
 
+            {followUp.error && (
+              <div role="alert" className="mb-4 rounded-lg border border-bad/30 bg-bad/10 px-3 py-2 text-[11px] text-bad">
+                {followUp.error}
+              </div>
+            )}
+
             {creating || !session ? (
               <div className="grid gap-4">
                 <label className="grid gap-1.5 text-[10px] uppercase tracking-[0.12em] text-faint">
@@ -137,21 +147,26 @@ export function FollowUpDock({ followUp, spaces, open, onOpenChange, compact, on
                   {t("helix:followUp.start", "Iniciar acompanhamento")}
                 </Button>
               </div>
-            ) : session.mode === "writing" ? (
-              <FollowUpWritingPanel
-                session={session}
-                onAddObservation={(content) => void followUp.addObservation(session.id, content, "manual")}
-                onComplete={(summary) => void followUp.completeSession(session.id, summary)}
-              />
-            ) : session.mode === "debug" ? (
-              <FollowUpDebugPanel
-                session={session}
-                onAddObservation={(content) => void followUp.addObservation(session.id, content, "manual")}
-                onAddHypothesis={(text) => void followUp.addHypothesis(session.id, text)}
-                onComplete={(summary) => void followUp.completeSession(session.id, summary)}
-              />
             ) : (
-              <FollowUpTimeline session={session} />
+              <div className="grid gap-5">
+                {session.mode === "writing" ? (
+                  <FollowUpWritingPanel
+                    session={session}
+                    onAddObservation={(content) => void followUp.addObservation(session.id, content, "manual")}
+                    onComplete={(summary) => void followUp.completeSession(session.id, summary)}
+                  />
+                ) : session.mode === "debug" ? (
+                  <FollowUpDebugPanel
+                    session={session}
+                    onAddObservation={(content) => void followUp.addObservation(session.id, content, "manual")}
+                    onAddHypothesis={(text) => void followUp.addHypothesis(session.id, text)}
+                    onComplete={(summary) => void followUp.completeSession(session.id, summary)}
+                  />
+                ) : null}
+                <div className="border-t border-line pt-5">
+                  <FollowUpTimeline session={session} />
+                </div>
+              </div>
             )}
           </aside>
         </div>

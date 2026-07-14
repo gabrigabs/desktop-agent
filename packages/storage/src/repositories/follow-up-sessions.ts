@@ -162,7 +162,9 @@ export function listSessions(db: Database): FollowUpSession[] {
 
 export function listActiveSessions(db: Database): FollowUpSession[] {
   const rows = db
-    .query("SELECT * FROM follow_up_sessions WHERE status = 'active' ORDER BY created_at DESC")
+    .query(
+      "SELECT * FROM follow_up_sessions WHERE status IN ('active', 'paused', 'waiting_approval') ORDER BY created_at DESC",
+    )
     .all() as Record<string, unknown>[];
   return rows.map((row) => {
     const id = row.id as string;

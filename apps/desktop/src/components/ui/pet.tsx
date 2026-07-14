@@ -106,12 +106,11 @@ export function Pet({ className = "", size = 64, variant = "full", glow = true }
 
       {followUpColor && !dot && (
         <span
-          className="absolute rounded-full pointer-events-none"
+          className="absolute rounded-full pointer-events-none motion-safe:animate-[helix-orbit-pulse_2s_ease-in-out_infinite]"
           style={{
             inset: -3,
             border: `1.5px solid ${followUpColor}`,
             opacity: 0.5,
-            animation: "helix-orbit-pulse 2s ease-in-out infinite",
           }}
         />
       )}
