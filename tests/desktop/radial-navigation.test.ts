@@ -14,10 +14,10 @@ describe("Radial navigation catalog", () => {
     expect(clipboard?.secondaryActions?.length).toBeGreaterThan(0);
   });
 
-  test("artifacts action exposes all artifact spaces as secondary", () => {
-    const artifacts = HELIX_ACTIONS.find((a) => a.id === "artifacts");
-    expect(artifacts).toBeDefined();
-    expect(artifacts?.secondaryActions?.length).toBeGreaterThanOrEqual(5);
+  test("follow-up is available as a primary action", () => {
+    const followUp = HELIX_ACTIONS.find((action) => action.id === "follow-up");
+    expect(followUp).toBeDefined();
+    expect(followUp?.category).toBe("follow_up");
   });
 
   test("secondary action ids are unique within each primary action", () => {

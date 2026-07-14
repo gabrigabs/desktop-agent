@@ -1,7 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { closeDb, getDb } from "../db";
-import { runMigrations } from "../migrations";
+import { runMigrations, runMigrationsThrough } from "../migrations";
 import { createConversation, getConversation, listTurns, upsertTurn } from "../repositories/conversations";
 import { createInteraction, getRecentInteractions, searchInteractions } from "../repositories/interactions";
 import { listMarkdownSources, upsertMarkdownSource } from "../repositories/markdown-sources";
@@ -27,6 +27,17 @@ import {
   updateWorkflowRun,
   updateWorkflowStep,
 } from "../repositories/workflows";
+import {
+  addMemoryFact,
+  createSpace,
+  createSpaceCollection,
+  createSpaceRecord,
+  createSpaceView,
+  deleteMemoryFact,
+  listMemoryFacts,
+  listSpaceRecords,
+  updateMemoryFact,
+} from "../repositories/spaces";
 
 describe("Storage Package Tests", () => {
   let db: Database;
@@ -60,16 +71,24 @@ describe("Storage Package Tests", () => {
     expect(tableNames).toContain("agent_profiles");
     expect(tableNames).toContain("parsed_documents");
     expect(tableNames).toContain("markdown_sources");
-    expect(tableNames).toContain("workspaces");
-    expect(tableNames).toContain("workspace_memory");
-    expect(tableNames).toContain("workspace_conversations");
-    expect(tableNames).toContain("workspace_documents");
+    expect(tableNames).toContain("spaces");
+    expect(tableNames).toContain("space_memory");
+    expect(tableNames).toContain("space_conversations");
+    expect(tableNames).toContain("space_documents");
+    expect(tableNames).toContain("execution_context_snapshots");
+    expect(tableNames).toContain("space_collections");
+    expect(tableNames).toContain("space_records");
+    expect(tableNames).toContain("space_views");
+    expect(tableNames).toContain("follow_up_sessions");
+    expect(tableNames).toContain("follow_up_observations");
+    expect(tableNames).toContain("follow_up_hypotheses");
+    expect(tableNames).toContain("follow_up_events");
 
     const migrations = db.query("SELECT version FROM _migrations ORDER BY version").all() as {
       version: number;
     }[];
     expect(migrations.map((migration) => migration.version)).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
     ]);
 
     const settings = db.query("SELECT key, value FROM app_settings ORDER BY key").all() as {
@@ -77,7 +96,90 @@ describe("Storage Package Tests", () => {
       value: string;
     }[];
     expect(settings).toContainEqual({ key: "alwaysOnTop", value: "false" });
-    expect(settings).toContainEqual({ key: "lastWindowMode", value: "normal" });
+    expect(settings).toContainEqual({ key: "defaultWindowMode", value: "normal" });
+    expect(settings).not.toContainEqual({ key: "lastWindowMode", value: "normal" });
+  });
+
+  test("Space collections validate fields, records, views, and ownership", () => {
+    const first = createSpace(db, { name: "Casa", folderPath: "" });
+    const second = createSpace(db, { name: "Trabalho", folderPath: "" });
+    const collection = createSpaceCollection(db, first.id, {
+      name: "Itens",
+      fields: [
+        { id: "title", name: "Título", type: "text", required: true },
+        { id: "status", name: "Status", type: "select", required: false, options: ["open", "done"] },
+        { id: "amount", name: "Valor", type: "currency", required: false },
+      ],
+    });
+
+    expect(() => createSpaceRecord(db, first.id, collection.id, {})).toThrow("SPACE_RECORD_REQUIRED_FIELD:title");
+    expect(() => createSpaceRecord(db, first.id, collection.id, { title: "A", status: "invalid" })).toThrow(
+      "SPACE_RECORD_INVALID_OPTION:status",
+    );
+    expect(() => listSpaceRecords(db, second.id, collection.id)).toThrow("SPACE_COLLECTION_NOT_FOUND");
+
+    const record = createSpaceRecord(db, first.id, collection.id, {
+      title: "Reserva",
+      status: "open",
+      amount: 250,
+    });
+    const view = createSpaceView(db, first.id, {
+      collectionId: collection.id,
+      name: "Quadro",
+      type: "board",
+      config: { groupBy: "status" },
+    });
+    expect(record.spaceId).toBe(first.id);
+    expect(view.type).toBe("board");
+    expect(listSpaceRecords(db, first.id, collection.id)).toHaveLength(1);
+  });
+
+  test("Space memory promotion is idempotent and mutations are ownership-scoped", () => {
+    const first = createSpace(db, { name: "Primeiro", folderPath: "" });
+    const second = createSpace(db, { name: "Segundo", folderPath: "" });
+    const promoted = addMemoryFact(db, first.id, {
+      content: "Conclusão revisada",
+      origin: "assistant",
+      sourceTurnId: "turn-1",
+    });
+    const duplicate = addMemoryFact(db, first.id, {
+      content: "Conclusão revisada",
+      origin: "assistant",
+      sourceTurnId: "turn-1",
+    });
+
+    expect(duplicate.id).toBe(promoted.id);
+    expect(() => updateMemoryFact(db, second.id, promoted.id, { content: "Vazamento" })).toThrow(
+      "SPACE_MEMORY_FACT_NOT_FOUND",
+    );
+    deleteMemoryFact(db, second.id, promoted.id);
+    expect(listMemoryFacts(db, first.id)).toHaveLength(1);
+  });
+
+  test("Upgrade from migration 016 preserves spaces while adopting the new schema", () => {
+    closeDb();
+    db = getDb(":memory:");
+    runMigrationsThrough(db, 16);
+    db.run(
+      "INSERT INTO workspaces (id, name, folder_path, preferred_layout) VALUES (?, ?, ?, ?)",
+      ["legacy-space", "Legado", "", "dashboard"],
+    );
+    db.run(
+      "INSERT INTO workspace_memory (id, workspace_id, content, origin) VALUES (?, ?, ?, ?)",
+      ["legacy-memory", "legacy-space", "Fato preservado", "manual"],
+    );
+
+    runMigrations(db);
+
+    const space = db.query("SELECT id, preferred_layout FROM spaces WHERE id = ?").get("legacy-space") as {
+      id: string;
+      preferred_layout: string;
+    };
+    const memory = db.query("SELECT space_id FROM space_memory WHERE id = ?").get("legacy-memory") as {
+      space_id: string;
+    };
+    expect(space).toEqual({ id: "legacy-space", preferred_layout: "collections" });
+    expect(memory.space_id).toBe("legacy-space");
   });
 
   test("Should log and retrieve interactions", () => {

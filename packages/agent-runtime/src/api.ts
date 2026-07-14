@@ -21,64 +21,87 @@ import type {
   WorkflowRun,
 } from "@desktop-agent/shared";
 import {
+  addFollowUpHypothesis as addStoredFollowUpHypothesis,
+  addFollowUpObservation as addStoredFollowUpObservation,
   addMemoryFact as addStoredMemoryFact,
-  archiveWorkspace as archiveStoredWorkspace,
+  archiveSpace as archiveStoredSpace,
   attachDocument as attachStoredDocument,
+  completeFollowUpSession as completeStoredFollowUpSession,
   createAgentProfile,
   createConversation,
+  createFollowUpSession,
   createPromptTemplate,
+  createSpaceCollection as createStoredSpaceCollection,
+  createSpaceRecord as createStoredSpaceRecord,
+  createSpaceView as createStoredSpaceView,
   createSkill,
   createMcpServer as createStoredMcpServer,
-  createWorkspace as createStoredWorkspace,
+  createSpace as createStoredSpace,
   createWorkflowRun,
   deleteAgentProfile,
   deleteAllMarkdownSources as deleteAllStoredMarkdownSources,
   deleteAllParsedDocuments as deleteAllStoredParsedDocuments,
   deletePromptTemplate,
   deleteSkill,
+  deleteSpaceCollection as deleteStoredSpaceCollection,
+  deleteSpaceRecord as deleteStoredSpaceRecord,
+  deleteSpaceView as deleteStoredSpaceView,
   deleteMcpServer as deleteStoredMcpServer,
   deleteMemoryFact as deleteStoredMemoryFact,
   deleteParsedDocument as deleteStoredParsedDocument,
-  deleteWorkspace as deleteStoredWorkspace,
+  deleteSpace as deleteStoredSpace,
   deleteWorkflowTemplate,
   detachDocument as detachStoredDocument,
   ensureDefaultMcpPresets,
   getAgentProfile,
   getConversation,
   getDb,
+  getExecutionContextSnapshot,
+  getFollowUpSession,
   getParsedDocument,
   getRecentInteractions,
   getSetting,
   getSkill,
   getMcpServer as getStoredMcpServer,
-  getWorkspace as getStoredWorkspace,
+  getSpace as getStoredSpace,
   getWorkflowRun,
   getWorkflowTemplate,
   linkConversation as linkStoredConversation,
   listAgentProfiles,
   listConversations,
+  listFollowUpSessions,
   listPromptTemplates,
   listSkills,
-  listConversationsByWorkspace as listStoredConversationsByWorkspace,
+  listSpaceCollections as listStoredSpaceCollections,
+  listConversationsBySpace as listStoredConversationsBySpace,
   listMarkdownSources as listStoredMarkdownSources,
   listMcpServers as listStoredMcpServers,
   listMemoryFacts as listStoredMemoryFacts,
   listParsedDocuments as listStoredParsedDocuments,
-  listWorkspaceDocumentIds as listStoredWorkspaceDocumentIds,
-  listWorkspaces as listStoredWorkspaces,
+  listSpaceRecords as listStoredSpaceRecords,
+  listSpaceViews as listStoredSpaceViews,
+  listSpaceDocumentIds as listStoredSpaceDocumentIds,
+  listSpaces as listStoredSpaces,
   listTurns,
   listWorkflowRuns,
   listWorkflowTemplates,
+  pauseFollowUpSession as pauseStoredFollowUpSession,
+  resumeFollowUpSession as resumeStoredFollowUpSession,
   saveWorkflowTemplate,
   setSetting,
+  stopFollowUpSession as stopStoredFollowUpSession,
   updateAgentProfile,
   updateConversationTitle,
   updateMcpServerStatus,
   updatePromptTemplate,
   updateSkill,
+  updateFollowUpHypothesis as updateStoredFollowUpHypothesis,
+  updateSpaceCollection as updateStoredSpaceCollection,
+  updateSpaceRecord as updateStoredSpaceRecord,
+  updateSpaceView as updateStoredSpaceView,
   updateMemoryFact as updateStoredMemoryFact,
   updateParsedDocument as updateStoredParsedDocument,
-  updateWorkspace as updateStoredWorkspace,
+  updateSpace as updateStoredSpace,
   updateWorkflowRun,
   upsertMarkdownSource,
   upsertMcpServer,
@@ -160,15 +183,15 @@ export function setClientApi(api: unknown) {
 const runningRequests = new Map<string, AbortController>();
 const runningRuns = new Map<string, AbortController>();
 const authorizedFileRoots = new Set<string>();
-const workspaceFolderRoots = new Set<string>();
+const spaceFolderRoots = new Set<string>();
 
-function syncWorkspaceFolderRoots() {
+function syncSpaceFolderRoots() {
   const db = getDb();
-  const workspaces = listStoredWorkspaces(db);
-  workspaceFolderRoots.clear();
-  for (const ws of workspaces) {
+  const spaces = listStoredSpaces(db);
+  spaceFolderRoots.clear();
+  for (const ws of spaces) {
     if (ws.status === "active" && ws.folderPath) {
-      workspaceFolderRoots.add(ws.folderPath);
+      spaceFolderRoots.add(ws.folderPath);
     }
   }
 }
@@ -181,7 +204,7 @@ async function isAuthorizedFilePath(targetPath: string): Promise<boolean> {
   const { promises: fs } = await import("node:fs");
   const path = await import("node:path");
   const allRoots = new Set<string>([...authorizedFileRoots]);
-  for (const folder of workspaceFolderRoots) {
+  for (const folder of spaceFolderRoots) {
     allRoots.add(folder);
   }
   let canonicalParent: string;
@@ -251,8 +274,6 @@ function getActiveProviderConfig() {
   const model = getSetting(db, "model") || (activeProvider === "pinstripes" ? "ps/warp" : "");
   const hidePet = getSetting(db, "hidePet") === "true";
   const alwaysOnTop = getSetting(db, "alwaysOnTop") === "true";
-  const rawLastWindowMode = getSetting(db, "lastWindowMode") || "normal";
-  const lastWindowMode = rawLastWindowMode === "mini" ? "normal" : rawLastWindowMode;
   const timeoutVal = getSetting(db, "timeout");
   const timeout = timeoutVal ? Number.parseInt(timeoutVal, 10) : 120;
   const windowOpacityVal = getSetting(db, "windowOpacity");
@@ -265,6 +286,13 @@ function getActiveProviderConfig() {
   const notificationsEnabled = getSetting(db, "notificationsEnabled") === "true";
   const notificationContentMode: AppSettings["notificationContentMode"] =
     getSetting(db, "notificationContentMode") === "preview" ? "preview" : "generic";
+  const rawDefaultWindowMode = getSetting(db, "defaultWindowMode") || "normal";
+  const defaultWindowMode: AppSettings["defaultWindowMode"] =
+    rawDefaultWindowMode === "collapsed" ||
+    rawDefaultWindowMode === "expanded" ||
+    rawDefaultWindowMode === "normal"
+      ? rawDefaultWindowMode
+      : "normal";
 
   return {
     activeProvider,
@@ -273,13 +301,13 @@ function getActiveProviderConfig() {
     model,
     hidePet,
     alwaysOnTop,
-    lastWindowMode,
     timeout,
     windowOpacity,
     petSize,
     language,
     notificationsEnabled,
     notificationContentMode,
+    defaultWindowMode,
   };
 }
 
@@ -600,7 +628,7 @@ export const agentApi: AgentApi = {
   },
 
   async startRun(input) {
-    syncWorkspaceFolderRoots();
+    syncSpaceFolderRoots();
     let mode: "simple" | "workflow" = input.mode ?? "workflow";
     let maxSteps = input.maxSteps;
     const workflowTemplateId = input.workflowId;
@@ -667,7 +695,7 @@ export const agentApi: AgentApi = {
         history: input.history ?? [],
         skillId: input.skillId,
         profileId: input.profileId,
-        workspaceId: input.workspaceId,
+        spaceId: input.spaceId,
         signal: controller.signal,
       });
       return { run: completedRun, events };
@@ -970,13 +998,13 @@ export const agentApi: AgentApi = {
       model: config.model,
       hidePet: config.hidePet,
       alwaysOnTop: config.alwaysOnTop,
-      lastWindowMode: config.lastWindowMode as AppSettings["lastWindowMode"],
       timeout: config.timeout,
       windowOpacity: config.windowOpacity,
       petSize: config.petSize,
       language: config.language,
       notificationsEnabled: config.notificationsEnabled,
       notificationContentMode: config.notificationContentMode,
+      defaultWindowMode: config.defaultWindowMode,
     };
   },
 
@@ -988,13 +1016,13 @@ export const agentApi: AgentApi = {
     setSetting(db, "model", settings.model);
     setSetting(db, "hidePet", settings.hidePet ? "true" : "false");
     setSetting(db, "alwaysOnTop", settings.alwaysOnTop ? "true" : "false");
-    setSetting(db, "lastWindowMode", settings.lastWindowMode);
     setSetting(db, "timeout", String(settings.timeout));
     setSetting(db, "windowOpacity", String(settings.windowOpacity));
     setSetting(db, "petSize", String(settings.petSize));
     setSetting(db, "language", settings.language);
     setSetting(db, "notificationsEnabled", settings.notificationsEnabled ? "true" : "false");
     setSetting(db, "notificationContentMode", settings.notificationContentMode);
+    setSetting(db, "defaultWindowMode", settings.defaultWindowMode);
   },
 
   async fetchModels(provider: string, apiKey: string, baseUrl?: string): Promise<string[]> {
@@ -1137,14 +1165,14 @@ export const agentApi: AgentApi = {
     }
   },
 
-  async listWorkspaces() {
+  async listSpaces() {
     const db = getDb();
-    return listStoredWorkspaces(db);
+    return listStoredSpaces(db);
   },
 
-  async createWorkspace(input) {
+  async createSpace(input) {
     const db = getDb();
-    const id = createStoredWorkspace(db, {
+    const space = createStoredSpace(db, {
       name: input.name,
       folderPath: input.folderPath,
       icon: input.icon,
@@ -1154,18 +1182,18 @@ export const agentApi: AgentApi = {
       profileId: input.profileId,
       preferredLayout: input.preferredLayout,
     });
-    syncWorkspaceFolderRoots();
-    return { id };
+    syncSpaceFolderRoots();
+    return space;
   },
 
-  async getWorkspace(input) {
+  async getSpace(input) {
     const db = getDb();
-    return getStoredWorkspace(db, input.id);
+    return getStoredSpace(db, input.id);
   },
 
-  async updateWorkspace(input) {
+  async updateSpace(input) {
     const db = getDb();
-    updateStoredWorkspace(db, input.id, {
+    const space = updateStoredSpace(db, input.id, {
       name: input.name,
       purpose: input.purpose,
       instructions: input.instructions,
@@ -1176,54 +1204,56 @@ export const agentApi: AgentApi = {
       memoryEnabled: input.memoryEnabled,
       color: input.color,
     });
-    syncWorkspaceFolderRoots();
+    syncSpaceFolderRoots();
+    return space;
   },
 
-  async archiveWorkspace(input) {
+  async archiveSpace(input) {
     const db = getDb();
-    archiveStoredWorkspace(db, input.id);
-    syncWorkspaceFolderRoots();
+    const space = archiveStoredSpace(db, input.id);
+    syncSpaceFolderRoots();
+    return space;
   },
 
-  async deleteWorkspace(input) {
-    deleteStoredWorkspace(getDb(), input.id);
-    syncWorkspaceFolderRoots();
+  async deleteSpace(input) {
+    const space = deleteStoredSpace(getDb(), input.id);
+    syncSpaceFolderRoots();
+    return space;
   },
 
-  async listWorkspaceDocuments(input) {
+  async listSpaceDocuments(input) {
     const db = getDb();
-    return listStoredWorkspaceDocumentIds(db, input.workspaceId)
+    return listStoredSpaceDocumentIds(db, input.spaceId)
       .map((id) => getParsedDocument(db, id))
       .filter((document): document is NonNullable<typeof document> => Boolean(document))
       .map(toParsedDocument);
   },
 
-  async attachDocumentToWorkspace(input) {
-    attachStoredDocument(getDb(), input.workspaceId, input.documentId);
+  async attachDocumentToSpace(input) {
+    attachStoredDocument(getDb(), input.spaceId, input.documentId);
   },
 
-  async detachDocumentFromWorkspace(input) {
-    detachStoredDocument(getDb(), input.workspaceId, input.documentId);
+  async detachDocumentFromSpace(input) {
+    detachStoredDocument(getDb(), input.spaceId, input.documentId);
   },
 
   async listMemoryFacts(input) {
     const db = getDb();
-    return listStoredMemoryFacts(db, input.workspaceId);
+    return listStoredMemoryFacts(db, input.spaceId);
   },
 
   async addMemoryFact(input) {
     const db = getDb();
-    const id = addStoredMemoryFact(db, input.workspaceId, {
+    return addStoredMemoryFact(db, input.spaceId, {
       content: input.content,
       origin: input.origin,
       sourceTurnId: input.sourceTurnId,
     });
-    return { id };
   },
 
   async updateMemoryFact(input) {
     const db = getDb();
-    updateStoredMemoryFact(db, input.id, {
+    return updateStoredMemoryFact(db, input.spaceId, input.id, {
       content: input.content,
       status: input.status,
     });
@@ -1231,17 +1261,119 @@ export const agentApi: AgentApi = {
 
   async deleteMemoryFact(input) {
     const db = getDb();
-    deleteStoredMemoryFact(db, input.id);
+    deleteStoredMemoryFact(db, input.spaceId, input.id);
   },
 
-  async linkConversationToWorkspace(input) {
+  async linkConversationToSpace(input) {
     const db = getDb();
-    linkStoredConversation(db, input.workspaceId, input.conversationId);
+    linkStoredConversation(db, input.spaceId, input.conversationId);
   },
 
-  async listConversationsByWorkspace(input) {
+  async listConversationsBySpace(input) {
     const db = getDb();
-    return listStoredConversationsByWorkspace(db, input.workspaceId);
+    return listStoredConversationsBySpace(db, input.spaceId);
+  },
+
+  async getExecutionContextSnapshot(input) {
+    const db = getDb();
+    return getExecutionContextSnapshot(db, input.runId);
+  },
+
+  async listSpaceCollections(input) {
+    return listStoredSpaceCollections(getDb(), input.spaceId);
+  },
+
+  async createSpaceCollection(input) {
+    return createStoredSpaceCollection(getDb(), input.spaceId, input);
+  },
+
+  async updateSpaceCollection(input) {
+    return updateStoredSpaceCollection(getDb(), input.spaceId, input.id, input);
+  },
+
+  async deleteSpaceCollection(input) {
+    deleteStoredSpaceCollection(getDb(), input.spaceId, input.id);
+  },
+
+  async listSpaceRecords(input) {
+    return listStoredSpaceRecords(getDb(), input.spaceId, input.collectionId);
+  },
+
+  async createSpaceRecord(input) {
+    return createStoredSpaceRecord(getDb(), input.spaceId, input.collectionId, input.values);
+  },
+
+  async updateSpaceRecord(input) {
+    return updateStoredSpaceRecord(getDb(), input.spaceId, input.collectionId, input.id, input.values);
+  },
+
+  async deleteSpaceRecord(input) {
+    deleteStoredSpaceRecord(getDb(), input.spaceId, input.collectionId, input.id);
+  },
+
+  async listSpaceViews(input) {
+    return listStoredSpaceViews(getDb(), input.spaceId, input.collectionId);
+  },
+
+  async createSpaceView(input) {
+    return createStoredSpaceView(getDb(), input.spaceId, input);
+  },
+
+  async updateSpaceView(input) {
+    return updateStoredSpaceView(getDb(), input.spaceId, input.id, input);
+  },
+
+  async deleteSpaceView(input) {
+    deleteStoredSpaceView(getDb(), input.spaceId, input.id);
+  },
+
+  async startFollowUpSession(input) {
+    return createFollowUpSession(getDb(), {
+      mode: input.mode,
+      objective: input.objective,
+      spaceId: input.spaceId ?? null,
+      memoryScope: input.memoryScope,
+      contextPolicy: input.contextPolicy,
+    });
+  },
+
+  async pauseFollowUpSession(input) {
+    pauseStoredFollowUpSession(getDb(), input.id);
+  },
+
+  async resumeFollowUpSession(input) {
+    resumeStoredFollowUpSession(getDb(), input.id);
+  },
+
+  async stopFollowUpSession(input) {
+    stopStoredFollowUpSession(getDb(), input.id, input.reason);
+  },
+
+  async completeFollowUpSession(input) {
+    completeStoredFollowUpSession(getDb(), input.id, input.summary);
+  },
+
+  async addFollowUpObservation(input) {
+    addStoredFollowUpObservation(getDb(), input.sessionId, input.content, input.source);
+  },
+
+  async addFollowUpHypothesis(input) {
+    addStoredFollowUpHypothesis(getDb(), input.sessionId, input.text);
+  },
+
+  async updateFollowUpHypothesis(input) {
+    updateStoredFollowUpHypothesis(getDb(), input.id, {
+      status: input.status,
+      evidenceIds: input.evidenceIds,
+    });
+  },
+
+  async listFollowUpSessions() {
+    return listFollowUpSessions(getDb());
+  },
+
+  async getFollowUpSession(input) {
+    return getFollowUpSession(getDb(), input.id);
   },
 
   async shutdown() {

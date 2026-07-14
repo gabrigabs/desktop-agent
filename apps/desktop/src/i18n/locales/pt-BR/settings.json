@@ -15,7 +15,16 @@
     "autostart": "Abrir ao iniciar o sistema",
     "autostartHint": "Integração nativa de autostart ainda não implementada.",
     "restoreSession": "Reabrir última sessão",
-    "restoreSessionHint": "Exige contrato explícito entre janela, conversa e retenção."
+    "restoreSessionHint": "Exige contrato explícito entre janela, conversa e retenção.",
+    "defaultWindowMode": "Modo inicial padrão",
+    "defaultWindowModeHint": "Modo de janela ao abrir o app.",
+    "windowModePet": "Pet",
+    "windowModeNormal": "Normal",
+    "windowModeExpanded": "Expandido",
+    "petClickBehavior": "Comportamento do clique no pet",
+    "petClickBehaviorHint": "Clique único abre menu ou duplo vai para modo normal.",
+    "petClickSingleMenu": "Clique único — Menu",
+    "petClickDoubleNormal": "Duplo clique — Normal"
   },
   "model": {
     "title": "Modelo e acesso",
@@ -87,7 +96,16 @@
     "secrets": "Ocultar segredos detectados",
     "secretsHint": "Exige pipeline de redaction antes do envio ao provider.",
     "retention": "Retenção de contexto",
-    "retentionHint": "Será integrada à política de dados e Artifacts."
+    "retentionHint": "Será integrada à política de dados e Artifacts.",
+    "contextRetention": "Retenção de contexto",
+    "contextRetentionHint": "Controla por quanto tempo o contexto de arquivos permanece ativo.",
+    "retentionSession": "Sessão atual",
+    "retentionPersistent": "Persistente",
+    "retentionManualOnly": "Somente manual",
+    "confirmContextSend": "Confirmar envio de contexto",
+    "confirmContextSendHint": "Pedir confirmação antes de enviar contexto ao provider.",
+    "hideSensitiveContent": "Ocultar conteúdo sensível",
+    "hideSensitiveContentHint": "Redactar conteúdo sensível antes do envio."
   },
   "profiles": {
     "description": "Perfis de agente e biblioteca de prompts para estilos de resposta e comportamentos."
@@ -96,10 +114,6 @@
     "title": "Conectores",
     "description": "A gestão detalhada continua na página Conectores; este centro reunirá status, permissões e último uso.",
     "permissionsHint": "Permissões, teste de saúde e Artifacts consumidores serão consolidados aqui."
-  },
-  "artifacts": {
-    "title": "Artefatos experimentais",
-    "description": "O catálogo inicial é somente leitura. Persistência, edição e fixação no radial virão depois da fundação."
   },
   "workflows": {
     "title": "Workflows",

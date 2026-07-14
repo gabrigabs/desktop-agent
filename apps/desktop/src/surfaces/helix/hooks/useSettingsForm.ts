@@ -21,6 +21,7 @@ export function useSettingsForm(
   const [formWindowOpacity, setFormWindowOpacity] = useState(settings.windowOpacity ?? 0.72);
   const [formPetSize, setFormPetSize] = useState(settings.petSize ?? 56);
   const [formLanguage, setFormLanguage] = useState(settings.language ?? "pt-BR");
+  const [formDefaultWindowMode, setFormDefaultWindowMode] = useState(settings.defaultWindowMode ?? "normal");
   const [showKey, setShowKey] = useState(false);
   const [fetchedModels, setFetchedModels] = useState<string[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
@@ -37,6 +38,7 @@ export function useSettingsForm(
       setFormWindowOpacity(settings.windowOpacity ?? 0.72);
       setFormPetSize(settings.petSize ?? 56);
       setFormLanguage(settings.language ?? "pt-BR");
+      setFormDefaultWindowMode(settings.defaultWindowMode ?? "normal");
     }
   }, [showSettings, settings]);
 
@@ -93,6 +95,7 @@ export function useSettingsForm(
           windowOpacity: Number(formWindowOpacity),
           petSize: Number(formPetSize),
           language: formLanguage,
+          defaultWindowMode: formHidePet && formDefaultWindowMode === "collapsed" ? "normal" : formDefaultWindowMode,
         };
         await api.saveSettings(newSettings);
         setSettings(newSettings);
@@ -117,6 +120,7 @@ export function useSettingsForm(
       formWindowOpacity,
       formPetSize,
       formLanguage,
+      formDefaultWindowMode,
       setSettings,
       onToastSuccess,
       onToastError,
@@ -143,6 +147,8 @@ export function useSettingsForm(
     setFormPetSize,
     formLanguage,
     setFormLanguage,
+    formDefaultWindowMode,
+    setFormDefaultWindowMode,
     showKey,
     setShowKey,
     fetchedModels,

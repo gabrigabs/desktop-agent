@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import type { ComponentType } from "react";
 
-export const WORKSPACE_COLORS = [
+export const SPACE_COLORS = [
   "#8b7cf6",
   "#c499f4",
   "#ec6f9e",
@@ -31,7 +31,7 @@ export const WORKSPACE_COLORS = [
   "#6aa7e8",
 ] as const;
 
-export const WORKSPACE_ICONS: Record<string, ComponentType<{ className?: string }>> = {
+export const SPACE_ICONS: Record<string, ComponentType<{ className?: string }>> = {
   folder: FolderOpen,
   briefcase: BriefcaseBusiness,
   code: Code2,
@@ -48,7 +48,7 @@ export const WORKSPACE_ICONS: Record<string, ComponentType<{ className?: string 
   sparkles: Sparkles,
 };
 
-export function WorkspaceIcon({ icon, className }: { icon: string; className?: string }) {
-  const Icon = WORKSPACE_ICONS[icon] ?? FolderOpen;
+export function SpaceIcon({ icon, className }: { icon: string; className?: string }) {
+  const Icon = SPACE_ICONS[icon] ?? FolderOpen;
   return <Icon className={className} />;
 }

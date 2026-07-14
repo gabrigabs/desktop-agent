@@ -13,8 +13,11 @@ import { runMigration as runTurnProfileIdMigration } from "./011_turn_profile_id
 import { runMigration as runParsedDocumentsMigration } from "./012_parsed_documents";
 import { runMigration as runParsedDocumentsIdentityMigration } from "./013_parsed_documents_identity";
 import { runMigration as runMarkdownSourcesMigration } from "./014_markdown_sources";
-import { runMigration as runWorkspacesMigration } from "./015_workspaces";
-import { runMigration as runWorkspaceCustomizationMigration } from "./016_workspace_customization";
+import { runMigration as runSpacesMigration } from "./015_workspaces";
+import { runMigration as runSpaceCustomizationMigration } from "./016_workspace_customization";
+import { runMigration as runSpaceConsolidationMigration } from "./017_space_consolidation";
+import { runMigration as runSettingsCleanupMigration } from "./018_settings_cleanup";
+import { runMigration as runFollowUpSessionsMigration } from "./019_follow_up_sessions";
 
 const MIGRATION_TABLE = `
   CREATE TABLE IF NOT EXISTS _migrations (
@@ -31,22 +34,22 @@ function applyMigration(db: Database, version: number, fn: (db: Database) => voi
   db.run("INSERT INTO _migrations (version) VALUES (?)", [version]);
 }
 
-export function runMigrations(db: Database): void {
+export function runMigrationsThrough(db: Database, targetVersion = 19): void {
   db.run(MIGRATION_TABLE);
-  applyMigration(db, 1, runInitialMigration);
-  applyMigration(db, 2, runTurnsMigration);
-  applyMigration(db, 3, runSettingsV2Migration);
-  applyMigration(db, 4, runMcpEnvMigration);
-  applyMigration(db, 5, runUiPreferencesMigration);
-  applyMigration(db, 6, runPromptLibraryMigration);
-  applyMigration(db, 7, runAgentProfilesFieldsMigration);
-  applyMigration(db, 8, runWorkflowsAndSkillsMigration);
-  applyMigration(db, 9, runSkillMetadataMigration);
-  applyMigration(db, 10, runConversationProfileIdMigration);
-  applyMigration(db, 11, runTurnProfileIdMigration);
-  applyMigration(db, 12, runParsedDocumentsMigration);
-  applyMigration(db, 13, runParsedDocumentsIdentityMigration);
-  applyMigration(db, 14, runMarkdownSourcesMigration);
-  applyMigration(db, 15, runWorkspacesMigration);
-  applyMigration(db, 16, runWorkspaceCustomizationMigration);
+  const migrations: Array<[number, (database: Database) => void]> = [
+    [1, runInitialMigration], [2, runTurnsMigration], [3, runSettingsV2Migration],
+    [4, runMcpEnvMigration], [5, runUiPreferencesMigration], [6, runPromptLibraryMigration],
+    [7, runAgentProfilesFieldsMigration], [8, runWorkflowsAndSkillsMigration], [9, runSkillMetadataMigration],
+    [10, runConversationProfileIdMigration], [11, runTurnProfileIdMigration], [12, runParsedDocumentsMigration],
+    [13, runParsedDocumentsIdentityMigration], [14, runMarkdownSourcesMigration], [15, runSpacesMigration],
+    [16, runSpaceCustomizationMigration], [17, runSpaceConsolidationMigration], [18, runSettingsCleanupMigration],
+    [19, runFollowUpSessionsMigration],
+  ];
+  for (const [version, migration] of migrations) {
+    if (version <= targetVersion) applyMigration(db, version, migration);
+  }
+}
+
+export function runMigrations(db: Database): void {
+  runMigrationsThrough(db);
 }

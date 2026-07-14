@@ -173,13 +173,13 @@ export type AppSettings = {
   model: string;
   hidePet: boolean;
   alwaysOnTop: boolean;
-  lastWindowMode: WindowMode;
   timeout: number;
   windowOpacity: number;
   petSize: number;
   language: "pt-BR" | "en";
   notificationsEnabled: boolean;
   notificationContentMode: "generic" | "preview";
+  defaultWindowMode: WindowMode;
 };
 
 export type ExecutionMode = "simple" | "workflow";

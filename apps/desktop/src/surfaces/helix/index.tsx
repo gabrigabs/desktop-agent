@@ -8,6 +8,7 @@ import { getAgent } from "../../lib/rpc";
 import { closeApp, setWindowMode } from "../../lib/window";
 import { useAgentStore } from "../../stores/agent";
 import { ExpandedView } from "./ExpandedView";
+import { FollowUpDock } from "./FollowUpDock";
 import { useCapabilities } from "./hooks/useCapabilities";
 import { useClipboard } from "./hooks/useClipboard";
 import { useDragDrop } from "./hooks/useDragDrop";
@@ -17,6 +18,8 @@ import { useKeyboard } from "./hooks/useKeyboard";
 import { usePrompts } from "./hooks/usePrompts";
 import { type QuickActionItem, useQuickActions } from "./hooks/useQuickActions";
 import { useSettingsForm } from "./hooks/useSettingsForm";
+import { useSpaces } from "./hooks/useSpaces";
+import { useFollowUp } from "./hooks/useFollowUp";
 import { useSkills } from "./hooks/useSkills";
 import { useWorkflows } from "./hooks/useWorkflows";
 import { NormalCommandView } from "./NormalCommandView";
@@ -52,13 +55,13 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     uiMode,
     setUiMode,
     settings,
-    setSettings,
   } = useAgentStore();
 
   const [mode, setMode] = useState<HelixMode>("command");
   const [showSettings, setShowSettings] = useState(false);
   const [settingsSection, setSettingsSection] = useState<SettingsSection>("general");
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [followUpOpen, setFollowUpOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const clipboard = useClipboard();
@@ -66,6 +69,8 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
   const promptsHook = usePrompts();
   const workflows = useWorkflows();
   const skills = useSkills();
+  const spaces = useSpaces();
+  const followUp = useFollowUp();
   const fileCtx = useFileContext(onToastError);
   const exec = useExecute(promptsHook.activeProfileId);
   const { isDragging: isDraggingFile } = useDragDrop((paths) => {
@@ -97,32 +102,16 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     [setIgnoreClipboard, setQuery, setExecutionMode],
   );
 
-  const persistWindowMode = useCallback(
-    async (nextMode: "normal" | "expanded" | "collapsed") => {
-      const nextSettings = { ...settings, lastWindowMode: nextMode };
-      setSettings(nextSettings);
-      try {
-        const api = await getAgent();
-        await api.saveSettings(nextSettings);
-      } catch (err) {
-        console.error("Failed to persist window mode:", err);
-      }
-    },
-    [setSettings, settings],
-  );
-
   const handleToggleExpand = useCallback(async () => {
     const nextMode = uiMode === "expanded" ? "normal" : "expanded";
     setUiMode(nextMode);
     await setWindowMode(nextMode, { alwaysOnTop: settings.alwaysOnTop });
-    await persistWindowMode(nextMode);
-  }, [uiMode, setUiMode, settings.alwaysOnTop, persistWindowMode]);
+  }, [uiMode, setUiMode, settings.alwaysOnTop]);
 
   const handleMinimize = useCallback(async () => {
     setUiMode("collapsed");
     await setWindowMode("collapsed", { alwaysOnTop: settings.alwaysOnTop });
-    await persistWindowMode("collapsed");
-  }, [setUiMode, settings.alwaysOnTop, persistWindowMode]);
+  }, [setUiMode, settings.alwaysOnTop]);
 
   const handleClose = useCallback(async () => {
     await closeApp();
@@ -178,8 +167,12 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
 
     if (!pending?.actionId) return;
 
-    if (pending.actionId === "artifacts") {
-      setMode("workspace");
+    if (pending.actionId === "spaces") {
+      setMode("space");
+      return;
+    }
+    if (pending.actionId === "follow-up") {
+      setFollowUpOpen(true);
       return;
     }
     if (pending.actionId === "workflow") {
@@ -439,6 +432,8 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     onRemoveFile: fileCtx.removeFile,
     isDraggingFile,
     parser,
+    spaces,
+    followUp,
   };
 
   const settingsPanelProps = {
@@ -462,6 +457,8 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     setFormPetSize: settingsForm.setFormPetSize,
     formLanguage: settingsForm.formLanguage,
     setFormLanguage: settingsForm.setFormLanguage,
+    formDefaultWindowMode: settingsForm.formDefaultWindowMode,
+    setFormDefaultWindowMode: settingsForm.setFormDefaultWindowMode,
     showKey: settingsForm.showKey,
     setShowKey: settingsForm.setShowKey,
     fetchedModels: settingsForm.fetchedModels,
@@ -509,6 +506,12 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
           onMinimize={handleMinimize}
           onClose={handleClose}
         />
+        <FollowUpDock
+          followUp={followUp}
+          spaces={spaces}
+          open={followUpOpen}
+          onOpenChange={setFollowUpOpen}
+        />
         <div className="flex-1 min-h-0 flex flex-col">
           <main className="relative flex-1 min-h-0 overflow-hidden">
             {showSettings ? (
@@ -539,6 +542,17 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
         onClose={handleClose}
         onOpenMenu={() => setDrawerOpen((open) => !open)}
         menuOpen={drawerOpen}
+      />
+      <FollowUpDock
+        compact
+        followUp={followUp}
+        spaces={spaces}
+        open={followUpOpen}
+        onOpenChange={setFollowUpOpen}
+        onExpand={() => {
+          setFollowUpOpen(true);
+          void handleToggleExpand();
+        }}
       />
       <HelixDrawer
         open={drawerOpen}

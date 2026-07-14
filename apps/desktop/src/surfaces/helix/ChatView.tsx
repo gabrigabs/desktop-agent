@@ -10,6 +10,7 @@ interface ChatViewProps {
   onEditPrompt?: (text: string) => void;
   onCopyResponse?: (text: string) => void;
   onRegenerate?: () => void;
+  onPromoteToMemory?: (turn: Turn) => Promise<string | null>;
   onToastSuccess?: (message: string, duration?: number) => void;
   onToastError?: (message: string, duration?: number) => void;
 }
@@ -20,6 +21,7 @@ export function ChatView({
   onEditPrompt,
   onCopyResponse,
   onRegenerate,
+  onPromoteToMemory,
   onToastSuccess,
   onToastError,
 }: ChatViewProps) {
@@ -82,6 +84,7 @@ export function ChatView({
               turn={turn}
               onCopyText={onCopyResponse}
               onRegenerate={isLastAssistant ? undefined : onRegenerate}
+              onPromoteToMemory={onPromoteToMemory}
               onToastSuccess={onToastSuccess}
               onToastError={onToastError}
             />

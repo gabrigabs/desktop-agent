@@ -1,7 +1,6 @@
 import {
   type AgentProfile,
   type AppSettings,
-  HELIX_ARTIFACTS,
   type PromptTemplate,
   type SaveProfileInput,
   type Skill,
@@ -17,14 +16,12 @@ import {
   Database,
   Eye,
   EyeOff,
-  FileClock,
   History,
   Keyboard,
   KeyRound,
   Layers,
   Link,
   Monitor,
-  Orbit,
   Plug,
   Settings,
   ShieldCheck,
@@ -55,7 +52,6 @@ export type SettingsSection =
   | "privacy"
   | "profiles"
   | "connectors"
-  | "artifacts"
   | "workflows"
   | "skills"
   | "data"
@@ -130,6 +126,7 @@ export type SettingsPanelProps = {
   formWindowOpacity: number;
   formPetSize: number;
   formLanguage: "pt-BR" | "en";
+  formDefaultWindowMode: "collapsed" | "normal" | "expanded";
   showKey: boolean;
   fetchedModels: string[];
   loadingModels: boolean;
@@ -143,6 +140,7 @@ export type SettingsPanelProps = {
   setFormWindowOpacity: (v: number) => void;
   setFormPetSize: (v: number) => void;
   setFormLanguage: (v: "pt-BR" | "en") => void;
+  setFormDefaultWindowMode: (v: "collapsed" | "normal" | "expanded") => void;
   setShowKey: (v: boolean) => void;
   handleSaveSettings: (e: React.FormEvent) => Promise<boolean | undefined>;
   initialSection?: SettingsSection;
@@ -199,12 +197,6 @@ function useSections(t: (key: string) => string) {
         label: t("common:connectors"),
         description: t("settings:connectors.description"),
         icon: Plug,
-      },
-      {
-        id: "artifacts" as const,
-        label: t("common:artifacts"),
-        description: t("settings:artifacts.description"),
-        icon: Orbit,
       },
       {
         id: "workflows" as const,
@@ -399,9 +391,10 @@ export function SettingsPanel(p: SettingsPanelProps) {
             <div className="mx-auto w-full max-w-4xl">
               {activeSection === "general" && (
                 <GeneralSection
-                  settings={p.settings}
                   formLanguage={p.formLanguage}
                   setFormLanguage={p.setFormLanguage}
+                  formDefaultWindowMode={p.formDefaultWindowMode}
+                  setFormDefaultWindowMode={p.setFormDefaultWindowMode}
                   t={t}
                 />
               )}
@@ -415,7 +408,6 @@ export function SettingsPanel(p: SettingsPanelProps) {
                 <ProfilesSection props={p.sections.profiles} />
               )}
               {activeSection === "connectors" && <ConnectorsSection />}
-              {activeSection === "artifacts" && <ArtifactsSection />}
               {activeSection === "workflows" &&
                 (p.sections?.workflows ? (
                   <WorkflowsSection props={p.sections.workflows} />
@@ -475,27 +467,21 @@ function StatusRow({
 }
 
 function GeneralSection({
-  settings,
   formLanguage,
   setFormLanguage,
+  formDefaultWindowMode,
+  setFormDefaultWindowMode,
   t,
 }: {
-  settings: AppSettings;
   formLanguage: "pt-BR" | "en";
   setFormLanguage: (v: "pt-BR" | "en") => void;
+  formDefaultWindowMode: "collapsed" | "normal" | "expanded";
+  setFormDefaultWindowMode: (v: "collapsed" | "normal" | "expanded") => void;
   t: (key: string, vars?: Record<string, string | number>) => string;
 }) {
-  const modeLabel = { collapsed: "Pet", normal: "Normal", expanded: "Expandido" }[settings.lastWindowMode];
   return (
     <div>
       <div className="grid gap-3 md:grid-cols-2">
-        <Card>
-          <div className="flex items-center gap-2 text-xs font-semibold text-fg">
-            <AppWindow className="w-4 h-4 text-signal" /> {t("settings:general.restoredMode")}
-          </div>
-          <div className="mt-3 text-lg font-bold text-fg">{modeLabel}</div>
-          <p className="mt-1 text-[11px] text-faint">{t("settings:general.restoredModeHint")}</p>
-        </Card>
         <Card>
           <label className="flex flex-col gap-2">
             <span className="flex items-center gap-2 text-xs font-semibold text-fg">
@@ -512,16 +498,27 @@ function GeneralSection({
             <span className="text-[10px] font-normal text-faint">{t("settings:general.languageHint")}</span>
           </label>
         </Card>
-      </div>
-      <div className="mt-4 grid gap-2">
-        <StatusRow
-          title={t("settings:general.autostart")}
-          description={t("settings:general.autostartHint")}
-        />
-        <StatusRow
-          title={t("settings:general.restoreSession")}
-          description={t("settings:general.restoreSessionHint")}
-        />
+        <Card>
+          <label className="flex flex-col gap-2">
+            <span className="flex items-center gap-2 text-xs font-semibold text-fg">
+              <AppWindow className="w-4 h-4 text-signal" /> {t("settings:general.defaultWindowMode")}
+            </span>
+            <select
+              value={formDefaultWindowMode}
+              onChange={(event) =>
+                setFormDefaultWindowMode(event.target.value as "collapsed" | "normal" | "expanded")
+              }
+              className="h-10 rounded-lg border border-line bg-ink px-3 text-xs text-fg"
+            >
+              <option value="collapsed">{t("settings:general.windowModePet")}</option>
+              <option value="normal">{t("settings:general.windowModeNormal")}</option>
+              <option value="expanded">{t("settings:general.windowModeExpanded")}</option>
+            </select>
+            <span className="text-[10px] font-normal text-faint">
+              {t("settings:general.defaultWindowModeHint")}
+            </span>
+          </label>
+        </Card>
       </div>
     </div>
   );
@@ -627,19 +624,6 @@ function ModelSection({
         )}
       </Card>
 
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
-        {[
-          [t("settings:model.strategy.fast"), t("settings:model.strategy.fastHint")],
-          [t("settings:model.strategy.balanced"), t("settings:model.strategy.balancedHint")],
-          [t("settings:model.strategy.best"), t("settings:model.strategy.bestHint")],
-        ].map(([title, description], index) => (
-          <Card key={title} className={index === 0 ? "border-signal/25 bg-signal/[0.04]" : ""}>
-            <div className="text-xs font-semibold text-fg">{title}</div>
-            <div className="mt-1 text-[10px] text-faint">{description}</div>
-            <Badge className="mt-3">{t("settings:model.strategy.future")}</Badge>
-          </Card>
-        ))}
-      </div>
     </div>
   );
 }
@@ -700,27 +684,6 @@ function PetSection({ p }: { p: SettingsPanelProps }) {
         </span>
       </label>
 
-      <div className="mt-4 grid gap-2 md:grid-cols-2">
-        <StatusRow
-          title={t("settings:pet.click.singleClick")}
-          description={t("settings:pet.click.singleClickHint")}
-          status={t("common:active")}
-        />
-        <StatusRow
-          title={t("settings:pet.click.doubleClick")}
-          description={t("settings:pet.click.doubleClickHint")}
-          status={t("common:active")}
-        />
-        <StatusRow
-          title={t("settings:pet.click.drag")}
-          description={t("settings:pet.click.dragHint")}
-          status={t("common:active")}
-        />
-        <StatusRow
-          title={t("settings:pet.click.inspector")}
-          description={t("settings:pet.click.inspectorHint")}
-        />
-      </div>
     </div>
   );
 }
@@ -729,9 +692,8 @@ function ShortcutsSection() {
   const { t } = useTranslation(["settings", "common"]);
   const shortcuts = [
     [t("settings:shortcuts.openRadial"), GLOBAL_SHORTCUT_LABEL, t("common:active")],
-    [t("settings:shortcuts.openComposer"), t("settings:shortcuts.undefined"), t("common:active")],
-    [t("settings:shortcuts.captureScreen"), t("settings:shortcuts.undefined"), t("common:planned")],
-    [t("settings:shortcuts.toggleMode"), t("settings:shortcuts.undefined"), t("common:planned")],
+    [t("settings:shortcuts.openComposer"), "Enter", t("common:active")],
+    [t("settings:shortcuts.toggleMode"), "Esc", t("common:active")],
   ];
   return (
     <div>
@@ -773,29 +735,7 @@ function PrivacySection() {
 
   return (
     <div>
-      <div className="grid gap-2">
-        <StatusRow
-          title={t("settings:privacy.clipboard")}
-          description={t("settings:privacy.clipboardHint")}
-          status={t("common:active")}
-        />
-        <StatusRow
-          title={t("settings:privacy.screenshot")}
-          description={t("settings:privacy.screenshotHint")}
-          status={t("common:active")}
-        />
-        <StatusRow
-          title={t("settings:privacy.continuous")}
-          description={t("settings:privacy.continuousHint")}
-          status={t("common:blocked")}
-        />
-        <StatusRow title={t("settings:privacy.secrets")} description={t("settings:privacy.secretsHint")} />
-        <StatusRow
-          title={t("settings:privacy.retention")}
-          description={t("settings:privacy.retentionHint")}
-        />
-      </div>
-      <div className="mt-3 rounded-xl border border-line p-4">
+      <div className="rounded-xl border border-line p-4">
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-xs font-semibold text-fg">Notificações nativas</div>
@@ -862,36 +802,6 @@ function ConnectorsSection() {
   );
 }
 
-function ArtifactsSection() {
-  const { t } = useTranslation(["settings", "helix"]);
-  return (
-    <div>
-      <div className="grid gap-3 md:grid-cols-2">
-        {HELIX_ARTIFACTS.map((artifact) => (
-          <Card key={artifact.id}>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold text-fg">
-                {t(`helix:radialArtifacts.${artifact.id}.name`)}
-              </span>
-              <Badge variant="signal">v{artifact.version}</Badge>
-            </div>
-            <p className="mt-2 text-[11px] text-faint">
-              {t(`helix:radialArtifacts.${artifact.id}.shortDescription`)}
-            </p>
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {artifact.quickActions.slice(0, 3).map((action) => (
-                <Badge key={action.id}>
-                  {t(`helix:radialArtifacts.${artifact.id}.${action.id.replace(`${artifact.id}-`, "")}`)}
-                </Badge>
-              ))}
-            </div>
-          </Card>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function WorkflowsSection({ props }: { props: WorkflowsSectionProps }) {
   return <WorkflowsPanel {...props} />;
 }
@@ -936,7 +846,13 @@ function DataSection() {
   );
 }
 
-function AdvancedSection({ p, timeoutOutOfRange }: { p: SettingsPanelProps; timeoutOutOfRange: boolean }) {
+function AdvancedSection({
+  p,
+  timeoutOutOfRange,
+}: {
+  p: SettingsPanelProps;
+  timeoutOutOfRange: boolean;
+}) {
   const { t } = useTranslation(["settings", "common"]);
   const timeoutId = useId();
   const baseUrlId = useId();
@@ -977,23 +893,6 @@ function AdvancedSection({ p, timeoutOutOfRange }: { p: SettingsPanelProps; time
         </label>
       </Card>
 
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
-        <Card>
-          <Database className="w-4 h-4 text-signal" />
-          <div className="mt-2 text-xs font-semibold text-fg">{t("settings:advanced.storage")}</div>
-          <div className="mt-1 text-[10px] text-faint">{t("settings:advanced.storageHint")}</div>
-        </Card>
-        <Card>
-          <FileClock className="w-4 h-4 text-good" />
-          <div className="mt-2 text-xs font-semibold text-fg">{t("settings:advanced.runtimeLogs")}</div>
-          <div className="mt-1 text-[10px] text-faint">{t("settings:advanced.runtimeLogsHint")}</div>
-        </Card>
-        <Card>
-          <Terminal className="w-4 h-4 text-warn" />
-          <div className="mt-2 text-xs font-semibold text-fg">{t("settings:advanced.sidecar")}</div>
-          <div className="mt-1 text-[10px] text-faint">{t("settings:advanced.sidecarHint")}</div>
-        </Card>
-      </div>
     </div>
   );
 }

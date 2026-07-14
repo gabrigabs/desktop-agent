@@ -6,7 +6,8 @@ import type {
   ContextAttachment,
   ExecutionMode,
   FileContextInput,
-  MemoryFact,
+  FollowUpSession,
+  SpaceMemoryFact,
   MessageBlock,
   NativeBoundingBox,
   NativeCapturePreview,
@@ -14,7 +15,7 @@ import type {
   Turn,
   WorkflowRun,
   WorkflowStep,
-  Workspace,
+  Space,
 } from "@desktop-agent/shared";
 import { create } from "zustand";
 import { parseAssistantContent } from "../lib/assistant-content";
@@ -84,19 +85,23 @@ type State = {
   screenCapture: ScreenCaptureState;
   pendingScreenAction: "screen-read" | "screen-capture" | "screen-region" | "screen-window" | null;
   activeComposerActionId: string;
-  activeWorkspaceId: string | null;
-  workspaces: Workspace[];
-  memoryFacts: MemoryFact[];
+  activeSpaceId: string | null;
+  spaces: Space[];
+  memoryFacts: SpaceMemoryFact[];
+  followUpSessions: FollowUpSession[];
+  activeFollowUpSession: FollowUpSession | null;
 
-  setActiveWorkspaceId: (id: string | null) => void;
-  setWorkspaces: (workspaces: Workspace[]) => void;
-  setMemoryFacts: (facts: MemoryFact[]) => void;
-  addWorkspace: (workspace: Workspace) => void;
-  updateWorkspaceInList: (id: string, updates: Partial<Workspace>) => void;
-  removeWorkspaceFromList: (id: string) => void;
-  addMemoryFactToStore: (fact: MemoryFact) => void;
-  updateMemoryFactInStore: (id: string, updates: Partial<MemoryFact>) => void;
+  setActiveSpaceId: (id: string | null) => void;
+  setSpaces: (spaces: Space[]) => void;
+  setMemoryFacts: (facts: SpaceMemoryFact[]) => void;
+  addSpace: (space: Space) => void;
+  updateSpaceInList: (id: string, updates: Partial<Space>) => void;
+  removeSpaceFromList: (id: string) => void;
+  addMemoryFactToStore: (fact: SpaceMemoryFact) => void;
+  updateMemoryFactInStore: (id: string, updates: Partial<SpaceMemoryFact>) => void;
   removeMemoryFactFromStore: (id: string) => void;
+  setFollowUpSessions: (sessions: FollowUpSession[]) => void;
+  setActiveFollowUpSession: (session: FollowUpSession | null) => void;
 
   setConnected: (v: boolean) => void;
   setBootState: (s: BootState) => void;
@@ -163,13 +168,13 @@ const defaultSettings: AppSettings = {
   model: "",
   hidePet: false,
   alwaysOnTop: false,
-  lastWindowMode: "normal",
   timeout: 120,
   windowOpacity: 0.72,
   petSize: 56,
   language: "pt-BR",
   notificationsEnabled: false,
   notificationContentMode: "generic",
+  defaultWindowMode: "normal",
 };
 
 const defaultConnectors: ConnectorConfig[] = [
@@ -273,22 +278,24 @@ export const useAgentStore = create<State>((set) => ({
   },
   pendingScreenAction: null,
   activeComposerActionId: "pergunta-livre",
-  activeWorkspaceId: null,
-  workspaces: [],
+  activeSpaceId: null,
+  spaces: [],
   memoryFacts: [],
+  followUpSessions: [],
+  activeFollowUpSession: null,
 
-  setActiveWorkspaceId: (activeWorkspaceId) => set({ activeWorkspaceId }),
-  setWorkspaces: (workspaces) => set({ workspaces }),
+  setActiveSpaceId: (activeSpaceId) => set({ activeSpaceId }),
+  setSpaces: (spaces) => set({ spaces }),
   setMemoryFacts: (memoryFacts) => set({ memoryFacts }),
-  addWorkspace: (workspace) => set((s) => ({ workspaces: [...s.workspaces, workspace] })),
-  updateWorkspaceInList: (id, updates) =>
+  addSpace: (space) => set((s) => ({ spaces: [...s.spaces, space] })),
+  updateSpaceInList: (id, updates) =>
     set((s) => ({
-      workspaces: s.workspaces.map((w) => (w.id === id ? { ...w, ...updates } : w)),
+      spaces: s.spaces.map((w) => (w.id === id ? { ...w, ...updates } : w)),
     })),
-  removeWorkspaceFromList: (id) =>
+  removeSpaceFromList: (id) =>
     set((s) => ({
-      workspaces: s.workspaces.filter((w) => w.id !== id),
-      activeWorkspaceId: s.activeWorkspaceId === id ? null : s.activeWorkspaceId,
+      spaces: s.spaces.filter((w) => w.id !== id),
+      activeSpaceId: s.activeSpaceId === id ? null : s.activeSpaceId,
     })),
   addMemoryFactToStore: (fact) => set((s) => ({ memoryFacts: [fact, ...s.memoryFacts] })),
   updateMemoryFactInStore: (id, updates) =>
@@ -296,6 +303,8 @@ export const useAgentStore = create<State>((set) => ({
       memoryFacts: s.memoryFacts.map((f) => (f.id === id ? { ...f, ...updates } : f)),
     })),
   removeMemoryFactFromStore: (id) => set((s) => ({ memoryFacts: s.memoryFacts.filter((f) => f.id !== id) })),
+  setFollowUpSessions: (followUpSessions) => set({ followUpSessions }),
+  setActiveFollowUpSession: (activeFollowUpSession) => set({ activeFollowUpSession }),
 
   setConnected: (connected) => set({ connected }),
   setBootState: (bootState) => set({ bootState }),

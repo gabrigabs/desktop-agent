@@ -15,7 +15,16 @@
     "autostart": "Open on system startup",
     "autostartHint": "Native autostart integration is not yet implemented.",
     "restoreSession": "Reopen last session",
-    "restoreSessionHint": "Requires explicit contract between window, conversation, and retention."
+    "restoreSessionHint": "Requires explicit contract between window, conversation, and retention.",
+    "defaultWindowMode": "Default initial mode",
+    "defaultWindowModeHint": "Window mode when opening the app.",
+    "windowModePet": "Pet",
+    "windowModeNormal": "Normal",
+    "windowModeExpanded": "Expanded",
+    "petClickBehavior": "Pet click behavior",
+    "petClickBehaviorHint": "Single click opens menu or double click goes to normal mode.",
+    "petClickSingleMenu": "Single click — Menu",
+    "petClickDoubleNormal": "Double click — Normal"
   },
   "model": {
     "title": "Model and access",
@@ -87,7 +96,16 @@
     "secrets": "Hide detected secrets",
     "secretsHint": "Requires redaction pipeline before sending to provider.",
     "retention": "Context retention",
-    "retentionHint": "Will be integrated with data policy and Artifacts."
+    "retentionHint": "Will be integrated with data policy and Artifacts.",
+    "contextRetention": "Context retention",
+    "contextRetentionHint": "Controls how long file context stays active.",
+    "retentionSession": "Current session",
+    "retentionPersistent": "Persistent",
+    "retentionManualOnly": "Manual only",
+    "confirmContextSend": "Confirm context send",
+    "confirmContextSendHint": "Ask for confirmation before sending context to provider.",
+    "hideSensitiveContent": "Hide sensitive content",
+    "hideSensitiveContentHint": "Redact sensitive content before sending."
   },
   "profiles": {
     "description": "Agent profiles and prompt library for response styles and behaviors."
@@ -96,10 +114,6 @@
     "title": "Connectors",
     "description": "Detailed management remains on the Connectors page; this hub will bring together status, permissions, and last usage.",
     "permissionsHint": "Permissions, health check, and consumer Artifacts will be consolidated here."
-  },
-  "artifacts": {
-    "title": "Experimental artifacts",
-    "description": "The initial catalog is read-only. Persistence, editing, and pinning to the radial will come after the foundation."
   },
   "workflows": {
     "title": "Workflows",

@@ -19,7 +19,7 @@ export const HELIX_NAV_GROUPS: HelixNavGroup[] = [
     labelKey: "work",
     items: [
       { id: "history", icon: Clock3 },
-      { id: "workspace", icon: FolderOpen },
+      { id: "space", icon: FolderOpen },
     ],
   },
   {

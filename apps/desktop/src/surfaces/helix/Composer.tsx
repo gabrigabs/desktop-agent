@@ -45,7 +45,7 @@ import { type StructuredOcr, structureVisionText } from "../../lib/structured-oc
 import { hideMainWindowForCapture, setWindowMode } from "../../lib/window";
 import { useAgentStore } from "../../stores/agent";
 import { useModelSelector } from "./hooks/useModelSelector";
-import { WorkspaceIcon } from "./workspace-visuals";
+import { SpaceIcon } from "./space-visuals";
 
 const CLIPBOARD_MARKER = "[CLIPBOARD]";
 type ScreenAction = "screen-read" | "screen-capture" | "screen-region" | "screen-window";
@@ -152,12 +152,12 @@ export function Composer({
   const screenCapture = useAgentStore((state) => state.screenCapture);
   const activeActionId = useAgentStore((state) => state.activeComposerActionId);
   const setActiveActionId = useAgentStore((state) => state.setActiveComposerActionId);
-  const activeWorkspaceId = useAgentStore((state) => state.activeWorkspaceId);
-  const workspaces = useAgentStore((state) => state.workspaces);
-  const setActiveWorkspaceId = useAgentStore((state) => state.setActiveWorkspaceId);
-  const activeWorkspace = useMemo(
-    () => workspaces.find((workspace) => workspace.id === activeWorkspaceId) ?? null,
-    [activeWorkspaceId, workspaces],
+  const activeSpaceId = useAgentStore((state) => state.activeSpaceId);
+  const spaces = useAgentStore((state) => state.spaces);
+  const setActiveSpaceId = useAgentStore((state) => state.setActiveSpaceId);
+  const activeSpace = useMemo(
+    () => spaces.find((space) => space.id === activeSpaceId) ?? null,
+    [activeSpaceId, spaces],
   );
 
   useEffect(() => {
@@ -656,24 +656,24 @@ export function Composer({
           </div>
         </div>
       )}
-      {activeWorkspace && (
+      {activeSpace && (
         <div
           className="flex items-center gap-1.5 px-1 text-[11px] leading-none"
-          style={{ color: activeWorkspace.color }}
+          style={{ color: activeSpace.color }}
         >
-          <WorkspaceIcon icon={activeWorkspace.icon} className="h-3.5 w-3.5 shrink-0" />
-          <span className="shrink-0 font-medium">{activeWorkspace.name}</span>
-          {activeWorkspace.purpose && (
-            <span className="hidden truncate text-faint sm:block max-w-48">{activeWorkspace.purpose}</span>
+          <SpaceIcon icon={activeSpace.icon} className="h-3.5 w-3.5 shrink-0" />
+          <span className="shrink-0 font-medium">{activeSpace.name}</span>
+          {activeSpace.purpose && (
+            <span className="hidden truncate text-faint sm:block max-w-48">{activeSpace.purpose}</span>
           )}
           <button
             type="button"
             onClick={() => {
-              setActiveWorkspaceId(null);
-              localStorage.removeItem("helix.active-workspace-id");
+              setActiveSpaceId(null);
+              localStorage.removeItem("helix.active-space-id");
             }}
             className="shrink-0 rounded p-0.5 opacity-50 transition-opacity hover:opacity-100"
-            title={t("helix:workspace.leaveSpace")}
+            title={t("helix:space.leaveSpace")}
           >
             <X className="h-3 w-3" />
           </button>

@@ -32,3 +32,5 @@ Thumbs.db
 .playwright-cli/
 output/
 apps/desktop/src-tauri/$HOME/
+tests/storage/*.db-shm
+tests/storage/*.db-wal

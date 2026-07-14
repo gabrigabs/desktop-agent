@@ -2,6 +2,7 @@ import type { MessageBlock, Turn } from "@desktop-agent/shared";
 import { unwrapAgentResponse } from "@desktop-agent/shared";
 import {
   AlertCircle,
+  BookMarked,
   Check,
   ChevronDown,
   Clipboard,
@@ -20,6 +21,7 @@ interface ResponseBubbleProps {
   turn: Turn;
   onCopyText?: (text: string) => void;
   onRegenerate?: () => void;
+  onPromoteToMemory?: (turn: Turn) => Promise<string | null>;
   onToastSuccess?: (message: string, duration?: number) => void;
   onToastError?: (message: string, duration?: number) => void;
 }
@@ -62,6 +64,7 @@ export function ResponseBubble({
   turn,
   onCopyText,
   onRegenerate,
+  onPromoteToMemory,
   onToastSuccess,
   onToastError,
 }: ResponseBubbleProps) {
@@ -75,6 +78,24 @@ export function ResponseBubble({
   const lastBlockType = lastBlock?.type;
   const isThinkingPhase = isStreaming && (lastBlockType === "thinking" || !lastBlockType);
   const isTypingPhase = isStreaming && lastBlockType === "text" && text !== "";
+
+  const [promoted, setPromoted] = useState(false);
+
+  const handlePromote = async () => {
+    if (!onPromoteToMemory || !text) return;
+    try {
+      const id = await onPromoteToMemory(turn);
+      if (id) {
+        setPromoted(true);
+        setTimeout(() => setPromoted(false), 2000);
+        onToastSuccess?.(t("helix:responseBubble.promotedToMemory"));
+      } else {
+        onToastError?.(t("helix:responseBubble.promoteError"));
+      }
+    } catch {
+      onToastError?.(t("helix:responseBubble.promoteError"));
+    }
+  };
 
   const handleCopy = async () => {
     if (!text) return;
@@ -153,6 +174,17 @@ export function ResponseBubble({
               >
                 {copied ? <Check className="w-3 h-3" /> : <Clipboard className="w-3 h-3" />}
                 {copied ? t("helix:responseBubble.copied") : t("helix:responseBubble.copy")}
+              </button>
+            )}
+            {onPromoteToMemory && text && (
+              <button
+                type="button"
+                onClick={handlePromote}
+                disabled={promoted}
+                className="h-6 px-2 rounded-md text-[10px] font-semibold text-faint hover:text-fg hover:bg-white/[0.04] transition-colors cursor-pointer flex items-center gap-1 disabled:opacity-50"
+              >
+                {promoted ? <Check className="w-3 h-3" /> : <BookMarked className="w-3 h-3" />}
+                {promoted ? t("helix:responseBubble.promoted") : t("helix:responseBubble.promoteToMemory")}
               </button>
             )}
             {onRegenerate && (

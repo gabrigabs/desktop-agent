@@ -22,7 +22,6 @@
   "privacy": "Contexto e privacidade",
   "profiles": "Perfis",
   "connectors": "Conectores",
-  "artifacts": "Espaços",
   "workflows": "Workflows",
   "skills": "Skills",
   "data": "Dados e histórico",
@@ -39,6 +38,8 @@
   "customModel": "Modelo customizado",
   "fetchingModels": "Buscando modelos...",
   "required": "Necessária para este provider.",
+  "on": "Ligado",
+  "off": "Desligado",
   "boot": {
     "initializing": "Inicializando agente...",
     "loadingProfiles": "Carregando perfis...",

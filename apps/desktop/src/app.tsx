@@ -72,12 +72,8 @@ export function App() {
     async (mode: "collapsed" | "normal" | "expanded") => {
       setUiMode(mode);
       await setWindowMode(mode, { alwaysOnTop: settings.alwaysOnTop });
-
-      if (settings.lastWindowMode !== mode) {
-        await saveAppSettings({ ...settings, lastWindowMode: mode });
-      }
     },
-    [saveAppSettings, setUiMode, settings],
+    [setUiMode, settings.alwaysOnTop],
   );
 
   // Ensure always on top is synced with state
@@ -85,16 +81,16 @@ export function App() {
     apiSetAlwaysOnTop(settings.alwaysOnTop);
   }, [settings.alwaysOnTop]);
 
-  // Restore persisted window mode once on mount.
+  // Apply the configured cold-start mode once. Session changes never rewrite it.
   useEffect(() => {
     if (restoredWindowMode.current) return;
 
     restoredWindowMode.current = true;
     const mode =
-      settings.hidePet && settings.lastWindowMode === "collapsed" ? "normal" : settings.lastWindowMode;
+      settings.hidePet && settings.defaultWindowMode === "collapsed" ? "normal" : settings.defaultWindowMode;
     setUiMode(mode);
     setWindowMode(mode, { alwaysOnTop: settings.alwaysOnTop });
-  }, [settings.alwaysOnTop, settings.hidePet, settings.lastWindowMode, setUiMode]);
+  }, [settings.alwaysOnTop, settings.defaultWindowMode, settings.hidePet, setUiMode]);
 
   // Sync pet hide visibility lifecycle
   useEffect(() => {
@@ -102,9 +98,8 @@ export function App() {
       hideWindow();
       setUiMode("normal");
       setWindowMode("normal", { alwaysOnTop: settings.alwaysOnTop });
-      saveAppSettings({ ...settings, lastWindowMode: "normal" });
     }
-  }, [saveAppSettings, settings, uiMode, setUiMode]);
+  }, [settings.alwaysOnTop, settings.hidePet, uiMode, setUiMode]);
 
   // Listen to tray-click event emitted from Rust
   useEffect(() => {

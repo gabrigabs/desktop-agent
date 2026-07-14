@@ -173,9 +173,9 @@ export function ParserModePanel({ variant, parser, onBack, setQuery, setMode, on
             onSendToChat={() =>
               parser.selectedJob && parser.sendToChat(parser.selectedJob.path, setQuery, setMode)
             }
-            onAttachToWorkspace={
-              parser.activeWorkspaceId && parser.selectedJob?.id
-                ? () => parser.selectedJob && parser.attachToWorkspace(parser.selectedJob.path)
+            onAttachToSpace={
+              parser.activeSpaceId && parser.selectedJob?.id
+                ? () => parser.selectedJob && parser.attachToSpace(parser.selectedJob.path)
                 : undefined
             }
             improving={parser.improvingPath === parser.selectedJob?.path}
@@ -354,7 +354,7 @@ function PreviewPane({
   onDownloadMd,
   onDownloadTxt,
   onSendToChat,
-  onAttachToWorkspace,
+  onAttachToSpace,
   onImprove,
   improving,
 }: {
@@ -365,7 +365,7 @@ function PreviewPane({
   onDownloadMd: () => void;
   onDownloadTxt: () => void;
   onSendToChat: () => void;
-  onAttachToWorkspace?: () => void;
+  onAttachToSpace?: () => void;
   onImprove: () => void;
   improving: boolean;
 }) {
@@ -507,10 +507,10 @@ function PreviewPane({
             <Send className="w-3.5 h-3.5" />
             {!compact && t("helix:parserMode.sendToChat")}
           </Button>
-          {onAttachToWorkspace && (
-            <Button variant="ghost" size="sm" onClick={onAttachToWorkspace} className="shrink-0">
+          {onAttachToSpace && (
+            <Button variant="ghost" size="sm" onClick={onAttachToSpace} className="shrink-0">
               <Link2 className="h-3.5 w-3.5" />
-              {!compact && t("helix:parserMode.addToWorkspace")}
+              {!compact && t("helix:parserMode.addToSpace")}
             </Button>
           )}
           <Button variant="primary" size="sm" onClick={onImprove} disabled={improving} className="shrink-0">

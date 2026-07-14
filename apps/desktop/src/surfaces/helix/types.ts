@@ -1,1 +1,1 @@
-export type HelixMode = "command" | "history" | "artifacts" | "connectors" | "parser" | "workspace";
+export type HelixMode = "command" | "history" | "connectors" | "parser" | "space";

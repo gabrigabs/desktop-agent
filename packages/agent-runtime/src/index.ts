@@ -1,5 +1,5 @@
 import { parseDocument } from "@desktop-agent/lite-parse";
-import { getDb, runMigrations } from "@desktop-agent/storage";
+import { getDb, restoreActiveFollowUpSessions, runMigrations } from "@desktop-agent/storage";
 import { RPCChannel } from "kkrpc";
 import { nodeStdioTransport } from "kkrpc/stdio";
 import { agentApi, setClientApi } from "./api";
@@ -7,6 +7,7 @@ import { agentApi, setClientApi } from "./api";
 function main() {
   const db = getDb();
   runMigrations(db);
+  restoreActiveFollowUpSessions(db);
 
   const transport = nodeStdioTransport();
   const channel = new RPCChannel(transport, { expose: agentApi, timeout: 0 });

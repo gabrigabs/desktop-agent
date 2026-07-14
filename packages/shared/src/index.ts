@@ -15,18 +15,24 @@ export {
   detectContextType,
   getContextSuggestions,
 } from "./context-detector";
+export type {
+  FollowUpContextPolicy,
+  FollowUpEvent,
+  FollowUpEventType,
+  FollowUpHypothesis,
+  FollowUpHypothesisStatus,
+  FollowUpMemoryScope,
+  FollowUpMode,
+  FollowUpObservation,
+  FollowUpObservationSource,
+  FollowUpSession,
+  FollowUpStatus,
+} from "./follow-up";
 export {
-  type ArtifactAction,
-  type ArtifactContextPolicy,
-  type ArtifactMemoryPolicy,
-  type ArtifactUiConfig,
   getHelixAction,
-  getHelixArtifact,
   HELIX_ACTIONS,
-  HELIX_ARTIFACTS,
   type HelixAction,
   type HelixActionCategory,
-  type HelixArtifact,
   type HelixContextSource,
   type HelixSecondaryAction,
 } from "./helix";
@@ -106,10 +112,16 @@ export type {
   WorkflowTemplateSettings,
 } from "./types/rpc";
 export {
-  artifactToWorkspaceTemplate,
-  type MemoryFact,
-  type Workspace,
-  type WorkspaceDocument,
-  type WorkspaceLayout,
-  type WorkspaceTemplate,
-} from "./workspace";
+  type ExecutionContextSnapshot,
+  type Space,
+  type SpaceCollection,
+  type SpaceDocument,
+  type SpaceField,
+  type SpaceFieldType,
+  type SpaceLayout,
+  type SpaceMemoryFact,
+  type SpaceRecord,
+  type SpaceRecordValue,
+  type SpaceView,
+  type SpaceViewType,
+} from "./space";

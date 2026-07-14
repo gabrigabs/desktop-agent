@@ -83,6 +83,16 @@ export function Pet({ className = "", size = 64, variant = "full", glow = true }
   const dot = variant === "dot";
   const markSize = dot ? size * 0.82 : hero ? size * 0.72 : detailed ? size * 0.84 : size * 0.88;
 
+  const followUpSession = useAgentStore((s) => s.activeFollowUpSession);
+  const followUpColor =
+    followUpSession?.status === "active"
+      ? "#35d6ff"
+      : followUpSession?.status === "paused"
+        ? "#f0a040"
+        : followUpSession?.status === "waiting_approval"
+          ? "#ff5f7a"
+          : null;
+
   return (
     <div
       className={`helix-seed helix-seed-${variant} relative flex items-center justify-center select-none ${className}`}
@@ -93,6 +103,18 @@ export function Pet({ className = "", size = 64, variant = "full", glow = true }
       title={label}
     >
       {glow && !dot && <span className="helix-seed-glow absolute inset-[8%] pointer-events-none" />}
+
+      {followUpColor && !dot && (
+        <span
+          className="absolute rounded-full pointer-events-none"
+          style={{
+            inset: -3,
+            border: `1.5px solid ${followUpColor}`,
+            opacity: 0.5,
+            animation: "helix-orbit-pulse 2s ease-in-out infinite",
+          }}
+        />
+      )}
 
       {detailed && (
         <svg

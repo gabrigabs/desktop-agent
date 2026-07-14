@@ -71,7 +71,7 @@ export function useParserMode(
   const [sources, setSources] = useState<MarkdownSource[]>([]);
   const [improvingPath, setImprovingPath] = useState<string | null>(null);
   const [lastImprovedPath, setLastImprovedPath] = useState<string | null>(null);
-  const activeWorkspaceId = useAgentStore((state) => state.activeWorkspaceId);
+  const activeSpaceId = useAgentStore((state) => state.activeSpaceId);
 
   useEffect(() => {
     let cancelled = false;
@@ -390,19 +390,19 @@ export function useParserMode(
     [jobs, onError, onToastSuccess],
   );
 
-  const attachToWorkspace = useCallback(
+  const attachToSpace = useCallback(
     async (path: string) => {
       const job = jobs.find((item) => item.path === path);
-      if (!activeWorkspaceId || !job?.id) return;
+      if (!activeSpaceId || !job?.id) return;
       try {
         const api = await getAgent();
-        await api.attachDocumentToWorkspace({ workspaceId: activeWorkspaceId, documentId: job.id });
-        onToastSuccess?.("parserMode.addedToWorkspace");
+        await api.attachDocumentToSpace({ spaceId: activeSpaceId, documentId: job.id });
+        onToastSuccess?.("parserMode.addedToSpace");
       } catch (err) {
         onError?.(`Failed to attach document: ${err instanceof Error ? err.message : String(err)}`);
       }
     },
-    [activeWorkspaceId, jobs, onError, onToastSuccess],
+    [activeSpaceId, jobs, onError, onToastSuccess],
   );
 
   const selectFile = useCallback((path: string) => {
@@ -416,7 +416,7 @@ export function useParserMode(
     lastImprovedPath,
     selectedPath,
     selectedJob: jobs.find((j) => j.path === selectedPath) ?? null,
-    activeWorkspaceId,
+    activeSpaceId,
     addFiles,
     addWebFiles,
     indexMarkdownFolder,
@@ -427,7 +427,7 @@ export function useParserMode(
     downloadContent,
     sendToChat,
     improveFile,
-    attachToWorkspace,
+    attachToSpace,
     selectFile,
   };
 }

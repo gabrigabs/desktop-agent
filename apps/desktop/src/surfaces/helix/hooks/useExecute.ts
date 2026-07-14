@@ -136,11 +136,11 @@ export function useExecute(activeProfileId?: string | null) {
       let requestId: string | null = null;
       let runId: string | null = null;
       try {
-        const workspaceProfileId = store.workspaces.find(
-          (workspace) => workspace.id === store.activeWorkspaceId,
+        const spaceProfileId = store.spaces.find(
+          (space) => space.id === store.activeSpaceId,
         )?.profileId;
         const effectiveProfileId =
-          workspaceProfileId ?? store.currentProfileId ?? activeProfileId ?? undefined;
+          spaceProfileId ?? store.currentProfileId ?? activeProfileId ?? undefined;
         const rawClipboardText = store.clipboardText || "";
         const hasClipboard = rawClipboardText.trim().length > 0 && !store.ignoreClipboard;
         const sourceMode: "free" | "clipboard" = hasClipboard ? "clipboard" : "free";
@@ -266,7 +266,7 @@ export function useExecute(activeProfileId?: string | null) {
           maxSteps: store.executionMode === "workflow" ? 8 : undefined,
           history,
           profileId: effectiveProfileId,
-          workspaceId: store.activeWorkspaceId ?? undefined,
+          spaceId: store.activeSpaceId ?? undefined,
         };
 
         const timeoutMs = Math.max(store.settings.timeout, 10) * 1000 + 5000;
@@ -292,11 +292,11 @@ export function useExecute(activeProfileId?: string | null) {
         store.setWorkflowRun(res.run);
         store.setResult(res.run.result || "");
 
-        if (store.activeWorkspaceId && store.currentConversationId) {
+        if (store.activeSpaceId && store.currentConversationId) {
           try {
             const api = await getAgent();
-            await api.linkConversationToWorkspace({
-              workspaceId: store.activeWorkspaceId,
+            await api.linkConversationToSpace({
+              spaceId: store.activeSpaceId,
               conversationId: store.currentConversationId,
             });
           } catch {

@@ -11,39 +11,35 @@ import type {
   WorkflowTemplate,
   WorkflowTemplateSettings,
 } from "@desktop-agent/shared";
+import { unwrapAgentResponse } from "@desktop-agent/shared";
 import {
   AlertCircle,
   ArrowLeft,
   Check,
   Clipboard,
-  Monitor,
   RefreshCw,
   Sparkles,
-  Workflow,
   X,
 } from "lucide-react";
 import type { RefObject } from "react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useShallow } from "zustand/react/shallow";
 import { AgentIdentity } from "../../components/ui/agent-identity";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { HeroHome } from "../../components/ui/hero-home";
 import { RecentConversations } from "../../components/ui/recent-conversations";
-import { useAgentStore } from "../../stores/agent";
 import { ChatView } from "./ChatView";
 import { Composer } from "./Composer";
 import { ConnectorsPanel } from "./ConnectorsPanel";
 import { HistoryList } from "./history-list";
 import type { SaveConnectorInput } from "./hooks/useCapabilities";
 import type { QuickActionItem } from "./hooks/useQuickActions";
-import { useWorkspaces } from "./hooks/useWorkspaces";
+import type { useSpaces } from "./hooks/useSpaces";
 import { ParserModePanel } from "./parser-mode/ParserModePanel";
 import type { ParserModeState } from "./parser-mode/useParserMode";
 import type { HelixMode } from "./types";
-import { WorkspaceInspector } from "./WorkspaceInspector";
-import { WorkspaceShell } from "./WorkspaceShell";
+import { SpaceShell } from "./SpaceShell";
 
 type Props = {
   error: string | null;
@@ -159,23 +155,30 @@ type Props = {
   onAttachFiles?: (paths: string[]) => void;
   onRemoveFile?: (path: string) => void;
   isDraggingFile?: boolean;
+  onPromoteToMemory?: (turn: Turn) => Promise<string | null>;
   parser: ParserModeState;
+  spaces: ReturnType<typeof useSpaces>;
 };
 
 export function ExpandedView(p: Props) {
   const { t } = useTranslation("helix");
-  const screenContexts = useAgentStore(useShallow((s) => s.contexts.filter((c) => c.source === "screen")));
-  const workspacesHook = useWorkspaces();
-  const showInspector =
-    p.mode === "command" &&
-    (Boolean(workspacesHook.activeWorkspace) || p.taskActive || p.messages.length > 0);
+  const spacesHook = p.spaces;
+
+  const handlePromoteToMemory = useCallback(
+    async (turn: Turn): Promise<string | null> => {
+      if (!spacesHook.activeSpaceId) return null;
+      const text = turn.blocks
+        .filter((b): b is { type: "text"; content: string } => b.type === "text")
+        .map((b) => unwrapAgentResponse(b.content))
+        .join("");
+      if (!text.trim()) return null;
+      return spacesHook.promoteChatResponseToMemoryFact(spacesHook.activeSpaceId, text, turn.id);
+    },
+    [spacesHook.activeSpaceId, spacesHook.promoteChatResponseToMemoryFact],
+  );
 
   return (
-    <div
-      className={`helix-view-enter h-full w-full overflow-hidden grid text-fg ${
-        showInspector ? "grid-cols-[minmax(0,1fr)_300px]" : "grid-cols-1"
-      }`}
-    >
+    <div className="helix-view-enter h-full w-full overflow-hidden text-fg">
       <main className="min-w-0 min-h-0 overflow-y-auto p-5">
         {p.mode === "history" ? (
           <div className="max-w-5xl">
@@ -211,140 +214,21 @@ export function ExpandedView(p: Props) {
               onToastError={p.onToastError}
             />
           </div>
-        ) : p.mode === "workspace" || p.mode === "artifacts" ? (
-          <WorkspaceShell
-            ws={workspacesHook}
+        ) : p.mode === "space" ? (
+          <SpaceShell
+            ws={spacesHook}
             onBack={() => p.setMode("command")}
             onOpenChat={() => p.setMode("command")}
             profiles={p.profiles}
           />
         ) : p.messages.length > 0 ? (
-          <ChatActive {...p} />
+          <ChatActive {...p} onPromoteToMemory={handlePromoteToMemory} />
         ) : p.taskActive ? (
           <TaskActive {...p} />
         ) : (
           <CommandHome {...p} />
         )}
       </main>
-
-      {showInspector && (
-        <aside className="min-w-0 border-l border-line p-4 flex flex-col gap-4 overflow-y-auto bg-white/[0.01]">
-          <WorkspaceInspector
-            ws={workspacesHook}
-            profiles={p.profiles}
-            onManage={() => p.setMode("workspace")}
-          />
-
-          <section className="rounded-xl border border-line p-3 bg-white/[0.02]">
-            <div className="text-[10px] text-mute font-medium tracking-tight mb-2">
-              {t("helix:normalCommandView.state")}
-            </div>
-            <div className="flex items-center gap-2">
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  p.error
-                    ? "bg-bad"
-                    : p.streaming
-                      ? "bg-warn animate-pulse"
-                      : p.result
-                        ? "bg-good"
-                        : "bg-signal"
-                }`}
-              />
-              <span className="text-xs font-semibold text-fg">{p.taskStatus}</span>
-            </div>
-            {p.latestLogText && <p className="mt-2 text-[11px] text-mute line-clamp-3">{p.latestLogText}</p>}
-          </section>
-
-          {p.workflowSteps.length > 0 && (
-            <section className="rounded-xl border border-line p-3 flex flex-col gap-2.5 bg-white/[0.02]">
-              <div className="text-[10px] text-mute font-medium tracking-tight flex items-center gap-1.5">
-                <Workflow className="w-3.5 h-3.5 text-signal" /> {t("helix:normalCommandView.steps")}
-              </div>
-              {p.workflowSteps.map((step) => (
-                <div
-                  key={step.id}
-                  className="grid grid-cols-[14px_1fr] gap-2 rounded-lg bg-white/[0.03] px-2.5 py-2"
-                >
-                  <span
-                    className={`mt-1.5 w-2 h-2 rounded-full ${
-                      step.status === "completed"
-                        ? "bg-good"
-                        : step.status === "running"
-                          ? "bg-warn animate-pulse"
-                          : step.status === "waiting_approval"
-                            ? "bg-signal animate-pulse"
-                            : step.status === "failed"
-                              ? "bg-bad"
-                              : "bg-faint"
-                    }`}
-                  />
-                  <div className="min-w-0">
-                    <div className="text-xs font-semibold text-fg truncate">{step.title}</div>
-                    <div className="text-[10px] text-mute leading-relaxed line-clamp-2">
-                      {step.detail || step.kind}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </section>
-          )}
-
-          {!workspacesHook.activeWorkspace && (
-            <section className="rounded-xl border border-line p-3 flex flex-col gap-2 bg-white/[0.02]">
-              <div className="text-[10px] text-mute font-medium tracking-tight">Clipboard</div>
-              <p className="min-h-16 rounded-lg bg-white/[0.03] border border-line p-2.5 text-[11px] text-mute leading-relaxed line-clamp-4 select-text">
-                {p.hasClipboard
-                  ? `"${p.clipboardText.slice(0, 260)}${p.clipboardText.length > 260 ? "..." : ""}"`
-                  : t("helix:normalCommandView.noClipboardText")}
-              </p>
-            </section>
-          )}
-
-          {screenContexts.length > 0 && (
-            <section className="rounded-xl border border-line p-3 flex flex-col gap-2 bg-white/[0.02]">
-              <div className="text-[10px] text-mute font-medium tracking-tight flex items-center gap-1.5">
-                <Monitor className="w-3.5 h-3.5 text-signal" />
-                {t("helix:capturePreview.inspectorTitle")}
-              </div>
-              {screenContexts.map((ctx) => (
-                <div key={ctx.id} className="flex flex-col gap-1.5">
-                  {ctx.imageDataUrl && (
-                    <img
-                      src={ctx.imageDataUrl}
-                      alt={ctx.label}
-                      className="w-full rounded-lg border border-line object-cover max-h-32"
-                      draggable={false}
-                    />
-                  )}
-                  <span className="text-[10px] font-medium text-fg truncate">{ctx.label}</span>
-                  {ctx.content && (
-                    <p className="text-[10px] text-mute leading-relaxed line-clamp-3 select-text">
-                      {ctx.content.slice(0, 200)}
-                    </p>
-                  )}
-                </div>
-              ))}
-            </section>
-          )}
-
-          {!workspacesHook.activeWorkspace && (
-            <section className="rounded-xl border border-line p-3 bg-white/[0.02]">
-              <div className="text-[10px] text-mute font-medium tracking-tight mb-2">
-                {t("helix:normalCommandView.connectorsTitle")}
-              </div>
-              <div className="grid gap-2">
-                {p.connectors.slice(0, 5).map((c) => (
-                  <div key={c.id} className="flex items-center justify-between gap-2">
-                    <span className="text-[11px] text-mute truncate">{c.name}</span>
-                    <span className={`w-2 h-2 rounded-full ${c.enabled ? "bg-good" : "bg-faint"}`} />
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-        </aside>
-      )}
     </div>
   );
 }
@@ -431,6 +315,7 @@ function ChatActive(p: Props) {
         onEditPrompt={p.onEditPrompt}
         onCopyResponse={p.onCopyResponse}
         onRegenerate={p.onRegenerate}
+        onPromoteToMemory={p.onPromoteToMemory}
         onToastSuccess={p.onToastSuccess}
         onToastError={p.onToastError}
       />

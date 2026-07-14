@@ -11,8 +11,10 @@ import type {
   WorkflowTemplate,
   WorkflowTemplateSettings,
 } from "@desktop-agent/shared";
+import { unwrapAgentResponse } from "@desktop-agent/shared";
 import { AlertCircle, ArrowLeft, Check, Maximize2, RefreshCw, Sparkles, Workflow, X } from "lucide-react";
 import type { RefObject } from "react";
+import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { AgentIdentity } from "../../components/ui/agent-identity";
 import { Badge } from "../../components/ui/badge";
@@ -29,11 +31,11 @@ import { GLOBAL_SHORTCUT_GLYPH } from "./constants";
 import { HistoryList } from "./history-list";
 import type { SaveConnectorInput } from "./hooks/useCapabilities";
 import type { QuickActionItem } from "./hooks/useQuickActions";
-import { useWorkspaces } from "./hooks/useWorkspaces";
+import type { useSpaces } from "./hooks/useSpaces";
 import { ParserModePanel } from "./parser-mode/ParserModePanel";
 import type { ParserModeState } from "./parser-mode/useParserMode";
 import type { HelixMode } from "./types";
-import { WorkspaceShell } from "./WorkspaceShell";
+import { SpaceShell } from "./SpaceShell";
 
 type Props = {
   error: string | null;
@@ -152,17 +154,33 @@ type Props = {
   onRemoveFile?: (path: string) => void;
   isDraggingFile?: boolean;
   onSelectRecentConversation?: (conversationId: string) => void;
+  onPromoteToMemory?: (turn: Turn) => Promise<string | null>;
   parser: ParserModeState;
+  spaces: ReturnType<typeof useSpaces>;
 };
 
 export function NormalCommandView(p: Props) {
   const { t } = useTranslation("helix");
-  const workspacesHook = useWorkspaces();
+  const spacesHook = p.spaces;
+
+  const handlePromoteToMemory = useCallback(
+    async (turn: Turn): Promise<string | null> => {
+      if (!spacesHook.activeSpaceId) return null;
+      const text = turn.blocks
+        .filter((b): b is { type: "text"; content: string } => b.type === "text")
+        .map((b) => unwrapAgentResponse(b.content))
+        .join("");
+      if (!text.trim()) return null;
+      return spacesHook.promoteChatResponseToMemoryFact(spacesHook.activeSpaceId, text, turn.id);
+    },
+    [spacesHook.activeSpaceId, spacesHook.promoteChatResponseToMemoryFact],
+  );
+
   return (
     <div className="helix-view-enter h-full w-full overflow-y-auto p-4 text-fg">
       {p.mode === "command" ? (
         p.messages.length > 0 ? (
-          <ChatActive {...p} />
+          <ChatActive {...p} onPromoteToMemory={handlePromoteToMemory} />
         ) : p.taskActive ? (
           <TaskActive {...p} />
         ) : (
@@ -182,13 +200,13 @@ export function NormalCommandView(p: Props) {
           onToastSuccess={p.onToastSuccess}
           onToastError={p.onToastError}
         />
-      ) : p.mode === "workspace" || p.mode === "artifacts" ? (
+      ) : p.mode === "space" ? (
         <PanelWrapper
-          title={t("helix:navigation.workspace", "Workspace")}
+          title={t("helix:navigation.space", "Space")}
           onBack={() => p.setMode("command")}
         >
-          <WorkspaceShell
-            ws={workspacesHook}
+          <SpaceShell
+            ws={spacesHook}
             onBack={() => p.setMode("command")}
             onOpenChat={() => p.setMode("command")}
             profiles={p.profiles}
@@ -337,6 +355,7 @@ function ChatActive(p: Props) {
         onEditPrompt={p.onEditPrompt}
         onCopyResponse={p.onCopyResponse}
         onRegenerate={p.onRegenerate}
+        onPromoteToMemory={p.onPromoteToMemory}
         onToastSuccess={p.onToastSuccess}
         onToastError={p.onToastError}
       />

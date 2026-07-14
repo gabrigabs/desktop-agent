@@ -1,3 +1,11 @@
+import type {
+  FollowUpContextPolicy,
+  FollowUpHypothesisStatus,
+  FollowUpMemoryScope,
+  FollowUpMode,
+  FollowUpObservationSource,
+  FollowUpSession,
+} from "./follow-up";
 import type { ContextAttachment } from "./native";
 import type { MarkdownSource, ParsedDocument } from "./types/parsed-documents";
 import type {
@@ -22,9 +30,20 @@ import type {
   WorkflowTemplate,
   WorkflowTemplateSettings,
 } from "./types/rpc";
-import type { MemoryFact, Workspace, WorkspaceLayout } from "./workspace";
+import type {
+  ExecutionContextSnapshot,
+  Space,
+  SpaceCollection,
+  SpaceField,
+  SpaceLayout,
+  SpaceMemoryFact,
+  SpaceRecord,
+  SpaceRecordValue,
+  SpaceView,
+  SpaceViewType,
+} from "./space";
 
-type WorkspaceInput = {
+type SpaceInput = {
   name: string;
   folderPath: string;
   icon?: string;
@@ -32,7 +51,7 @@ type WorkspaceInput = {
   purpose?: string;
   instructions?: string;
   profileId?: string;
-  preferredLayout?: WorkspaceLayout;
+  preferredLayout?: SpaceLayout;
 };
 
 export type SaveMcpServerInput = {
@@ -82,7 +101,7 @@ export type AgentApi = {
     maxSteps?: number;
     history?: { role: "user" | "assistant" | "system"; content: string }[];
     profileId?: string;
-    workspaceId?: string;
+    spaceId?: string;
   }): Promise<{
     run: WorkflowRun;
     events: AgentEvent[];
@@ -168,10 +187,10 @@ export type AgentApi = {
     id: string;
     instruction?: string;
   }): Promise<{ document: ParsedDocument; outputPath: string }>;
-  listWorkspaces(): Promise<Workspace[]>;
-  createWorkspace(input: WorkspaceInput): Promise<{ id: string }>;
-  getWorkspace(input: { id: string }): Promise<Workspace | null>;
-  updateWorkspace(input: {
+  listSpaces(): Promise<Space[]>;
+  createSpace(input: SpaceInput): Promise<Space>;
+  getSpace(input: { id: string }): Promise<Space | null>;
+  updateSpace(input: {
     id: string;
     name?: string;
     purpose?: string;
@@ -179,25 +198,99 @@ export type AgentApi = {
     folderPath?: string;
     icon?: string;
     profileId?: string | null;
-    preferredLayout?: WorkspaceLayout;
+    preferredLayout?: SpaceLayout;
     memoryEnabled?: boolean;
     color?: string;
-  }): Promise<void>;
-  archiveWorkspace(input: { id: string }): Promise<void>;
-  deleteWorkspace(input: { id: string }): Promise<void>;
-  listWorkspaceDocuments(input: { workspaceId: string }): Promise<ParsedDocument[]>;
-  attachDocumentToWorkspace(input: { workspaceId: string; documentId: string }): Promise<void>;
-  detachDocumentFromWorkspace(input: { workspaceId: string; documentId: string }): Promise<void>;
-  listMemoryFacts(input: { workspaceId: string }): Promise<MemoryFact[]>;
+  }): Promise<Space>;
+  archiveSpace(input: { id: string }): Promise<Space>;
+  deleteSpace(input: { id: string }): Promise<Space>;
+  listSpaceDocuments(input: { spaceId: string }): Promise<ParsedDocument[]>;
+  attachDocumentToSpace(input: { spaceId: string; documentId: string }): Promise<void>;
+  detachDocumentFromSpace(input: { spaceId: string; documentId: string }): Promise<void>;
+  listMemoryFacts(input: { spaceId: string }): Promise<SpaceMemoryFact[]>;
   addMemoryFact(input: {
-    workspaceId: string;
+    spaceId: string;
     content: string;
     origin?: "manual" | "assistant";
     sourceTurnId?: string;
-  }): Promise<{ id: string }>;
-  updateMemoryFact(input: { id: string; content?: string; status?: "active" | "archived" }): Promise<void>;
-  deleteMemoryFact(input: { id: string }): Promise<void>;
-  linkConversationToWorkspace(input: { workspaceId: string; conversationId: string }): Promise<void>;
-  listConversationsByWorkspace(input: { workspaceId: string }): Promise<string[]>;
+  }): Promise<SpaceMemoryFact>;
+  updateMemoryFact(input: {
+    spaceId: string;
+    id: string;
+    content?: string;
+    status?: "active" | "archived";
+  }): Promise<SpaceMemoryFact>;
+  deleteMemoryFact(input: { spaceId: string; id: string }): Promise<void>;
+  linkConversationToSpace(input: { spaceId: string; conversationId: string }): Promise<void>;
+  listConversationsBySpace(input: { spaceId: string }): Promise<string[]>;
+  getExecutionContextSnapshot(input: { runId: string }): Promise<ExecutionContextSnapshot | null>;
+  listSpaceCollections(input: { spaceId: string }): Promise<SpaceCollection[]>;
+  createSpaceCollection(input: {
+    spaceId: string;
+    name: string;
+    icon?: string;
+    fields: SpaceField[];
+  }): Promise<SpaceCollection>;
+  updateSpaceCollection(input: {
+    spaceId: string;
+    id: string;
+    name?: string;
+    icon?: string;
+    fields?: SpaceField[];
+  }): Promise<SpaceCollection>;
+  deleteSpaceCollection(input: { spaceId: string; id: string }): Promise<void>;
+  listSpaceRecords(input: { spaceId: string; collectionId: string }): Promise<SpaceRecord[]>;
+  createSpaceRecord(input: {
+    spaceId: string;
+    collectionId: string;
+    values: Record<string, SpaceRecordValue>;
+  }): Promise<SpaceRecord>;
+  updateSpaceRecord(input: {
+    spaceId: string;
+    collectionId: string;
+    id: string;
+    values: Record<string, SpaceRecordValue>;
+  }): Promise<SpaceRecord>;
+  deleteSpaceRecord(input: { spaceId: string; collectionId: string; id: string }): Promise<void>;
+  listSpaceViews(input: { spaceId: string; collectionId?: string }): Promise<SpaceView[]>;
+  createSpaceView(input: {
+    spaceId: string;
+    collectionId: string;
+    name: string;
+    type: SpaceViewType;
+    config?: Record<string, unknown>;
+  }): Promise<SpaceView>;
+  updateSpaceView(input: {
+    spaceId: string;
+    id: string;
+    name?: string;
+    type?: SpaceViewType;
+    config?: Record<string, unknown>;
+  }): Promise<SpaceView>;
+  deleteSpaceView(input: { spaceId: string; id: string }): Promise<void>;
+  startFollowUpSession(input: {
+    mode: FollowUpMode;
+    objective: string;
+    spaceId?: string | null;
+    memoryScope?: FollowUpMemoryScope;
+    contextPolicy?: FollowUpContextPolicy;
+  }): Promise<FollowUpSession>;
+  pauseFollowUpSession(input: { id: string }): Promise<void>;
+  resumeFollowUpSession(input: { id: string }): Promise<void>;
+  stopFollowUpSession(input: { id: string; reason: string }): Promise<void>;
+  completeFollowUpSession(input: { id: string; summary: string }): Promise<void>;
+  addFollowUpObservation(input: {
+    sessionId: string;
+    content: string;
+    source: FollowUpObservationSource;
+  }): Promise<void>;
+  addFollowUpHypothesis(input: { sessionId: string; text: string }): Promise<void>;
+  updateFollowUpHypothesis(input: {
+    id: string;
+    status?: FollowUpHypothesisStatus;
+    evidenceIds?: string[];
+  }): Promise<void>;
+  listFollowUpSessions(): Promise<FollowUpSession[]>;
+  getFollowUpSession(input: { id: string }): Promise<FollowUpSession | null>;
   shutdown(): Promise<void>;
 };

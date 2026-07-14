@@ -49,7 +49,7 @@ export function HelixHeader({
         </span>
         {expanded && (
           <span className="ml-1 rounded border border-line bg-white/[0.025] px-1.5 py-0.5 text-[8px] font-mono uppercase tracking-wider text-faint">
-            workspace
+            space
           </span>
         )}
       </div>
@@ -65,7 +65,7 @@ export function HelixHeader({
         </IconButton>
         <span className="mx-1 h-4 w-px bg-line" aria-hidden="true" />
         <IconButton
-          title={expanded ? t("helix:header.backToQuickPanel") : t("helix:header.openWorkspace")}
+          title={expanded ? t("helix:header.backToQuickPanel") : t("helix:header.openSpace")}
           active={expanded}
           onClick={onToggleExpand}
           className="h-7 w-7 rounded-md"

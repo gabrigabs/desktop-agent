@@ -21,12 +21,13 @@ import {
   getDb,
   getParsedDocument,
   getSkill,
-  getWorkspace as getStoredWorkspace,
+  getSpace as getStoredSpace,
   getWorkflowRun,
   getWorkflowTemplate,
   listActiveMemoryFacts as listActiveStoredMemoryFacts,
   listWorkflowSteps,
-  listWorkspaceDocumentIds,
+  listSpaceDocumentIds,
+  saveExecutionContextSnapshot,
   toFileContextInput,
   updateWorkflowRun,
   updateWorkflowStep,
@@ -64,7 +65,7 @@ export type RunInput = {
   history?: { role: "user" | "assistant" | "system"; content: string }[];
   skillId?: string;
   profileId?: string;
-  workspaceId?: string;
+  spaceId?: string;
   signal?: AbortSignal;
 };
 
@@ -72,12 +73,12 @@ export type ResumeInput = RunInput & {
   approved: boolean;
 };
 
-export function mergeWorkspaceFileContext(
-  workspaceFiles: FileContextInput[],
+export function mergeSpaceFileContext(
+  spaceFiles: FileContextInput[],
   sessionFiles: FileContextInput[],
 ): FileContextInput[] {
   const filesByPath = new Map<string, FileContextInput>();
-  for (const file of workspaceFiles) filesByPath.set(file.path, file);
+  for (const file of spaceFiles) filesByPath.set(file.path, file);
   for (const file of sessionFiles) filesByPath.set(file.path, file);
   return Array.from(filesByPath.values());
 }
@@ -184,47 +185,61 @@ export class WorkflowRunner {
     resumeApproved?: boolean,
   ): Promise<WorkflowRun> {
     const db = getDb();
-    const workspace = input.workspaceId ? getStoredWorkspace(db, input.workspaceId) : null;
-    const workspaceDocuments =
-      input.workspaceId && workspace?.memoryEnabled
-        ? listWorkspaceDocumentIds(db, input.workspaceId)
+    const space = input.spaceId ? getStoredSpace(db, input.spaceId) : null;
+    const spaceDocuments =
+      input.spaceId && space?.memoryEnabled
+        ? listSpaceDocumentIds(db, input.spaceId)
             .map((id) => getParsedDocument(db, id))
             .filter((document): document is NonNullable<typeof document> => Boolean(document))
         : [];
-    const effectiveFileContext = mergeWorkspaceFileContext(
-      workspaceDocuments.map(toFileContextInput),
+    const effectiveFileContext = mergeSpaceFileContext(
+      spaceDocuments.map(toFileContextInput),
       input.fileContext ?? [],
     );
     const fileContextSection = await this.buildFileContext(effectiveFileContext, input.contextText);
     const attachmentSection = this.buildAttachmentContext(input.contexts, Boolean(input.fileContext?.length));
 
     let memorySection = "";
-    let workspaceInstructionSection = "";
-    if (input.workspaceId && workspace) {
-      if (workspace.instructions.trim()) {
-        workspaceInstructionSection = `Workspace instructions (follow for this workspace only):\n${workspace.instructions.trim()}`;
+    let spaceInstructionSection = "";
+    let activeFacts: { id: string; content: string }[] = [];
+    if (input.spaceId && space) {
+      if (space.instructions.trim()) {
+        spaceInstructionSection = `Space instructions (follow for this space only):\n${space.instructions.trim()}`;
       }
-      if (workspace.memoryEnabled) {
-        const facts = listActiveStoredMemoryFacts(db, input.workspaceId);
+      if (space.memoryEnabled) {
+        const facts = listActiveStoredMemoryFacts(db, input.spaceId);
+        activeFacts = facts.map((f) => ({ id: f.id, content: f.content }));
         if (facts.length > 0) {
           const factLines = facts.map((f) => `- ${f.content}`).join("\n");
-          memorySection = `Workspace memory (use as persistent context):\n${factLines}`;
+          memorySection = `Space memory (use as persistent context):\n${factLines}`;
         }
       }
     }
 
     const contextSections = [
-      workspace?.folderPath
-        ? `Workspace root folder (authorized local scope): ${workspace.folderPath}\nUse this root when the user asks to inspect, search, edit, run, or discuss files in this Space.`
+      space?.folderPath
+        ? `Space root folder (authorized local scope): ${space.folderPath}\nUse this root when the user asks to inspect, search, edit, run, or discuss files in this Space.`
         : "",
       fileContextSection.trim() ? `Contexto de arquivos anexados:\n${fileContextSection}` : "",
       attachmentSection,
-      workspaceInstructionSection,
+      spaceInstructionSection,
       memorySection,
-      workspaceDocuments.length > 0
-        ? `Workspace pinned sources available in file context: ${workspaceDocuments.map((document) => document.displayName).join(", ")}`
+      spaceDocuments.length > 0
+        ? `Space pinned sources available in file context: ${spaceDocuments.map((document) => document.displayName).join(", ")}`
         : "",
     ].filter(Boolean);
+
+    if (input.spaceId || activeFacts.length > 0 || spaceDocuments.length > 0) {
+      saveExecutionContextSnapshot(db, {
+        runId: run.id,
+        spaceId: input.spaceId ?? null,
+        facts: activeFacts,
+        instructions: space?.instructions ?? "",
+        sources: spaceDocuments.map((doc) => ({ documentId: doc.id, displayName: doc.displayName })),
+        fileContextPaths: effectiveFileContext.map((f) => f.path),
+      });
+    }
+
     const effectivePrompt = contextSections.length
       ? `${input.prompt}\n\n${contextSections.join("\n\n")}`
       : input.prompt;
@@ -232,7 +247,7 @@ export class WorkflowRunner {
     const model = this.getActiveModel() || "gpt-4o";
 
     const profileId =
-      input.profileId ?? workspace?.profileId ?? (run.metadata.profileId as string | undefined);
+      input.profileId ?? space?.profileId ?? (run.metadata.profileId as string | undefined);
     const profile = profileId ? getAgentProfile(db, profileId) : null;
 
     let template: WorkflowTemplate | null = null;

@@ -1,21 +1,21 @@
-import type { MemoryFact } from "@desktop-agent/shared";
+import type { SpaceMemoryFact } from "@desktop-agent/shared";
 import { Archive, Brain, Check, FileUp, Loader2, Pencil, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../components/ui/button";
 
 type Props = {
-  workspaceId: string;
+  spaceId: string;
   memoryEnabled: boolean;
-  facts: MemoryFact[];
-  onAdd: (workspaceId: string, content: string) => Promise<string | null>;
-  onAddFiles: (workspaceId: string) => Promise<number>;
+  facts: SpaceMemoryFact[];
+  onAdd: (spaceId: string, content: string) => Promise<string | null>;
+  onAddFiles: (spaceId: string) => Promise<number>;
   onUpdate: (id: string, updates: { content?: string; status?: "active" | "archived" }) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 };
 
-export function WorkspaceMemoryPanel({
-  workspaceId,
+export function SpaceMemoryPanel({
+  spaceId,
   memoryEnabled,
   facts,
   onAdd,
@@ -31,7 +31,7 @@ export function WorkspaceMemoryPanel({
 
   const handleAdd = async () => {
     if (!newFact.trim()) return;
-    const id = await onAdd(workspaceId, newFact.trim());
+    const id = await onAdd(spaceId, newFact.trim());
     if (id) setNewFact("");
   };
 
@@ -43,13 +43,13 @@ export function WorkspaceMemoryPanel({
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm(t("helix:workspace.deleteFactConfirm"))) return;
+    if (!confirm(t("helix:space.deleteFactConfirm"))) return;
     await onDelete(id);
   };
 
   const handleAddFiles = async () => {
     setUploading(true);
-    await onAddFiles(workspaceId);
+    await onAddFiles(spaceId);
     setUploading(false);
   };
 
@@ -61,26 +61,26 @@ export function WorkspaceMemoryPanel({
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Brain className="h-4 w-4 text-signal" />
-          <h3 className="text-sm font-semibold text-fg">{t("helix:workspace.memory")}</h3>
+          <h3 className="text-sm font-semibold text-fg">{t("helix:space.memory")}</h3>
           {memoryEnabled ? (
             <span className="text-[10px] text-good bg-good/10 px-1.5 py-0.5 rounded font-medium">
-              {t("helix:workspace.memoryActive")}
+              {t("helix:space.memoryActive")}
             </span>
           ) : (
             <span className="text-[10px] text-faint bg-white/[0.04] px-1.5 py-0.5 rounded">
-              {t("helix:workspace.memoryDisabled")}
+              {t("helix:space.memoryDisabled")}
             </span>
           )}
         </div>
         <span className="text-xs text-faint">
-          {t("helix:workspace.factsCount", { count: activeFacts.length })}
+          {t("helix:space.factsCount", { count: activeFacts.length })}
         </span>
       </div>
 
       <div className="flex gap-2 mb-3">
         <input
           className="flex-1 rounded-lg border border-line bg-ink/30 px-3 py-2 text-sm text-fg placeholder:text-faint transition-colors focus:border-signal/40 focus:bg-ink/50 outline-none"
-          placeholder={t("helix:workspace.addMemoryPlaceholder")}
+          placeholder={t("helix:space.addMemoryPlaceholder")}
           value={newFact}
           onChange={(e) => setNewFact(e.target.value)}
           onKeyDown={(e) => {
@@ -108,13 +108,13 @@ export function WorkspaceMemoryPanel({
         className="mb-4 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-line py-2.5 text-xs text-faint transition-colors hover:border-line-strong hover:text-mute disabled:opacity-50"
       >
         {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileUp className="h-3.5 w-3.5" />}
-        {uploading ? t("helix:workspace.uploading") : t("helix:workspace.addFiles")}
+        {uploading ? t("helix:space.uploading") : t("helix:space.addFiles")}
       </button>
 
       {activeFacts.length === 0 && archivedFacts.length === 0 ? (
         <div className="flex flex-col items-center py-8 text-center">
           <Brain className="h-8 w-8 text-faint/40 mb-2" />
-          <p className="text-xs text-faint">{t("helix:workspace.noMemory")}</p>
+          <p className="text-xs text-faint">{t("helix:space.noMemory")}</p>
         </div>
       ) : (
         <div className="flex flex-col gap-2">
@@ -147,8 +147,8 @@ export function WorkspaceMemoryPanel({
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-[10px] text-faint">
                         {fact.origin === "assistant"
-                          ? t("helix:workspace.factOriginAssistant")
-                          : t("helix:workspace.factOriginManual")}
+                          ? t("helix:space.factOriginAssistant")
+                          : t("helix:space.factOriginManual")}
                       </span>
                       <span className="text-[10px] text-faint">
                         {new Date(fact.createdAt).toLocaleDateString()}
@@ -163,7 +163,7 @@ export function WorkspaceMemoryPanel({
                         setEditingId(fact.id);
                         setEditContent(fact.content);
                       }}
-                      title={t("helix:workspace.edit")}
+                      title={t("helix:space.edit")}
                     >
                       <Pencil className="h-3 w-3" />
                     </button>
@@ -171,7 +171,7 @@ export function WorkspaceMemoryPanel({
                       type="button"
                       className="p-1 rounded text-faint hover:text-warn hover:bg-white/[0.06] transition-colors"
                       onClick={() => onUpdate(fact.id, { status: "archived" })}
-                      title={t("helix:workspace.archive")}
+                      title={t("helix:space.archive")}
                     >
                       <Archive className="h-3 w-3" />
                     </button>
@@ -179,7 +179,7 @@ export function WorkspaceMemoryPanel({
                       type="button"
                       className="p-1 rounded text-faint hover:text-bad hover:bg-white/[0.06] transition-colors"
                       onClick={() => void handleDelete(fact.id)}
-                      title={t("helix:workspace.delete")}
+                      title={t("helix:space.delete")}
                     >
                       <Trash2 className="h-3 w-3" />
                     </button>
@@ -192,7 +192,7 @@ export function WorkspaceMemoryPanel({
           {archivedFacts.length > 0 && (
             <details className="mt-2">
               <summary className="text-xs text-faint cursor-pointer hover:text-mute transition-colors select-none">
-                {t("helix:workspace.archived")} ({archivedFacts.length})
+                {t("helix:space.archived")} ({archivedFacts.length})
               </summary>
               <div className="flex flex-col gap-1.5 mt-2">
                 {archivedFacts.map((fact) => (
@@ -206,7 +206,7 @@ export function WorkspaceMemoryPanel({
                         type="button"
                         className="p-1 rounded text-faint hover:text-good hover:bg-white/[0.06] transition-colors"
                         onClick={() => onUpdate(fact.id, { status: "active" })}
-                        title={t("helix:workspace.restore")}
+                        title={t("helix:space.restore")}
                       >
                         <RotateCcw className="h-3 w-3" />
                       </button>
