@@ -1,4 +1,5 @@
 import type {
+  AgentProfile,
   ParsedDocument,
   Space,
   SpaceCollection,
@@ -7,6 +8,8 @@ import type {
   SpaceRecordValue,
   SpaceView,
   SpaceViewType,
+  SuggestedSpaceCollection,
+  SuggestSpaceConfigOutput,
 } from "@desktop-agent/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getAgent } from "../../../lib/rpc";
@@ -21,10 +24,13 @@ export type CreateSpaceInput = {
   instructions?: string;
   profileId?: string;
   preferredLayout?: "chat" | "collections";
+  memoryEnabled?: boolean;
+  initialCollections?: SuggestedSpaceCollection[];
 };
 
 export function useSpaces() {
   const [loading, setLoading] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [documents, setDocuments] = useState<ParsedDocument[]>([]);
   const [availableDocuments, setAvailableDocuments] = useState<ParsedDocument[]>([]);
@@ -67,8 +73,30 @@ export function useSpaces() {
     async (input: CreateSpaceInput): Promise<string | null> => {
       try {
         const api = await getAgent();
-        const space = await api.createSpace(input);
+        const { initialCollections = [], ...spaceInput } = input;
+        const space = await api.createSpace(spaceInput);
+        const createdCollections: SpaceCollection[] = [];
+        const createdViews: SpaceView[] = [];
+        for (const suggestion of initialCollections.slice(0, 3)) {
+          const collection = await api.createSpaceCollection({
+            spaceId: space.id,
+            name: suggestion.name,
+            fields: suggestion.fields.map((field) => ({ ...field, id: crypto.randomUUID() })),
+          });
+          createdCollections.push(collection);
+          createdViews.push(
+            await api.createSpaceView({
+              spaceId: space.id,
+              collectionId: collection.id,
+              name: "Tabela",
+              type: "table",
+              config: {},
+            }),
+          );
+        }
         addSpace(space);
+        setCollections(createdCollections);
+        setViews(createdViews);
         return space.id;
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to create space");
@@ -76,6 +104,35 @@ export function useSpaces() {
       }
     },
     [addSpace],
+  );
+
+  const suggestSpaceConfig = useCallback(
+    async (
+      name: string,
+      purpose: string,
+      profiles: AgentProfile[],
+    ): Promise<SuggestSpaceConfigOutput | null> => {
+      setSuggesting(true);
+      setError(null);
+      try {
+        const api = await getAgent();
+        return await api.suggestSpaceConfig({
+          name,
+          purpose,
+          profiles: profiles.map(({ id, name: profileName, description }) => ({
+            id,
+            name: profileName,
+            description,
+          })),
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to suggest a Space configuration");
+        return null;
+      } finally {
+        setSuggesting(false);
+      }
+    },
+    [],
   );
 
   const loadSpaceContext = useCallback(
@@ -430,9 +487,11 @@ export function useSpaces() {
     records,
     views,
     loading,
+    suggesting,
     error,
     refresh,
     createSpace,
+    suggestSpaceConfig,
     selectSpace,
     updateSpace,
     archiveSpace,

@@ -18,6 +18,7 @@ import { runMigration as runSpaceCustomizationMigration } from "./016_workspace_
 import { runMigration as runSpaceConsolidationMigration } from "./017_space_consolidation";
 import { runMigration as runSettingsCleanupMigration } from "./018_settings_cleanup";
 import { runMigration as runFollowUpSessionsMigration } from "./019_follow_up_sessions";
+import { runMigration as runFollowUpObservationStatusMigration } from "./020_follow_up_observation_status";
 
 const MIGRATION_TABLE = `
   CREATE TABLE IF NOT EXISTS _migrations (
@@ -71,9 +72,11 @@ function reconcilePreReleaseSequence(db: Database, targetVersion: number): void 
     runSpaceConsolidationMigration(db);
     if (targetVersion >= 18) runSettingsCleanupMigration(db);
     if (targetVersion >= 19) runFollowUpSessionsMigration(db);
+    if (targetVersion >= 20) runFollowUpObservationStatusMigration(db);
 
-    // Version 020 belonged to the discarded local-only sequence. Leaving it
-    // recorded would make a future real migration 020 get skipped.
+    // Remove only versions beyond the current published sequence. Migration
+    // 020 is idempotently reconciled above because prerelease databases may
+    // already have that version number recorded with a different schema.
     db.run("DELETE FROM _migrations WHERE version > ?", [targetVersion]);
     db.run("COMMIT");
   } catch (error) {
@@ -82,7 +85,7 @@ function reconcilePreReleaseSequence(db: Database, targetVersion: number): void 
   }
 }
 
-export function runMigrationsThrough(db: Database, targetVersion = 19): void {
+export function runMigrationsThrough(db: Database, targetVersion = 20): void {
   db.run(MIGRATION_TABLE);
   const migrations: Array<[number, (database: Database) => void]> = [
     [1, runInitialMigration],
@@ -104,6 +107,7 @@ export function runMigrationsThrough(db: Database, targetVersion = 19): void {
     [17, runSpaceConsolidationMigration],
     [18, runSettingsCleanupMigration],
     [19, runFollowUpSessionsMigration],
+    [20, runFollowUpObservationStatusMigration],
   ];
   for (const [version, migration] of migrations) {
     if (version <= targetVersion) applyMigration(db, version, migration);

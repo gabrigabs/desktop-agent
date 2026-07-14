@@ -9,6 +9,7 @@ import type {
   FollowUpMode,
   FollowUpObservation,
   FollowUpObservationSource,
+  FollowUpObservationStatus,
   FollowUpSession,
   FollowUpStatus,
 } from "@desktop-agent/shared";
@@ -28,6 +29,9 @@ function rowToObservation(row: Record<string, unknown>): FollowUpObservation {
     sessionId: row.session_id as string,
     content: row.content as string,
     source: row.source as FollowUpObservationSource,
+    status: (row.status as FollowUpObservationStatus) ?? "pending",
+    target: (row.target as string) ?? null,
+    metadata: row.metadata_json ? (JSON.parse(row.metadata_json as string) as Record<string, unknown>) : {},
     timestamp: row.created_at as string,
   };
 }
@@ -236,20 +240,76 @@ export function addObservation(
   sessionId: string,
   content: string,
   source: FollowUpObservationSource,
+  options?: {
+    status?: FollowUpObservationStatus;
+    target?: string | null;
+    metadata?: Record<string, unknown>;
+  },
 ): FollowUpObservation {
   const id = randomUUID();
-  db.run("INSERT INTO follow_up_observations (id, session_id, content, source) VALUES (?, ?, ?, ?)", [
-    id,
-    sessionId,
+  db.run(
+    "INSERT INTO follow_up_observations (id, session_id, content, source, status, target, metadata_json) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    [
+      id,
+      sessionId,
+      content,
+      source,
+      options?.status ?? "pending",
+      options?.target ?? null,
+      JSON.stringify(options?.metadata ?? {}),
+    ],
+  );
+  appendEvent(db, sessionId, "observation", {
+    observationId: id,
     content,
     source,
-  ]);
-  appendEvent(db, sessionId, "observation", { content, source });
+    status: options?.status ?? "pending",
+    target: options?.target ?? null,
+  });
   const row = db.query("SELECT * FROM follow_up_observations WHERE id = ?").get(id) as Record<
     string,
     unknown
   >;
   return rowToObservation(row);
+}
+
+export function updateObservation(
+  db: Database,
+  id: string,
+  data: {
+    status?: FollowUpObservationStatus;
+    content?: string;
+    target?: string | null;
+    metadata?: Record<string, unknown>;
+  },
+): void {
+  const row = db.query("SELECT session_id FROM follow_up_observations WHERE id = ?").get(id) as {
+    session_id: string;
+  } | null;
+  if (!row) return;
+
+  const sets: string[] = [];
+  const values: SqlValue[] = [];
+  if (data.status !== undefined) {
+    sets.push("status = ?");
+    values.push(data.status);
+  }
+  if (data.content !== undefined) {
+    sets.push("content = ?");
+    values.push(data.content);
+  }
+  if (data.target !== undefined) {
+    sets.push("target = ?");
+    values.push(data.target);
+  }
+  if (data.metadata !== undefined) {
+    sets.push("metadata_json = ?");
+    values.push(JSON.stringify(data.metadata));
+  }
+  if (sets.length === 0) return;
+  values.push(id);
+  db.run(`UPDATE follow_up_observations SET ${sets.join(", ")} WHERE id = ?`, values);
+  appendEvent(db, row.session_id, "observation", { observationId: id, update: data });
 }
 
 export function addHypothesis(db: Database, sessionId: string, text: string): FollowUpHypothesis {

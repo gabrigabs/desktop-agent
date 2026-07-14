@@ -737,12 +737,30 @@
     "composerPlaceholder": "Ask something, request a draft, or start with an action below."
   },
   "radialActions": {
-    "ask": { "title": "Ask", "description": "Free prompt for Helix" },
-    "clipboard": { "title": "Clipboard", "description": "Act on copied text" },
-    "screen": { "title": "Read screen", "description": "Capture screen with approval" },
-    "web": { "title": "Web", "description": "Search with sources" },
-    "workflow": { "title": "Workflow", "description": "Run a guided sequence" },
-    "follow-up": { "title": "Follow-up", "description": "Track writing or debugging" }
+    "ask": {
+      "title": "Ask",
+      "description": "Free prompt for Helix"
+    },
+    "clipboard": {
+      "title": "Clipboard",
+      "description": "Act on copied text"
+    },
+    "screen": {
+      "title": "Read screen",
+      "description": "Capture screen with approval"
+    },
+    "web": {
+      "title": "Web",
+      "description": "Search with sources"
+    },
+    "workflow": {
+      "title": "Workflow",
+      "description": "Run a guided sequence"
+    },
+    "follow-up": {
+      "title": "Follow-up",
+      "description": "Track writing or debugging"
+    }
   },
   "helixLauncher": {
     "shortcut": "Shortcut {{index}}",
@@ -834,6 +852,37 @@
     "imagePipeline": "Images and captures",
     "visionError": "Visual analysis failed"
   },
+  "executionContext": {
+    "title": "Execution context",
+    "memory_one": "Memory used ({{count}} fact)",
+    "memory_other": "Memory used ({{count}} facts)",
+    "assistantOrigin": "Saved from a response",
+    "manualOrigin": "Added manually",
+    "filesRead_one": "File read ({{count}})",
+    "filesRead_other": "Files read ({{count}})",
+    "filesWritten_one": "File written ({{count}})",
+    "filesWritten_other": "Files written ({{count}})",
+    "tools_one": "Tool used ({{count}})",
+    "tools_other": "Tools used ({{count}})",
+    "instructions": "Applied instructions"
+  },
+  "approval": {
+    "pendingTool": "{{tool}} is waiting for approval",
+    "unknownTool": "Tool"
+  },
+  "collapsedTask": {
+    "label": "Active task",
+    "running": "Running",
+    "approval": "Approval required",
+    "failed": "Something went wrong",
+    "ready": "Result ready",
+    "preparing": "Preparing",
+    "followUp": "Following",
+    "open": "Open task",
+    "approve": "Approve",
+    "deny": "Deny",
+    "dismiss": "Back to pet"
+  },
   "space": {
     "title": "Spaces",
     "subtitle": "Persistent environments with their own context, sources, and instructions",
@@ -857,7 +906,7 @@
     "purposeLabel": "Description",
     "instructionsLabel": "Space-specific instructions",
     "instructionsPlaceholder": "How should the agent work in this Space? Define tone, rules, goals, and boundaries.",
-    "instructionsHint": "These instructions apply only to this Space and take priority over the global profile.",
+    "instructionsHint": "Tell the assistant how to behave in this Space. Example: Always answer formally and prioritize academic sources.",
     "identitySection": "Identity",
     "behaviorSection": "Behavior",
     "appearanceSection": "Appearance",
@@ -883,7 +932,21 @@
     "memoryActive": "Active",
     "memoryEnabled": "Memory active",
     "memoryDisabled": "Memory disabled",
-    "memoryToggleHint": "Automatically includes pinned facts and sources in every conversation in this Space.",
+    "memoryToggleHint": "Facts the assistant remembers across conversations. Example: The user prefers bullet summaries. You can also promote chat responses.",
+    "noActiveSpace": "No Space",
+    "aiSuggestionTitle": "Configure the starting point",
+    "aiSuggestionHint": "Helix suggests instructions, memory, a profile, and collections. Everything stays editable.",
+    "aiSuggestionApplied_one": "{{count}} suggested collection. Review before creating.",
+    "aiSuggestionApplied_other": "{{count}} suggested collections. Review before creating.",
+    "aiSuggesting": "Suggesting…",
+    "aiSuggest": "Suggest with AI",
+    "collectionTemplates": "Start with",
+    "customCollection": "Custom",
+    "moveFieldUp": "Move field up",
+    "moveFieldDown": "Move field down",
+    "removeField": "Remove field",
+    "collectionPreview": "Table preview",
+    "unnamedField": "Unnamed",
     "noMemory": "No memory facts yet. Add one above.",
     "addMemoryPlaceholder": "Add a memory fact...",
     "openFolder": "Open folder",
@@ -923,79 +986,108 @@
     "lastExecutionContext": "Last execution context",
     "factsUsed": "{{count}} facts used",
     "sourcesUsed": "{{count}} sources used",
-    "filesUsed": "{{count}} files used",
-    "followUp": {
-      "pause": "Pause",
-      "resume": "Resume",
-      "stop": "Stop",
-      "expand": "Expand",
-      "observations": "Observations",
-      "noObservations": "No observations recorded.",
-      "hypotheses": "Hypotheses",
+    "filesUsed": "{{count}} files used"
+  },
+  "followUp": {
+    "title": "Follow-up",
+    "start": "Start follow-up",
+    "close": "Close follow-up",
+    "modeLabel": "Mode",
+    "objective": "Objective",
+    "space": "Optional Space",
+    "noSpace": "None",
+    "followTask": "Follow this task",
+    "observationStatus": {
+      "pending": "Pending",
+      "in_progress": "In progress",
+      "resolved": "Resolved"
+    },
+    "inspect": {
+      "target": "Inspection target",
+      "targetPlaceholder": "URL, file, or screen",
+      "selectorPlaceholder": "Component or selector (optional)",
+      "annotationPlaceholder": "What needs review or correction?",
+      "add": "Add annotation",
+      "annotations": "Annotations",
+      "empty": "No annotations yet.",
+      "status": "Annotation status",
+      "summaryPlaceholder": "Inspection summary and next steps...",
+      "refresh": "Read again",
+      "compare": "Compare version",
+      "refreshPrompt": "Read {{target}} again and check the pending annotations in this inspection.",
+      "comparePrompt": "Compare the current state of {{target}} with the previous version described in this inspection and highlight the relevant differences."
+    },
+    "pause": "Pause",
+    "resume": "Resume",
+    "stop": "Stop",
+    "expand": "Expand",
+    "observations": "Observations",
+    "noObservations": "No observations recorded.",
+    "hypotheses": "Hypotheses",
+    "noHypotheses": "No hypotheses formulated.",
+    "evidence": "Evidence",
+    "eventTimeline": "Event timeline",
+    "permissionsAudit": "Permissions audit",
+    "permScreenCapture": "Screen capture",
+    "permClipboard": "Clipboard",
+    "permFileAccess": "File access",
+    "mode": {
+      "vision": "Vision",
+      "debug": "Debug",
+      "writing": "Writing",
+      "research": "Research",
+      "workflow": "Workflow",
+      "inspect": "Inspect"
+    },
+    "status": {
+      "active": "Active",
+      "paused": "Paused",
+      "waiting_approval": "Waiting approval",
+      "completed": "Completed",
+      "failed": "Failed"
+    },
+    "hypothesisStatus": {
+      "open": "Open",
+      "confirmed": "Confirmed",
+      "refuted": "Refuted"
+    },
+    "eventType": {
+      "started": "Started",
+      "paused": "Paused",
+      "resumed": "Resumed",
+      "stopped": "Stopped",
+      "observation": "Observation",
+      "hypothesis": "Hypothesis",
+      "approval": "Approval",
+      "completed": "Completed"
+    },
+    "writing": {
+      "briefing": "Briefing",
+      "userObservations": "User observations",
+      "noUserObservations": "No user observations.",
+      "versions": "Previous versions",
+      "noVersions": "No versions recorded.",
+      "version": "Version {{n}}",
+      "addObservation": "Add observation",
+      "observationPlaceholder": "Type an observation, constraint, or feedback...",
+      "submit": "Submit",
+      "complete": "Complete session",
+      "completeSummary": "Summary and next steps",
+      "summaryPlaceholder": "Summarize what was done and list next steps...",
+      "cancel": "Cancel",
+      "confirmComplete": "Confirm completion"
+    },
+    "debug": {
+      "initialError": "Initial error",
+      "hypothesesAndEvidence": "Hypotheses and evidence",
       "noHypotheses": "No hypotheses formulated.",
-      "evidence": "Evidence",
-      "eventTimeline": "Event timeline",
-      "permissionsAudit": "Permissions audit",
-      "permScreenCapture": "Screen capture",
-      "permClipboard": "Clipboard",
-      "permFileAccess": "File access",
-      "mode": {
-        "vision": "Vision",
-        "debug": "Debug",
-        "writing": "Writing",
-        "research": "Research",
-        "workflow": "Workflow"
-      },
-      "status": {
-        "active": "Active",
-        "paused": "Paused",
-        "waiting_approval": "Waiting approval",
-        "completed": "Completed",
-        "failed": "Failed"
-      },
-      "hypothesisStatus": {
-        "open": "Open",
-        "confirmed": "Confirmed",
-        "refuted": "Refuted"
-      },
-      "eventType": {
-        "started": "Started",
-        "paused": "Paused",
-        "resumed": "Resumed",
-        "stopped": "Stopped",
-        "observation": "Observation",
-        "hypothesis": "Hypothesis",
-        "approval": "Approval",
-        "completed": "Completed"
-      },
-      "writing": {
-        "briefing": "Briefing",
-        "userObservations": "User observations",
-        "noUserObservations": "No user observations.",
-        "versions": "Previous versions",
-        "noVersions": "No versions recorded.",
-        "version": "Version {{n}}",
-        "addObservation": "Add observation",
-        "observationPlaceholder": "Type an observation, constraint, or feedback...",
-        "submit": "Submit",
-        "complete": "Complete session",
-        "completeSummary": "Summary and next steps",
-        "summaryPlaceholder": "Summarize what was done and list next steps...",
-        "cancel": "Cancel",
-        "confirmComplete": "Confirm completion"
-      },
-      "debug": {
-        "initialError": "Initial error",
-        "hypothesesAndEvidence": "Hypotheses and evidence",
-        "noHypotheses": "No hypotheses formulated.",
-        "addEvidence": "Add evidence",
-        "evidencePlaceholder": "Describe the evidence...",
-        "addHypothesis": "Add hypothesis",
-        "hypothesisPlaceholder": "Formulate a hypothesis...",
-        "add": "Add",
-        "conclusion": "Conclusion",
-        "conclusionPlaceholder": "Describe the conclusion and next steps..."
-      }
+      "addEvidence": "Add evidence",
+      "evidencePlaceholder": "Describe the evidence...",
+      "addHypothesis": "Add hypothesis",
+      "hypothesisPlaceholder": "Formulate a hypothesis...",
+      "add": "Add",
+      "conclusion": "Conclusion",
+      "conclusionPlaceholder": "Describe the conclusion and next steps..."
     }
   }
 }

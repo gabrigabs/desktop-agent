@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { sanitizeMermaidSvg, svgToDataUrl } from "../../apps/desktop/src/lib/mermaid-utils";
+import { sanitizeMermaidSvg, svgToDataUrl } from "../../apps/desktop/src/lib/mermaid";
 
 describe("Mermaid SVG safety", () => {
   test("encodes safe SVG as an image data URL", () => {

@@ -4,6 +4,7 @@ import type {
   AppSettings,
   ConnectorConfig,
   ContextAttachment,
+  ExecutionContextSummary,
   ExecutionMode,
   FileContextInput,
   FollowUpSession,
@@ -138,6 +139,7 @@ type State = {
   addEvent: (e: AgentEvent) => void;
   appendAssistantBlock: (block: MessageBlock) => void;
   updateAssistantBlock: (index: number, update: Partial<MessageBlock>) => void;
+  setAssistantExecutionContext: (summary: ExecutionContextSummary) => void;
   setError: (e: string | null) => void;
   setExecutionMode: (mode: ExecutionMode) => void;
   setSelectedWorkflowId: (id: string | null) => void;
@@ -452,6 +454,27 @@ export const useAgentStore = create<State>((set) => ({
         blocks: last.blocks.map((block, i) =>
           i === index ? ({ ...block, ...update } as MessageBlock) : block,
         ),
+      };
+      return { messages };
+    }),
+  setAssistantExecutionContext: (summary) =>
+    set((s) => {
+      const messages = [...s.messages];
+      let index = -1;
+      for (let candidate = messages.length - 1; candidate >= 0; candidate--) {
+        if (messages[candidate]?.role === "assistant") {
+          index = candidate;
+          break;
+        }
+      }
+      const turn = messages[index];
+      if (!turn) return s;
+      messages[index] = {
+        ...turn,
+        blocks: [
+          ...turn.blocks.filter((block) => block.type !== "execution_context"),
+          { type: "execution_context", summary },
+        ],
       };
       return { messages };
     }),

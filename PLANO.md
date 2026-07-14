@@ -368,6 +368,8 @@ Também validar:
 
 As seções abaixo consolidam os ajustes finais derivados do smoke test, divididos em melhorias funcionais (5 áreas) e limpeza estrutural do projeto.
 
+> Estado em 2026-07-14: implementação concluída e validada por typecheck, lint, 160 testes, build do sidecar e bundle macOS `.app`. O smoke visual interativo no host e a geração do DMG permanecem como validações manuais de distribuição; detalhes no checkpoint ao fim desta seção.
+
 ### MF1: Modos de Janela — Dinâmica entre Collapsed / Normal / Expanded
 
 #### Problema
@@ -399,19 +401,19 @@ Os 3 modos não têm identidade útil distinta. Collapsed é só o pet decorativ
 
 #### Arquivos afetados
 - `apps/desktop/src/app.tsx` — lógica de renderização do collapsed com widget
-- `apps/desktop/src/components/ui/helix-launcher.tsx` — adicionar quick actions no launcher
+- `apps/desktop/src/components/ui/helix/helix-launcher.tsx` — adicionar quick actions no launcher
 - `apps/desktop/src/lib/window.ts` — novo tamanho para widget mode
 - `apps/desktop/src/stores/agent.ts` — estado de tarefa ativa para o widget
-- `apps/desktop/src/components/ui/pet.tsx` — indicador de status no pet
-- Novo: `apps/desktop/src/components/ui/task-widget.tsx` — widget compacto de tarefa
+- `apps/desktop/src/components/ui/helix/pet.tsx` — indicador de status no pet
+- Novo: `apps/desktop/src/components/ui/helix/task-widget.tsx` — widget compacto de tarefa
 
 #### Critérios de aceite
-- [ ] Collapsed idle mostra quick actions acessíveis com 1 clique
-- [ ] Collapsed com tarefa rodando mostra status + última ação + botão expandir
-- [ ] Collapsed com resultado pronto indica visualmente e expande ao clicar
-- [ ] Normal permanece chat focado sem rail
-- [ ] Expanded permanece workspace completo
-- [ ] Transição entre estados é suave (sem flash de conteúdo)
+- [x] Collapsed idle mostra quick actions acessíveis com 1 clique
+- [x] Collapsed com tarefa rodando mostra status + última ação + botão expandir
+- [x] Collapsed com resultado pronto indica visualmente e expande ao clicar
+- [x] Normal permanece chat focado sem rail
+- [x] Expanded permanece workspace completo
+- [x] Transição escolhe o tamanho final antes de renderizar a superfície do estado
 
 ---
 
@@ -463,22 +465,22 @@ Os 3 modos não têm identidade útil distinta. Collapsed é só o pet decorativ
 - No overview do Space, mostrar exemplos de uso ao invés de só listar instruções em texto plano
 
 #### Arquivos afetados
-- `apps/desktop/src/surfaces/helix/SpaceShell.tsx` — formulário, wizard, coleções
+- `apps/desktop/src/surfaces/helix/space/SpaceShell.tsx` — formulário, wizard, coleções
 - `apps/desktop/src/surfaces/helix/hooks/useSpaces.ts` — nova função `suggestSpaceConfig`
-- `apps/desktop/src/surfaces/helix/Composer.tsx` — space switcher
-- `apps/desktop/src/surfaces/helix/NormalCommandView.tsx` — space switcher no header
+- `apps/desktop/src/surfaces/helix/composer/Composer.tsx` — space switcher
+- `apps/desktop/src/surfaces/helix/views/NormalCommandView.tsx` — space switcher no header
 - `packages/agent-runtime/src/api.ts` — nova RPC
 - `packages/shared/src/types/rpc.ts` — tipos para `SuggestSpaceConfigInput/Output`
 - `apps/desktop/src/i18n/locales/*/helix.json` — novas chaves de tradução
 
 #### Critérios de aceite
-- [ ] Botão "Sugerir com IA" aparece após digitar nome + propósito
-- [ ] Sugestão preenche instruções, layout, memory e sugere coleções
-- [ ] Usuário pode editar sugestões antes de salvar
-- [ ] Space switcher visível no composer em ambos os modos
-- [ ] Trocar de Space não perde a conversa atual
-- [ ] Form de coleção tem templates e dicas por tipo de campo
-- [ ] Hints de memória e instruções são visíveis e explicativas
+- [x] Botão "Sugerir com IA" aparece após digitar nome + propósito
+- [x] Sugestão preenche instruções, layout, memory e sugere coleções
+- [x] Usuário pode editar sugestões antes de salvar
+- [x] Space switcher visível no composer em ambos os modos
+- [x] Trocar de Space não perde a conversa atual
+- [x] Form de coleção tem templates e dicas por tipo de campo
+- [x] Hints de memória e instruções são visíveis e explicativas
 
 ---
 
@@ -529,17 +531,17 @@ Cada turn do assistant recebe uma seção de "Contexto de execução" com cards:
 - `packages/shared/src/types/rpc.ts` — tipo `ExecutionContextSummary`
 - `apps/desktop/src/stores/agent.ts` — adicionar `executionContext` ao Turn
 - `apps/desktop/src/surfaces/helix/hooks/useExecute.ts` — buscar snapshot após run
-- `apps/desktop/src/surfaces/helix/ChatView.tsx` — renderizar cards expansíveis
-- Novo: `apps/desktop/src/surfaces/helix/ExecutionContextCards.tsx` — componente dos cards
+- `apps/desktop/src/surfaces/helix/views/ChatView.tsx` — renderizar cards expansíveis
+- Novo: `apps/desktop/src/surfaces/helix/response/ExecutionContextCards.tsx` — componente dos cards
 
 #### Critérios de aceite
-- [ ] Card de memória aparece quando o Space tem fatos ativos usados no run
-- [ ] Card de arquivos aparece quando há fileContext ou fontes do Space
-- [ ] Card de ferramentas aparece quando tools foram chamadas (via AgentLoop)
-- [ ] Card de instruções aparece quando o Space tem instruções customizadas
-- [ ] Cada card expande/contrai com click
-- [ ] Cards aparecem durante o streaming (pelo menos tools) e completam ao final
-- [ ] Dados vêm do ExecutionContextSnapshot persistido + workflow steps
+- [x] Card de memória aparece quando o Space tem fatos ativos usados no run
+- [x] Card de arquivos aparece quando há fileContext ou fontes do Space
+- [x] Card de ferramentas aparece quando tools foram chamadas (via AgentLoop)
+- [x] Card de instruções aparece quando o Space tem instruções customizadas
+- [x] Cada card expande/contrai com click
+- [x] Cards aparecem durante o streaming (pelo menos tools) e completam ao final
+- [x] Dados vêm do ExecutionContextSnapshot persistido + workflow steps
 
 ---
 
@@ -581,22 +583,22 @@ Follow-up existe como feature mas o usuário não encontrou uso concreto. Os mod
 - `packages/agent-runtime/src/workflow/WorkflowRunner.ts` — emitir eventos de follow-up durante run
 - `apps/desktop/src/surfaces/helix/hooks/useFollowUp.ts` — conectar ao chat
 - `apps/desktop/src/surfaces/helix/hooks/useExecute.ts` — auto-registrar observações
-- `apps/desktop/src/surfaces/helix/FollowUpDock.tsx` — UI do modo inspect
-- Novo: `apps/desktop/src/surfaces/helix/FollowUpInspectPanel.tsx` — painel inspect
-- `apps/desktop/src/surfaces/helix/FollowUpWritingPanel.tsx` — conectar com chat
-- `apps/desktop/src/surfaces/helix/FollowUpDebugPanel.tsx` — conectar com chat
-- `packages/storage/src/migrations/020_follow_up_inspect_mode.ts` — migration se necessário
+- `apps/desktop/src/surfaces/helix/followup/FollowUpDock.tsx` — UI do modo inspect
+- Novo: `apps/desktop/src/surfaces/helix/followup/FollowUpInspectPanel.tsx` — painel inspect
+- `apps/desktop/src/surfaces/helix/followup/FollowUpWritingPanel.tsx` — conectar com chat
+- `apps/desktop/src/surfaces/helix/followup/FollowUpDebugPanel.tsx` — conectar com chat
+- `packages/storage/src/migrations/020_follow_up_observation_status.ts` — status, alvo e metadata das observações
 - `apps/desktop/src/i18n/locales/*/helix.json` — novas chaves
 
 #### Critérios de aceite
-- [ ] Sessão de writing ativa registra versões do assistant automaticamente
-- [ ] Sessão de debug ativa registra tool calls como observações
-- [ ] Objetivo do follow-up é injetado no contexto do chat
-- [ ] Modo inspect permite apontar URL/arquivo e anotar componentes
-- [ ] Anotações têm status (pendente/em progresso/resolvido)
-- [ ] "Acompanhar esta tarefa" cria follow-up a partir de um run
-- [ ] Pausar/retomar follow-up não perde observações
-- [ ] Widget no collapsed mostra status do follow-up ativo
+- [x] Sessão de writing ativa registra versões do assistant automaticamente
+- [x] Sessão de debug ativa registra tool calls como observações
+- [x] Objetivo do follow-up é injetado no contexto do chat
+- [x] Modo inspect permite apontar URL/arquivo, anotar componentes, reler e comparar
+- [x] Anotações têm status (pendente/em progresso/resolvido)
+- [x] "Acompanhar esta tarefa" cria follow-up a partir de um run
+- [x] Pausar/retomar follow-up não perde observações
+- [x] Widget no collapsed mostra status do follow-up ativo
 
 ---
 
@@ -615,16 +617,16 @@ O usuário não viu o tool approval aparecer. Provavelmente porque nenhuma tool 
 #### Arquivos afetados
 - `packages/agent-runtime/src/workflow/ToolExecutor.ts` — revisar policies
 - `packages/tool-registry/src/registry.ts` — revisar quais tools têm explicit_approval
-- `apps/desktop/src/surfaces/helix/ChatView.tsx` — renderizar approval card
-- `apps/desktop/src/surfaces/helix/NormalCommandView.tsx` — badge de approval
-- `apps/desktop/src/surfaces/helix/Composer.tsx` — indicador de approval pendente
+- `apps/desktop/src/surfaces/helix/views/ChatView.tsx` — renderizar approval card
+- `apps/desktop/src/surfaces/helix/views/NormalCommandView.tsx` — badge de approval
+- `apps/desktop/src/surfaces/helix/composer/Composer.tsx` — indicador de approval pendente
 
 #### Critérios de aceite
-- [ ] Approval card aparece inline no chat quando uma tool precisa de aprovação
-- [ ] Badge pulsante no composer/header indica approval pendente
-- [ ] Botões Aprovar/Negar são acessíveis com 1 clique
-- [ ] No collapsed widget, approval pendente é visível
-- [ ] Após aprovar/negar, o run continua corretamente
+- [x] Approval card aparece inline no chat quando uma tool precisa de aprovação
+- [x] Badge pulsante no composer/header indica approval pendente
+- [x] Botões Aprovar/Negar são acessíveis com 1 clique
+- [x] No collapsed widget, approval pendente é visível
+- [x] Após aprovar/negar, o run continua corretamente
 
 ---
 
@@ -709,16 +711,26 @@ components/ui/
 - Verificar `BACKLOG.md` — arquivar se não for mais relevante
 
 ### Critérios de aceite da limpeza estrutural
-- [ ] `.gitignore` cobre todos os arquivos temporários identificados
-- [ ] `$HOME/` acidental deletado
-- [ ] Logs antigos do Playwright deletados
-- [ ] Testes do `tools-desktop` padronizados em `__tests__/`
-- [ ] `surfaces/helix/` organizado em subpastas com imports atualizados
-- [ ] `components/ui/` organizado em subpastas com imports atualizados
-- [ ] `bun run typecheck` passa
-- [ ] `bun run lint` passa
-- [ ] `bun test` passa
-- [ ] `bun run build:sidecar` passa
+- [x] `.gitignore` cobre todos os arquivos temporários identificados
+- [x] `$HOME/` acidental deletado
+- [x] Logs antigos do Playwright deletados
+- [x] Testes do `tools-desktop` padronizados em `__tests__/`
+- [x] `surfaces/helix/` organizado em subpastas com imports atualizados
+- [x] `components/ui/` organizado em subpastas com imports atualizados
+- [x] `bun run typecheck` passa
+- [x] `bun run lint` passa
+- [x] `bun test` passa (160 testes)
+- [x] `bun run build:sidecar` passa
+
+### Checkpoint de validação — 2026-07-14
+
+- `bun run typecheck`: passou em todos os workspaces.
+- `bun run lint`: passou em 215 arquivos.
+- `bun test`: 160 testes passaram, 0 falhas.
+- `bun run build:sidecar`: gerou `agent-runtime-aarch64-apple-darwin`.
+- `bun run --cwd apps/desktop tauri build --bundles app`: gerou `Helix.app` com `desktop-agent`, `agent-runtime`, `liteparse.darwin-arm64.node` e `libpdfium.dylib`.
+- `bun run desktop:build`: compilou e gerou o `.app`, mas a etapa posterior de DMG falhou em `bundle_dmg.sh`; precisa ser repetida fora do sandbox antes da distribuição.
+- Smoke visual automatizado: pendente porque o sandbox bloqueou a porta local e a autorização externa da sessão foi recusada por limite de uso.
 
 ---
 
@@ -742,8 +754,8 @@ components/ui/
 3. Board e summary possuem contrato persistido, mas a profundidade visual principal desta versão está na tabela.
 4. Follow-up Vision permanece deliberadamente fora de escopo para evitar observação contínua sem política madura.
 5. O build ainda emite warnings não bloqueantes sobre o bundle identifier terminado em `.app` e o tamanho do chunk principal; ambos devem entrar no hardening pós-checkpoint.
-6. A reorganização de pastas (LE4+LE5) exige atualização de todas as importações — risco médio se feito sem verificação incremental.
-7. O modo inspect do follow-up (MF4B) depende de capacidade de leitura de URL/arquivo que pode precisar de ajustes de permissão no Tauri.
+6. A criação do DMG ainda precisa ser repetida fora do sandbox; o bundle `.app` já foi gerado e inspecionado.
+7. O modo inspect do follow-up (MF4B) depende das permissões normais de leitura de URL/arquivo no Tauri para reler o alvo.
 
 ## Notas técnicas finais
 

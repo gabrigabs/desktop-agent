@@ -23,6 +23,7 @@ export {
   resumeSession as resumeFollowUpSession,
   stopSession as stopFollowUpSession,
   updateHypothesis as updateFollowUpHypothesis,
+  updateObservation as updateFollowUpObservation,
 } from "./repositories/follow-up-sessions";
 export {
   createInteraction,

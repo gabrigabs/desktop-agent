@@ -5,7 +5,6 @@ export {
   stripThinkingMarkup,
   unwrapAgentResponse,
 } from "./agent-decision";
-export type { AgentApi, SaveMcpServerInput } from "./api";
 export {
   type ContextSource,
   type ContextSuggestion,
@@ -25,6 +24,7 @@ export type {
   FollowUpMode,
   FollowUpObservation,
   FollowUpObservationSource,
+  FollowUpObservationStatus,
   FollowUpSession,
   FollowUpStatus,
 } from "./follow-up";
@@ -64,10 +64,12 @@ export type {
 export { normalizeNativeError } from "./native";
 export type {
   ExecutionContextSnapshot,
+  ExecutionContextSummary,
   Space,
   SpaceCollection,
   SpaceDocument,
   SpaceField,
+  SpaceFieldSuggestion,
   SpaceFieldType,
   SpaceLayout,
   SpaceMemoryFact,
@@ -75,7 +77,11 @@ export type {
   SpaceRecordValue,
   SpaceView,
   SpaceViewType,
+  SuggestedSpaceCollection,
+  SuggestSpaceConfigInput,
+  SuggestSpaceConfigOutput,
 } from "./space";
+export type { AgentApi, SaveMcpServerInput } from "./types/api";
 export type {
   MarkdownSource,
   ParsedDocument,

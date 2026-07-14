@@ -1,8 +1,8 @@
 import { spawn } from "node:child_process";
 import type { ConnectorConfig, PermissionLevel } from "@desktop-agent/shared";
-import { z } from "@desktop-agent/shared";
 import { getMcpServer as getStoredMcpServer } from "@desktop-agent/storage";
 import { registry } from "@desktop-agent/tool-registry";
+import { z } from "zod";
 
 const registeredMcpTools = new Set<string>();
 const registeredMcpServers = new Set<string>();

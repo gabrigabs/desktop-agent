@@ -1,7 +1,16 @@
-export type FollowUpMode = "vision" | "debug" | "writing" | "research" | "workflow";
+export type FollowUpMode = "vision" | "debug" | "writing" | "research" | "workflow" | "inspect";
 export type FollowUpStatus = "active" | "paused" | "waiting_approval" | "completed" | "failed";
 export type FollowUpMemoryScope = "space" | "session" | "global";
-export type FollowUpObservationSource = "manual" | "clipboard" | "file" | "screen" | "assistant";
+export type FollowUpObservationSource =
+  | "manual"
+  | "user"
+  | "clipboard"
+  | "file"
+  | "screen"
+  | "assistant"
+  | "tool"
+  | "workflow";
+export type FollowUpObservationStatus = "pending" | "in_progress" | "resolved";
 export type FollowUpHypothesisStatus = "open" | "confirmed" | "refuted";
 export type FollowUpEventType =
   | "started"
@@ -24,6 +33,9 @@ export type FollowUpObservation = {
   sessionId: string;
   content: string;
   source: FollowUpObservationSource;
+  status: FollowUpObservationStatus;
+  target: string | null;
+  metadata: Record<string, unknown>;
   timestamp: string;
 };
 

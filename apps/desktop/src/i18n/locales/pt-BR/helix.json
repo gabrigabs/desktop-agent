@@ -736,12 +736,30 @@
     "composerPlaceholder": "Pergunte algo, peça um rascunho ou comece por uma ação abaixo."
   },
   "radialActions": {
-    "ask": { "title": "Perguntar", "description": "Prompt livre para o Helix" },
-    "clipboard": { "title": "Clipboard", "description": "Agir sobre o texto copiado" },
-    "screen": { "title": "Ler tela", "description": "Capturar a tela com aprovação" },
-    "web": { "title": "Web", "description": "Pesquisar com fontes" },
-    "workflow": { "title": "Workflow", "description": "Executar uma sequência guiada" },
-    "follow-up": { "title": "Acompanhamento", "description": "Acompanhar escrita ou debugging" }
+    "ask": {
+      "title": "Perguntar",
+      "description": "Prompt livre para o Helix"
+    },
+    "clipboard": {
+      "title": "Clipboard",
+      "description": "Agir sobre o texto copiado"
+    },
+    "screen": {
+      "title": "Ler tela",
+      "description": "Capturar a tela com aprovação"
+    },
+    "web": {
+      "title": "Web",
+      "description": "Pesquisar com fontes"
+    },
+    "workflow": {
+      "title": "Workflow",
+      "description": "Executar uma sequência guiada"
+    },
+    "follow-up": {
+      "title": "Acompanhamento",
+      "description": "Acompanhar escrita ou debugging"
+    }
   },
   "helixLauncher": {
     "shortcut": "Atalho {{index}}",
@@ -831,6 +849,37 @@
     "imagePipeline": "Imagens e capturas",
     "visionError": "Falha na análise visual"
   },
+  "executionContext": {
+    "title": "Contexto de execução",
+    "memory_one": "Memória usada ({{count}} fato)",
+    "memory_other": "Memória usada ({{count}} fatos)",
+    "assistantOrigin": "Salva de uma resposta",
+    "manualOrigin": "Adicionada manualmente",
+    "filesRead_one": "Arquivo lido ({{count}})",
+    "filesRead_other": "Arquivos lidos ({{count}})",
+    "filesWritten_one": "Arquivo escrito ({{count}})",
+    "filesWritten_other": "Arquivos escritos ({{count}})",
+    "tools_one": "Ferramenta usada ({{count}})",
+    "tools_other": "Ferramentas usadas ({{count}})",
+    "instructions": "Instruções aplicadas"
+  },
+  "approval": {
+    "pendingTool": "{{tool}} aguarda aprovação",
+    "unknownTool": "Ferramenta"
+  },
+  "collapsedTask": {
+    "label": "Tarefa ativa",
+    "running": "Executando",
+    "approval": "Aprovação necessária",
+    "failed": "Algo deu errado",
+    "ready": "Resultado pronto",
+    "preparing": "Preparando",
+    "followUp": "Acompanhando",
+    "open": "Abrir tarefa",
+    "approve": "Aprovar",
+    "deny": "Recusar",
+    "dismiss": "Voltar ao pet"
+  },
   "space": {
     "title": "Espaços",
     "subtitle": "Ambientes persistentes com contexto, fontes e instruções próprias",
@@ -854,7 +903,7 @@
     "purposeLabel": "Descrição",
     "instructionsLabel": "Instruções exclusivas",
     "instructionsPlaceholder": "Como o agente deve trabalhar neste Espaço? Defina tom, regras, objetivos e limites.",
-    "instructionsHint": "Estas instruções valem apenas neste Espaço e têm prioridade sobre o perfil global.",
+    "instructionsHint": "Diga como o assistant deve se comportar neste Espaço. Ex.: Sempre responda em português formal e priorize fontes acadêmicas.",
     "identitySection": "Identidade",
     "behaviorSection": "Comportamento",
     "appearanceSection": "Aparência",
@@ -880,7 +929,21 @@
     "memoryActive": "Ativa",
     "memoryEnabled": "Memória ativa",
     "memoryDisabled": "Memória desativada",
-    "memoryToggleHint": "Inclui fatos e fontes fixadas automaticamente em cada conversa deste Espaço.",
+    "memoryToggleHint": "Fatos que o assistant lembra entre conversas. Ex.: O usuário prefere resumos em bullets. Você também pode promover respostas do chat.",
+    "noActiveSpace": "Sem Espaço",
+    "aiSuggestionTitle": "Configure o ponto de partida",
+    "aiSuggestionHint": "O Helix sugere instruções, memória, perfil e coleções. Tudo continua editável.",
+    "aiSuggestionApplied_one": "{{count}} coleção sugerida. Revise antes de criar.",
+    "aiSuggestionApplied_other": "{{count}} coleções sugeridas. Revise antes de criar.",
+    "aiSuggesting": "Sugerindo…",
+    "aiSuggest": "Sugerir com IA",
+    "collectionTemplates": "Começar com",
+    "customCollection": "Custom",
+    "moveFieldUp": "Mover campo para cima",
+    "moveFieldDown": "Mover campo para baixo",
+    "removeField": "Remover campo",
+    "collectionPreview": "Prévia da tabela",
+    "unnamedField": "Sem nome",
     "noMemory": "Nenhuma memória ainda. Adicione acima.",
     "addMemoryPlaceholder": "Adicionar uma memória...",
     "openFolder": "Abrir pasta",
@@ -920,79 +983,108 @@
     "lastExecutionContext": "Contexto da última execução",
     "factsUsed": "{{count}} fatos utilizados",
     "sourcesUsed": "{{count}} fontes utilizadas",
-    "filesUsed": "{{count}} arquivos utilizados",
-    "followUp": {
-      "pause": "Pausar",
-      "resume": "Retomar",
-      "stop": "Encerrar",
-      "expand": "Expandir",
-      "observations": "Observações",
-      "noObservations": "Nenhuma observação registrada.",
-      "hypotheses": "Hipóteses",
+    "filesUsed": "{{count}} arquivos utilizados"
+  },
+  "followUp": {
+    "title": "Acompanhamento",
+    "start": "Iniciar acompanhamento",
+    "close": "Fechar acompanhamento",
+    "modeLabel": "Modo",
+    "objective": "Objetivo",
+    "space": "Espaço opcional",
+    "noSpace": "Nenhum",
+    "followTask": "Acompanhar esta tarefa",
+    "observationStatus": {
+      "pending": "Pendente",
+      "in_progress": "Em andamento",
+      "resolved": "Resolvida"
+    },
+    "inspect": {
+      "target": "Alvo da inspeção",
+      "targetPlaceholder": "URL, arquivo ou tela",
+      "selectorPlaceholder": "Componente ou seletor (opcional)",
+      "annotationPlaceholder": "O que precisa ser revisto ou corrigido?",
+      "add": "Adicionar anotação",
+      "annotations": "Anotações",
+      "empty": "Nenhuma anotação ainda.",
+      "status": "Status da anotação",
+      "summaryPlaceholder": "Resumo da inspeção e próximos passos...",
+      "refresh": "Ler novamente",
+      "compare": "Comparar versão",
+      "refreshPrompt": "Leia novamente o alvo {{target}} e verifique as anotações pendentes desta inspeção.",
+      "comparePrompt": "Compare o estado atual de {{target}} com a versão anterior descrita nesta inspeção e destaque as diferenças relevantes."
+    },
+    "pause": "Pausar",
+    "resume": "Retomar",
+    "stop": "Encerrar",
+    "expand": "Expandir",
+    "observations": "Observações",
+    "noObservations": "Nenhuma observação registrada.",
+    "hypotheses": "Hipóteses",
+    "noHypotheses": "Nenhuma hipótese formulada.",
+    "evidence": "Evidências",
+    "eventTimeline": "Linha do tempo de eventos",
+    "permissionsAudit": "Auditoria de permissões",
+    "permScreenCapture": "Captura de tela",
+    "permClipboard": "Clipboard",
+    "permFileAccess": "Acesso a arquivos",
+    "mode": {
+      "vision": "Visão",
+      "debug": "Debug",
+      "writing": "Escrita",
+      "research": "Pesquisa",
+      "workflow": "Workflow",
+      "inspect": "Inspecionar"
+    },
+    "status": {
+      "active": "Ativo",
+      "paused": "Pausado",
+      "waiting_approval": "Aguardando aprovação",
+      "completed": "Concluído",
+      "failed": "Falhou"
+    },
+    "hypothesisStatus": {
+      "open": "Em aberto",
+      "confirmed": "Confirmada",
+      "refuted": "Refutada"
+    },
+    "eventType": {
+      "started": "Iniciado",
+      "paused": "Pausado",
+      "resumed": "Retomado",
+      "stopped": "Encerrado",
+      "observation": "Observação",
+      "hypothesis": "Hipótese",
+      "approval": "Aprovação",
+      "completed": "Concluído"
+    },
+    "writing": {
+      "briefing": "Briefing",
+      "userObservations": "Observações do usuário",
+      "noUserObservations": "Nenhuma observação do usuário.",
+      "versions": "Versões anteriores",
+      "noVersions": "Nenhuma versão registrada.",
+      "version": "Versão {{n}}",
+      "addObservation": "Adicionar observação",
+      "observationPlaceholder": "Digite uma observação, restrição ou feedback...",
+      "submit": "Enviar",
+      "complete": "Encerrar sessão",
+      "completeSummary": "Resumo e próximos passos",
+      "summaryPlaceholder": "Resuma o que foi feito e liste próximos passos...",
+      "cancel": "Cancelar",
+      "confirmComplete": "Confirmar encerramento"
+    },
+    "debug": {
+      "initialError": "Erro inicial",
+      "hypothesesAndEvidence": "Hipóteses e evidências",
       "noHypotheses": "Nenhuma hipótese formulada.",
-      "evidence": "Evidências",
-      "eventTimeline": "Linha do tempo de eventos",
-      "permissionsAudit": "Auditoria de permissões",
-      "permScreenCapture": "Captura de tela",
-      "permClipboard": "Clipboard",
-      "permFileAccess": "Acesso a arquivos",
-      "mode": {
-        "vision": "Visão",
-        "debug": "Debug",
-        "writing": "Escrita",
-        "research": "Pesquisa",
-        "workflow": "Workflow"
-      },
-      "status": {
-        "active": "Ativo",
-        "paused": "Pausado",
-        "waiting_approval": "Aguardando aprovação",
-        "completed": "Concluído",
-        "failed": "Falhou"
-      },
-      "hypothesisStatus": {
-        "open": "Em aberto",
-        "confirmed": "Confirmada",
-        "refuted": "Refutada"
-      },
-      "eventType": {
-        "started": "Iniciado",
-        "paused": "Pausado",
-        "resumed": "Retomado",
-        "stopped": "Encerrado",
-        "observation": "Observação",
-        "hypothesis": "Hipótese",
-        "approval": "Aprovação",
-        "completed": "Concluído"
-      },
-      "writing": {
-        "briefing": "Briefing",
-        "userObservations": "Observações do usuário",
-        "noUserObservations": "Nenhuma observação do usuário.",
-        "versions": "Versões anteriores",
-        "noVersions": "Nenhuma versão registrada.",
-        "version": "Versão {{n}}",
-        "addObservation": "Adicionar observação",
-        "observationPlaceholder": "Digite uma observação, restrição ou feedback...",
-        "submit": "Enviar",
-        "complete": "Encerrar sessão",
-        "completeSummary": "Resumo e próximos passos",
-        "summaryPlaceholder": "Resuma o que foi feito e liste próximos passos...",
-        "cancel": "Cancelar",
-        "confirmComplete": "Confirmar encerramento"
-      },
-      "debug": {
-        "initialError": "Erro inicial",
-        "hypothesesAndEvidence": "Hipóteses e evidências",
-        "noHypotheses": "Nenhuma hipótese formulada.",
-        "addEvidence": "Adicionar evidência",
-        "evidencePlaceholder": "Descreva a evidência...",
-        "addHypothesis": "Adicionar hipótese",
-        "hypothesisPlaceholder": "Formule uma hipótese...",
-        "add": "Adicionar",
-        "conclusion": "Conclusão",
-        "conclusionPlaceholder": "Descreva a conclusão e próximos passos..."
-      }
+      "addEvidence": "Adicionar evidência",
+      "evidencePlaceholder": "Descreva a evidência...",
+      "addHypothesis": "Adicionar hipótese",
+      "hypothesisPlaceholder": "Formule uma hipótese...",
+      "add": "Adicionar",
+      "conclusion": "Conclusão",
+      "conclusionPlaceholder": "Descreva a conclusão e próximos passos..."
     }
   }
 }

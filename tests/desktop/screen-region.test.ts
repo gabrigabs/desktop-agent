@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { normalizeScreenCrop } from "../../apps/desktop/src/components/ui/screen-region-modal";
+import { normalizeScreenCrop } from "../../apps/desktop/src/components/ui/media/screen-region-modal";
 
 describe("screen region selection", () => {
   test("normalizes a reverse drag into a Vision crop", () => {

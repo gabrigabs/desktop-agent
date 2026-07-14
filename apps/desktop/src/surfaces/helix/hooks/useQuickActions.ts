@@ -1,7 +1,7 @@
 import { Bot, Globe, Languages, Lightbulb, ListChecks, Search, Sparkles } from "lucide-react";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import type { QuickActionItem } from "../../../components/ui/helix-quick-actions";
+import type { QuickActionItem } from "../../../components/ui/helix/helix-quick-actions";
 
 export type { QuickActionItem };
 

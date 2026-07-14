@@ -19,6 +19,7 @@ export function createFileWriteTool(ctx: FileToolContext): RegisteredTool {
     description: "Cria ou sobrescreve um arquivo dentro de uma pasta autorizada pelo usuário",
     category: "desktop",
     permissionLevel: "local.write",
+    executionPolicy: "explicit_approval",
     inputSchema: fileWriteSchema,
     async handler(input) {
       const parsed = fileWriteSchema.parse(input);

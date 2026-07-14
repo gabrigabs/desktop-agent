@@ -3,6 +3,7 @@ import type {
   FollowUpMemoryScope,
   FollowUpMode,
   FollowUpObservationSource,
+  FollowUpObservationStatus,
   FollowUpSession,
 } from "@desktop-agent/shared";
 import { useCallback, useEffect, useState } from "react";
@@ -13,6 +14,7 @@ export function useFollowUp() {
   const [error, setError] = useState<string | null>(null);
   const sessions = useAgentStore((s) => s.followUpSessions);
   const activeSession = useAgentStore((s) => s.activeFollowUpSession);
+  const streaming = useAgentStore((s) => s.streaming);
   const setSessions = useAgentStore((s) => s.setFollowUpSessions);
   const setActiveSession = useAgentStore((s) => s.setActiveFollowUpSession);
 
@@ -40,6 +42,14 @@ export function useFollowUp() {
     void refresh().catch((error) => console.error("Failed to load follow-up sessions:", error));
   }, [refresh]);
 
+  useEffect(() => {
+    if (!streaming || !activeSession?.id) return;
+    const timer = window.setInterval(() => {
+      void refresh().catch((error) => console.error("Failed to refresh active follow-up:", error));
+    }, 1_200);
+    return () => window.clearInterval(timer);
+  }, [activeSession?.id, refresh, streaming]);
+
   const startSession = useCallback(
     async (
       mode: FollowUpMode,
@@ -48,6 +58,7 @@ export function useFollowUp() {
         spaceId?: string | null;
         memoryScope?: FollowUpMemoryScope;
         contextPolicy?: FollowUpContextPolicy;
+        workflowRunId?: string;
       },
     ): Promise<FollowUpSession | null> => {
       try {
@@ -58,6 +69,7 @@ export function useFollowUp() {
           spaceId: options?.spaceId ?? null,
           memoryScope: options?.memoryScope,
           contextPolicy: options?.contextPolicy,
+          workflowRunId: options?.workflowRunId,
         });
         await refresh();
         return session;
@@ -122,13 +134,43 @@ export function useFollowUp() {
   );
 
   const addObservation = useCallback(
-    async (sessionId: string, content: string, source: FollowUpObservationSource) => {
+    async (
+      sessionId: string,
+      content: string,
+      source: FollowUpObservationSource,
+      options?: {
+        status?: FollowUpObservationStatus;
+        target?: string | null;
+        metadata?: Record<string, unknown>;
+      },
+    ) => {
       try {
         const api = await getAgent();
-        await api.addFollowUpObservation({ sessionId, content, source });
+        await api.addFollowUpObservation({ sessionId, content, source, ...options });
         await refresh();
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "Failed to add observation");
+      }
+    },
+    [refresh],
+  );
+
+  const updateObservation = useCallback(
+    async (
+      id: string,
+      updates: {
+        status?: FollowUpObservationStatus;
+        content?: string;
+        target?: string | null;
+        metadata?: Record<string, unknown>;
+      },
+    ) => {
+      try {
+        const api = await getAgent();
+        await api.updateFollowUpObservation({ id, ...updates });
+        await refresh();
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : "Failed to update observation");
       }
     },
     [refresh],
@@ -159,6 +201,7 @@ export function useFollowUp() {
     stopSession,
     completeSession,
     addObservation,
+    updateObservation,
     addHypothesis,
   };
 }

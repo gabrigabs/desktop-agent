@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import type { ExecutionContextSummary } from "../space";
 
 export type RpcRequest = {
   id: string;
@@ -195,6 +196,7 @@ export type MessageBlock =
       output?: unknown;
     }
   | { type: "error"; message: string }
+  | { type: "execution_context"; summary: ExecutionContextSummary }
   | {
       type: "context";
       source: "clipboard" | "screen" | "file" | "active_app" | "web" | "connector";

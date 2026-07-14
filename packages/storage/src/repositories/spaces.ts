@@ -57,12 +57,13 @@ export function createSpace(
     instructions?: string;
     profileId?: string | null;
     preferredLayout?: SpaceLayout;
+    memoryEnabled?: boolean;
   },
 ): Space {
   const id = randomUUID();
   db.run(
-    `INSERT INTO spaces (id, name, icon, color, folder_path, purpose, instructions, profile_id, preferred_layout)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO spaces (id, name, icon, color, folder_path, purpose, instructions, profile_id, preferred_layout, memory_enabled)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       params.name,
@@ -73,6 +74,7 @@ export function createSpace(
       params.instructions ?? "",
       params.profileId ?? null,
       params.preferredLayout ?? "chat",
+      params.memoryEnabled === false ? 0 : 1,
     ],
   );
   const created = getSpace(db, id);
@@ -291,9 +293,9 @@ export function saveExecutionContextSnapshot(
   params: {
     runId: string;
     spaceId: string | null;
-    facts: { id: string; content: string }[];
+    facts: { id: string; content: string; origin: "manual" | "assistant" }[];
     instructions: string;
-    sources: { documentId: string; displayName: string }[];
+    sources: { documentId: string; displayName: string; preview: string; mimeType: string }[];
     fileContextPaths: string[];
   },
 ): string {
@@ -319,13 +321,28 @@ export function getExecutionContextSnapshot(db: Database, runId: string): Execut
     .query("SELECT * FROM execution_context_snapshots WHERE run_id = ? ORDER BY created_at DESC LIMIT 1")
     .get(runId) as Record<string, unknown> | undefined;
   if (!row) return null;
+  const facts = JSON.parse((row.facts_json as string) ?? "[]") as Array<{
+    id: string;
+    content: string;
+    origin?: "manual" | "assistant";
+  }>;
+  const sources = JSON.parse((row.sources_json as string) ?? "[]") as Array<{
+    documentId: string;
+    displayName: string;
+    preview?: string;
+    mimeType?: string;
+  }>;
   return {
     id: row.id as string,
     runId: row.run_id as string,
     spaceId: (row.space_id as string) ?? null,
-    facts: JSON.parse((row.facts_json as string) ?? "[]"),
+    facts: facts.map((fact) => ({ ...fact, origin: fact.origin ?? "manual" })),
     instructions: (row.instructions as string) ?? "",
-    sources: JSON.parse((row.sources_json as string) ?? "[]"),
+    sources: sources.map((source) => ({
+      ...source,
+      preview: source.preview ?? "",
+      mimeType: source.mimeType ?? "application/octet-stream",
+    })),
     fileContextPaths: JSON.parse((row.file_context_json as string) ?? "[]"),
     createdAt: row.created_at as string,
   };

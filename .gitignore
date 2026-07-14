@@ -9,6 +9,13 @@ target/
 # Tauri
 apps/desktop/src-tauri/binaries/
 apps/desktop/src-tauri/resources/liteparse/
+apps/desktop/src-tauri/gen/
+apps/desktop/src-tauri/$HOME/
+
+# Local databases
+*.db
+*.db-shm
+*.db-wal
 
 # IDE
 .vscode/
@@ -31,6 +38,4 @@ Thumbs.db
 # Local verification artifacts
 .playwright-cli/
 output/
-apps/desktop/src-tauri/$HOME/
-tests/storage/*.db-shm
-tests/storage/*.db-wal
+output/playwright/

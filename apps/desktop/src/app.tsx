@@ -1,10 +1,12 @@
 import { listen } from "@tauri-apps/api/event";
+import { readText as readClipboard } from "@tauri-apps/plugin-clipboard-manager";
 import { type CSSProperties, useCallback, useEffect, useRef } from "react";
-import { BootScreen } from "./components/ui/boot-screen";
-import { ErrorBoundary } from "./components/ui/error-boundary";
-import { HelixLauncher } from "./components/ui/helix-launcher";
-import { Starfield } from "./components/ui/starfield";
-import { ToastContainer } from "./components/ui/toast";
+import { ErrorBoundary } from "./components/ui/feedback/error-boundary";
+import { HelixLauncher } from "./components/ui/helix/helix-launcher";
+import { TaskWidget } from "./components/ui/helix/task-widget";
+import { BootScreen } from "./components/ui/layout/boot-screen";
+import { Starfield } from "./components/ui/layout/starfield";
+import { ToastContainer } from "./components/ui/primitives/toast";
 import { useToast } from "./hooks/use-toast";
 import i18n, { normalizeLanguage } from "./i18n";
 import { getAgent } from "./lib/rpc";
@@ -19,9 +21,32 @@ import { useAgentStore } from "./stores/agent";
 import { Helix } from "./surfaces/helix";
 
 export function App() {
-  const { uiMode, setUiMode, settings, setSettings, bootState } = useAgentStore();
+  const {
+    uiMode,
+    setUiMode,
+    settings,
+    setSettings,
+    bootState,
+    streaming,
+    result,
+    error: taskError,
+    workflowRun,
+    agentLogs,
+    activeFollowUpSession,
+    setResult,
+    setError,
+    setWorkflowRun,
+    clearAgentLogs,
+  } = useAgentStore();
   const { toasts, dismiss, success, error } = useToast();
   const restoredWindowMode = useRef(false);
+  const taskActive =
+    streaming ||
+    result !== null ||
+    Boolean(taskError) ||
+    agentLogs.length > 0 ||
+    Boolean(workflowRun) ||
+    Boolean(activeFollowUpSession);
 
   useEffect(() => {
     // Proactively boot the sidecar once on mount
@@ -71,9 +96,12 @@ export function App() {
   const applyWindowMode = useCallback(
     async (mode: "collapsed" | "normal" | "expanded") => {
       setUiMode(mode);
-      await setWindowMode(mode, { alwaysOnTop: settings.alwaysOnTop });
+      await setWindowMode(mode, {
+        alwaysOnTop: settings.alwaysOnTop,
+        collapsedTaskActive: mode === "collapsed" && taskActive,
+      });
     },
-    [setUiMode, settings.alwaysOnTop],
+    [setUiMode, settings.alwaysOnTop, taskActive],
   );
 
   // Ensure always on top is synced with state
@@ -89,8 +117,19 @@ export function App() {
     const mode =
       settings.hidePet && settings.defaultWindowMode === "collapsed" ? "normal" : settings.defaultWindowMode;
     setUiMode(mode);
-    setWindowMode(mode, { alwaysOnTop: settings.alwaysOnTop });
-  }, [settings.alwaysOnTop, settings.defaultWindowMode, settings.hidePet, setUiMode]);
+    setWindowMode(mode, {
+      alwaysOnTop: settings.alwaysOnTop,
+      collapsedTaskActive: mode === "collapsed" && taskActive,
+    });
+  }, [settings.alwaysOnTop, settings.defaultWindowMode, settings.hidePet, setUiMode, taskActive]);
+
+  useEffect(() => {
+    if (uiMode !== "collapsed" || settings.hidePet) return;
+    void setWindowMode("collapsed", {
+      alwaysOnTop: settings.alwaysOnTop,
+      collapsedTaskActive: taskActive,
+    });
+  }, [settings.alwaysOnTop, settings.hidePet, taskActive, uiMode]);
 
   // Sync pet hide visibility lifecycle
   useEffect(() => {
@@ -140,10 +179,36 @@ export function App() {
 
   if (uiMode === "collapsed" && !settings.hidePet) {
     return (
-      <div className="agent-window-frame launcher-frame overflow-visible" data-tauri-drag-region>
-        <div className="w-full h-full rounded-full overflow-visible flex items-center justify-center">
+      <div
+        className={`agent-window-frame overflow-visible ${taskActive ? "task-widget-frame" : "launcher-frame"}`}
+        data-tauri-drag-region
+      >
+        <div
+          className={`flex h-full w-full items-center justify-center overflow-visible ${taskActive ? "rounded-[24px]" : "rounded-full"}`}
+        >
           {bootState !== "ready" ? (
             <BootScreen compact />
+          ) : taskActive ? (
+            <TaskWidget
+              run={workflowRun}
+              streaming={streaming}
+              result={result}
+              error={taskError}
+              latestLog={agentLogs[agentLogs.length - 1]?.text}
+              followUp={activeFollowUpSession}
+              petSize={settings.petSize ?? 56}
+              onOpen={() => void applyWindowMode("normal")}
+              onApproval={(approved) => {
+                sessionStorage.setItem("helix.pending-approval", String(approved));
+                void applyWindowMode("normal");
+              }}
+              onDismiss={() => {
+                setResult(null);
+                setError(null);
+                setWorkflowRun(null);
+                clearAgentLogs();
+              }}
+            />
           ) : (
             <HelixLauncher
               petSize={settings.petSize ?? 56}
@@ -154,6 +219,28 @@ export function App() {
                   : { actionId: action.id };
                 sessionStorage.setItem("helix.pending-action", JSON.stringify(pending));
                 void applyWindowMode(action.category === "screen" ? "expanded" : "normal");
+              }}
+              onQuickAction={(action, secondaryAction) => {
+                void (async () => {
+                  let execute = true;
+                  if (secondaryAction.requiredContext?.includes("clipboard")) {
+                    try {
+                      const text = await readClipboard();
+                      const store = useAgentStore.getState();
+                      store.setClipboardText(text ?? "");
+                      store.setIgnoreClipboard(false);
+                      execute = Boolean(text?.trim());
+                    } catch {
+                      // The normal composer will surface an empty clipboard if native access fails.
+                      execute = false;
+                    }
+                  }
+                  sessionStorage.setItem(
+                    "helix.pending-action",
+                    JSON.stringify({ actionId: action.id, secondaryId: secondaryAction.id, execute }),
+                  );
+                  await applyWindowMode(action.category === "screen" ? "expanded" : "normal");
+                })();
               }}
             />
           )}

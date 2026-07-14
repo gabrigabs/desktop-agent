@@ -59,11 +59,53 @@ export type ExecutionContextSnapshot = {
   id: string;
   runId: string;
   spaceId: string | null;
-  facts: { id: string; content: string }[];
+  facts: { id: string; content: string; origin: "manual" | "assistant" }[];
   instructions: string;
-  sources: { documentId: string; displayName: string }[];
+  sources: { documentId: string; displayName: string; preview: string; mimeType: string }[];
   fileContextPaths: string[];
   createdAt: string;
+};
+
+export type ExecutionContextSummary = {
+  runId: string;
+  spaceName?: string;
+  facts: { id: string; content: string; origin: "manual" | "assistant" }[];
+  filesRead: {
+    displayName: string;
+    preview: string;
+    mimeType: string;
+    source: "attachment" | "space" | "context";
+  }[];
+  filesWritten: { displayName: string; preview: string; mimeType: string }[];
+  toolsUsed: {
+    toolName: string;
+    inputPreview: string;
+    outputPreview: string;
+    durationMs: number;
+    success: boolean;
+  }[];
+  instructions: string;
+};
+
+export type SpaceFieldSuggestion = Omit<SpaceField, "id">;
+
+export type SuggestedSpaceCollection = {
+  name: string;
+  fields: SpaceFieldSuggestion[];
+};
+
+export type SuggestSpaceConfigInput = {
+  name: string;
+  purpose: string;
+  profiles: { id: string; name: string; description?: string }[];
+};
+
+export type SuggestSpaceConfigOutput = {
+  instructions: string;
+  preferredLayout: SpaceLayout;
+  profileId?: string;
+  memoryEnabled: boolean;
+  collections: SuggestedSpaceCollection[];
 };
 
 export type Space = {

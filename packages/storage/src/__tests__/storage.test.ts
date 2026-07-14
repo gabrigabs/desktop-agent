@@ -4,11 +4,13 @@ import { closeDb, getDb } from "../db";
 import { runMigrations, runMigrationsThrough } from "../migrations";
 import { createConversation, getConversation, listTurns, upsertTurn } from "../repositories/conversations";
 import {
+  addObservation as addFollowUpObservation,
   completeSession as completeFollowUpSession,
   createSession as createFollowUpSession,
   getSession as getFollowUpSession,
   listActiveSessions as listActiveFollowUpSessions,
   restoreActiveSessions as restoreActiveFollowUpSessions,
+  updateObservation as updateFollowUpObservation,
 } from "../repositories/follow-up-sessions";
 import { createInteraction, getRecentInteractions, searchInteractions } from "../repositories/interactions";
 import { listMarkdownSources, upsertMarkdownSource } from "../repositories/markdown-sources";
@@ -95,7 +97,7 @@ describe("Storage Package Tests", () => {
       version: number;
     }[];
     expect(migrations.map((migration) => migration.version)).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
     ]);
 
     const settings = db.query("SELECT key, value FROM app_settings ORDER BY key").all() as {
@@ -259,7 +261,7 @@ describe("Storage Package Tests", () => {
       (db.query("SELECT version FROM _migrations ORDER BY version").all() as Array<{ version: number }>).map(
         (migration) => migration.version,
       ),
-    ).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]);
+    ).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]);
   });
 
   test("Follow-up survives boot as visible paused state without writing Space memory", () => {
@@ -279,6 +281,25 @@ describe("Storage Package Tests", () => {
     completeFollowUpSession(db, session.id, "Resumo final");
     expect(listMemoryFacts(db, space.id)).toEqual([]);
     expect(listActiveFollowUpSessions(db).map((item) => item.id)).not.toContain(session.id);
+  });
+
+  test("Follow-up observations persist inspection targets, metadata, and status transitions", () => {
+    const session = createFollowUpSession(db, {
+      mode: "inspect",
+      objective: "Revisar o fluxo de checkout",
+    });
+    const observation = addFollowUpObservation(db, session.id, "O botão perde contraste no hover", "manual", {
+      status: "pending",
+      target: "https://example.test/checkout",
+      metadata: { selector: "button[type=submit]" },
+    });
+
+    expect(observation.status).toBe("pending");
+    expect(observation.target).toBe("https://example.test/checkout");
+    expect(observation.metadata.selector).toBe("button[type=submit]");
+
+    updateFollowUpObservation(db, observation.id, { status: "resolved" });
+    expect(getFollowUpSession(db, session.id)?.observations[0]?.status).toBe("resolved");
   });
 
   test("Should log and retrieve interactions", () => {

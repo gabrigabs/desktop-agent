@@ -18,8 +18,8 @@ import {
 } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button } from "../../../components/ui/button";
-import { MarkdownRenderer } from "../../../components/ui/markdown-renderer";
+import { MarkdownRenderer } from "../../../components/ui/content/markdown-renderer";
+import { Button } from "../../../components/ui/primitives/button";
 import { useDragDrop } from "../hooks/useDragDrop";
 import type { HelixMode } from "../types";
 import type { ParseJob, ParserModeState } from "./useParserMode";

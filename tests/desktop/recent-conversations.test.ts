@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { formatRelativeDate } from "../../apps/desktop/src/components/ui/recent-conversations";
+import { formatRelativeDate } from "../../apps/desktop/src/components/ui/identity/recent-conversations";
 
 describe("RecentConversations helpers", () => {
   test("formatRelativeDate returns time for today", () => {

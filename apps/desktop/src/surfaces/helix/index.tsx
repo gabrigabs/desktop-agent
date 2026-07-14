@@ -1,14 +1,13 @@
 import { type ContextAttachment, getHelixAction } from "@desktop-agent/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { HelixDrawer } from "../../components/ui/helix-drawer";
-import { HelixHeader } from "../../components/ui/helix-header";
-import { HelixSidebar } from "../../components/ui/helix-sidebar";
+import { HelixDrawer } from "../../components/ui/helix/helix-drawer";
+import { HelixHeader } from "../../components/ui/helix/helix-header";
+import { HelixSidebar } from "../../components/ui/helix/helix-sidebar";
 import { getAgent } from "../../lib/rpc";
 import { closeApp, setWindowMode } from "../../lib/window";
 import { useAgentStore } from "../../stores/agent";
-import { ExpandedView } from "./ExpandedView";
-import { FollowUpDock } from "./FollowUpDock";
+import { FollowUpDock } from "./followup/FollowUpDock";
 import { useCapabilities } from "./hooks/useCapabilities";
 import { useClipboard } from "./hooks/useClipboard";
 import { useDragDrop } from "./hooks/useDragDrop";
@@ -22,9 +21,10 @@ import { useSettingsForm } from "./hooks/useSettingsForm";
 import { useSkills } from "./hooks/useSkills";
 import { useSpaces } from "./hooks/useSpaces";
 import { useWorkflows } from "./hooks/useWorkflows";
-import { NormalCommandView } from "./NormalCommandView";
+import { SettingsPanel, type SettingsSection } from "./panels/SettingsPanel";
 import { useParserMode } from "./parser-mode/useParserMode";
-import { SettingsPanel, type SettingsSection } from "./SettingsPanel";
+import { ExpandedView } from "./views/ExpandedView";
+import { NormalCommandView } from "./views/NormalCommandView";
 
 type HelixProps = {
   onToastSuccess?: (message: string, duration?: number) => void;
@@ -110,8 +110,12 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
 
   const handleMinimize = useCallback(async () => {
     setUiMode("collapsed");
-    await setWindowMode("collapsed", { alwaysOnTop: settings.alwaysOnTop });
-  }, [setUiMode, settings.alwaysOnTop]);
+    await setWindowMode("collapsed", {
+      alwaysOnTop: settings.alwaysOnTop,
+      collapsedTaskActive:
+        streaming || result !== null || Boolean(error) || agentLogs.length > 0 || Boolean(workflowRun),
+    });
+  }, [agentLogs.length, error, result, setUiMode, settings.alwaysOnTop, streaming, workflowRun]);
 
   const handleClose = useCallback(async () => {
     await closeApp();
@@ -158,9 +162,9 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
 
     sessionStorage.removeItem("helix.pending-action");
 
-    let pending: { actionId: string; secondaryId?: string } | null = null;
+    let pending: { actionId: string; secondaryId?: string; execute?: boolean } | null = null;
     try {
-      pending = JSON.parse(raw) as { actionId: string; secondaryId?: string };
+      pending = JSON.parse(raw) as { actionId: string; secondaryId?: string; execute?: boolean };
     } catch {
       pending = { actionId: raw };
     }
@@ -214,9 +218,21 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     setExecutionMode(secondary?.executionMode ?? action.executionMode ?? "simple");
     const requiredContext = secondary?.requiredContext ?? action.requiredContext;
     setIgnoreClipboard(!requiredContext?.includes("clipboard"));
-    setQuery(secondary?.prompt ?? action.prompt);
+    const prompt = secondary?.prompt ?? action.prompt;
+    setQuery(prompt);
+    if (pending.execute && prompt.trim()) {
+      requestAnimationFrame(() => void exec.handleExecute(prompt));
+      return;
+    }
     requestAnimationFrame(() => textareaRef.current?.focus());
-  }, [setExecutionMode, setIgnoreClipboard, setQuery, settings.alwaysOnTop, uiMode]);
+  }, [exec.handleExecute, setExecutionMode, setIgnoreClipboard, setQuery, settings.alwaysOnTop, uiMode]);
+
+  useEffect(() => {
+    const pending = sessionStorage.getItem("helix.pending-approval");
+    if (pending !== "true" && pending !== "false") return;
+    sessionStorage.removeItem("helix.pending-approval");
+    void exec.handleApproval(pending === "true");
+  }, [exec.handleApproval]);
 
   const onStarterAction = useCallback(
     (prompt: string, modeOverride?: "simple" | "workflow") => {
@@ -336,7 +352,7 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     workflowRun?.status === "waiting_approval"
       ? t("helix:helixIndex.waitingApproval")
       : error
-        ? t("helix:workflow.failed")
+        ? JSON.stringify(error)
         : streaming
           ? agentLogs[agentLogs.length - 1]?.type === "tool_start"
             ? t("helix:helixIndex.usingTool")
@@ -367,6 +383,7 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     workflowSteps,
     approval: approval
       ? {
+          toolName: approval.toolName ?? t("helix:approval.unknownTool", "Ferramenta"),
           reason: approval.reason,
           permissionLevel: approval.permissionLevel,
           inputPreview: approval.inputPreview,
@@ -511,6 +528,8 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
           spaces={spaces}
           open={followUpOpen}
           onOpenChange={setFollowUpOpen}
+          workflowRun={workflowRun}
+          onRunInspection={(prompt) => void exec.handleExecute(prompt)}
         />
         <div className="flex flex-1 min-h-0">
           <HelixSidebar
@@ -548,6 +567,8 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
         spaces={spaces}
         open={followUpOpen}
         onOpenChange={setFollowUpOpen}
+        workflowRun={workflowRun}
+        onRunInspection={(prompt) => void exec.handleExecute(prompt)}
         onExpand={() => {
           setFollowUpOpen(true);
           void handleToggleExpand();

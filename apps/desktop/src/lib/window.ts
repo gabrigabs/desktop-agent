@@ -4,6 +4,7 @@ export type WindowMode = "collapsed" | "normal" | "expanded";
 
 export const WINDOW_SIZES = {
   collapsed: { width: 120, height: 120 },
+  collapsedTask: { width: 200, height: 120 },
   normal: { width: 520, height: 820 },
   expanded: { width: 1180, height: 820 },
 };
@@ -125,12 +126,16 @@ export async function setLauncherMenuOpen(
 /**
  * Altera o tamanho e o estado da janela entre os modos de visualização do app.
  */
-export async function setWindowMode(mode: WindowMode, options?: { alwaysOnTop?: boolean }) {
+export async function setWindowMode(
+  mode: WindowMode,
+  options?: { alwaysOnTop?: boolean; collapsedTaskActive?: boolean },
+) {
   if (!isTauriRuntime()) return;
 
   try {
     const appWindow = getCurrentWindow();
-    const size = WINDOW_SIZES[mode];
+    const size =
+      mode === "collapsed" && options?.collapsedTaskActive ? WINDOW_SIZES.collapsedTask : WINDOW_SIZES[mode];
 
     // Garante que a janela está temporariamente redimensionável para aplicar o novo tamanho.
     await appWindow.setResizable(true);

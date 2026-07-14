@@ -1,8 +1,9 @@
-import type { ContextAttachment, Turn } from "@desktop-agent/shared";
+import type { ContextAttachment, FileContextInput, Turn, WorkflowRun } from "@desktop-agent/shared";
 import { unwrapAgentResponse } from "@desktop-agent/shared";
 import { readText as readClipboard, writeText as writeClipboard } from "@tauri-apps/plugin-clipboard-manager";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { buildExecutionContextSummary, hasExecutionContext } from "../../../lib/execution-context";
 import {
   clearActiveRequestId as clearRpcActiveRequestId,
   getAgent,
@@ -88,6 +89,50 @@ function formatFileContext(files: ReturnType<typeof useAgentStore.getState>["fil
       return meta.join("\n");
     })
     .join("\n\n");
+}
+
+async function attachExecutionContext(
+  run: WorkflowRun,
+  files: FileContextInput[],
+  contexts: ContextAttachment[],
+): Promise<void> {
+  const api = await getAgent();
+  const snapshot = await api.getExecutionContextSnapshot({ runId: run.id });
+  const store = useAgentStore.getState();
+  const spaceName = store.spaces.find((space) => space.id === snapshot?.spaceId)?.name;
+  const summary = buildExecutionContextSummary({ snapshot, run, files, contexts, spaceName });
+  if (hasExecutionContext(summary)) store.setAssistantExecutionContext(summary);
+}
+
+async function refreshFollowUpSession(sessionId: string): Promise<void> {
+  const api = await getAgent();
+  const session = await api.getFollowUpSession({ id: sessionId });
+  if (!session) return;
+  const store = useAgentStore.getState();
+  store.setFollowUpSessions([
+    session,
+    ...store.followUpSessions.filter((candidate) => candidate.id !== session.id),
+  ]);
+  store.setActiveFollowUpSession(
+    ["active", "paused", "waiting_approval"].includes(session.status) ? session : null,
+  );
+}
+
+async function addFollowUpExchange(
+  sessionId: string,
+  source: "user" | "assistant",
+  content: string,
+  runId?: string,
+): Promise<void> {
+  if (!content.trim()) return;
+  const api = await getAgent();
+  await api.addFollowUpObservation({
+    sessionId,
+    content: content.trim().slice(0, 6_000),
+    source,
+    status: "resolved",
+    metadata: runId ? { runId } : undefined,
+  });
 }
 
 export function useExecute(activeProfileId?: string | null) {
@@ -182,6 +227,8 @@ export function useExecute(activeProfileId?: string | null) {
           }
         }
         const nativeContexts = store.contexts;
+        const followUpSession =
+          store.activeFollowUpSession?.status === "active" ? store.activeFollowUpSession : null;
         const selectedNativeContexts = nativeContexts.filter((context) => context.enabled);
         for (const context of selectedNativeContexts) {
           userBlocks.push({
@@ -207,6 +254,12 @@ export function useExecute(activeProfileId?: string | null) {
         store.setIgnoreClipboard(true);
         store.clearFileContext();
         store.clearContexts();
+
+        if (followUpSession) {
+          await addFollowUpExchange(followUpSession.id, "user", resolvedPrompt).catch((err) => {
+            console.error("Failed to add user turn to follow-up:", err);
+          });
+        }
 
         requestId = crypto.randomUUID();
         setRpcActiveRequestId(requestId);
@@ -264,6 +317,7 @@ export function useExecute(activeProfileId?: string | null) {
           history,
           profileId: effectiveProfileId,
           spaceId: store.activeSpaceId ?? undefined,
+          followUpSessionId: followUpSession?.id,
         };
 
         const timeoutMs = Math.max(store.settings.timeout, 10) * 1000 + 5000;
@@ -288,6 +342,19 @@ export function useExecute(activeProfileId?: string | null) {
         setActiveRunId(runId);
         store.setWorkflowRun(res.run);
         store.setResult(res.run.result || "");
+        await attachExecutionContext(res.run, fileContext, selectedNativeContexts).catch((err) => {
+          console.error("Failed to attach execution context:", err);
+        });
+        if (followUpSession) {
+          if (res.run.status === "completed" && res.run.result.trim()) {
+            await addFollowUpExchange(followUpSession.id, "assistant", res.run.result, res.run.id).catch(
+              (err) => console.error("Failed to add assistant turn to follow-up:", err),
+            );
+          }
+          await refreshFollowUpSession(followUpSession.id).catch((err) => {
+            console.error("Failed to refresh follow-up after run:", err);
+          });
+        }
 
         if (store.activeSpaceId && store.currentConversationId) {
           try {
@@ -394,6 +461,20 @@ export function useExecute(activeProfileId?: string | null) {
         );
         store.setWorkflowRun(res.run);
         store.setResult(res.run.result || "");
+        await attachExecutionContext(res.run, [], []).catch((err) => {
+          console.error("Failed to refresh execution context:", err);
+        });
+        const followUpSessionId = res.run.metadata.followUpSessionId;
+        if (typeof followUpSessionId === "string") {
+          if (res.run.status === "completed" && res.run.result.trim()) {
+            await addFollowUpExchange(followUpSessionId, "assistant", res.run.result, res.run.id).catch(
+              (err) => console.error("Failed to add resumed response to follow-up:", err),
+            );
+          }
+          await refreshFollowUpSession(followUpSessionId).catch((err) => {
+            console.error("Failed to refresh follow-up after resume:", err);
+          });
+        }
         if (res.run.status === "failed" || res.run.status === "cancelled") {
           store.setError(res.run.errorMessage || t("helix:errors.workflowEnded"));
         }
@@ -405,9 +486,10 @@ export function useExecute(activeProfileId?: string | null) {
         clearRpcActiveRequestId(requestId);
         setActiveRequestId((current) => (current === requestId ? null : current));
         setActiveRunId((current) => (current === workflowRun.id ? null : current));
+        void saveConversationToStorage();
       }
     },
-    [t, staleMessage],
+    [saveConversationToStorage, t, staleMessage],
   );
 
   const handleQuickAction = useCallback(

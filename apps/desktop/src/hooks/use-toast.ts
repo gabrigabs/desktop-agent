@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import type { ToastItem, ToastType } from "../components/ui/toast";
+import type { ToastItem, ToastType } from "../components/ui/primitives/toast";
 
 function generateId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;

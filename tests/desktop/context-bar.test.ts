@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { ContextItem } from "../../apps/desktop/src/components/ui/context-bar";
+import type { ContextItem } from "../../apps/desktop/src/components/ui/feedback/context-bar";
 
 describe("ContextBar item helpers", () => {
   const mockItems: ContextItem[] = [
