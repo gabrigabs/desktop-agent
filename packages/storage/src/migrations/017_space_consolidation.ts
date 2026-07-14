@@ -31,6 +31,16 @@ export function runMigration(db: Database): void {
   renameColumn(db, "space_conversations", "workspace_id", "space_id");
   renameColumn(db, "space_documents", "workspace_id", "space_id");
 
+  for (const table of [
+    "workspace_budget_items",
+    "workspace_debts",
+    "workspace_goals",
+    "workspace_purchase_decisions",
+    "workspace_scenarios",
+  ]) {
+    db.run(`DROP TABLE IF EXISTS ${table}`);
+  }
+
   db.run("UPDATE spaces SET preferred_layout = 'collections' WHERE preferred_layout = 'dashboard'");
   db.run(
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_space_memory_source_turn ON space_memory(space_id, source_turn_id) WHERE source_turn_id IS NOT NULL",

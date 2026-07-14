@@ -1,6 +1,23 @@
 import type { Database } from "../db";
 
+function columnExists(db: Database, table: string, column: string): boolean {
+  const tableExists = Boolean(
+    db.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?").get(table),
+  );
+  if (!tableExists) return false;
+  return (db.query(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).some(
+    (entry) => entry.name === column,
+  );
+}
+
 export function runMigration(db: Database): void {
+  if (
+    columnExists(db, "follow_up_sessions", "workspace_id") &&
+    !columnExists(db, "follow_up_sessions", "space_id")
+  ) {
+    db.run("ALTER TABLE follow_up_sessions RENAME COLUMN workspace_id TO space_id");
+  }
+
   db.run(`
     CREATE TABLE IF NOT EXISTS follow_up_sessions (
       id TEXT PRIMARY KEY,

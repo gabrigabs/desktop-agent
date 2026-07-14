@@ -195,6 +195,73 @@ describe("Storage Package Tests", () => {
     expect(memory.space_id).toBe("legacy-space");
   });
 
+  test("Repairs the discarded local prerelease migration sequence without losing spaces", () => {
+    closeDb();
+    db = getDb(":memory:");
+    runMigrationsThrough(db, 16);
+    db.run("INSERT INTO workspaces (id, name, folder_path) VALUES (?, ?, ?)", [
+      "prerelease-space",
+      "Pré-release",
+      "",
+    ]);
+    db.run(`
+      CREATE TABLE execution_context_snapshots (
+        id TEXT PRIMARY KEY,
+        run_id TEXT NOT NULL,
+        workspace_id TEXT,
+        facts_json TEXT,
+        instructions TEXT,
+        sources_json TEXT,
+        file_context_json TEXT,
+        created_at TEXT
+      )
+    `);
+    db.run(`
+      CREATE TABLE follow_up_sessions (
+        id TEXT PRIMARY KEY,
+        mode TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'active',
+        objective TEXT NOT NULL,
+        workspace_id TEXT,
+        memory_scope TEXT,
+        context_policy TEXT,
+        next_actions TEXT,
+        created_at TEXT,
+        updated_at TEXT,
+        paused_at TEXT,
+        completed_at TEXT,
+        close_reason TEXT
+      )
+    `);
+    db.run("CREATE TABLE workspace_debts (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL)");
+    for (const version of [17, 18, 19, 20]) {
+      db.run("INSERT INTO _migrations (version) VALUES (?)", [version]);
+    }
+
+    runMigrations(db);
+
+    expect(
+      db.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'spaces'").get(),
+    ).toBeTruthy();
+    expect(db.query("SELECT id FROM spaces WHERE id = ?").get("prerelease-space")).toBeTruthy();
+    expect(
+      db.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'workspace_debts'").get(),
+    ).toBeNull();
+    const snapshotColumns = db.query("PRAGMA table_info(execution_context_snapshots)").all() as Array<{
+      name: string;
+    }>;
+    const followUpColumns = db.query("PRAGMA table_info(follow_up_sessions)").all() as Array<{
+      name: string;
+    }>;
+    expect(snapshotColumns.some((column) => column.name === "space_id")).toBe(true);
+    expect(followUpColumns.some((column) => column.name === "space_id")).toBe(true);
+    expect(
+      (db.query("SELECT version FROM _migrations ORDER BY version").all() as Array<{ version: number }>).map(
+        (migration) => migration.version,
+      ),
+    ).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]);
+  });
+
   test("Follow-up survives boot as visible paused state without writing Space memory", () => {
     const space = createSpace(db, { name: "Acompanhado", folderPath: "" });
     const session = createFollowUpSession(db, {

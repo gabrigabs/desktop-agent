@@ -34,6 +34,54 @@ function applyMigration(db: Database, version: number, fn: (db: Database) => voi
   db.run("INSERT INTO _migrations (version) VALUES (?)", [version]);
 }
 
+function tableExists(db: Database, name: string): boolean {
+  return Boolean(db.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?").get(name));
+}
+
+function columnExists(db: Database, table: string, column: string): boolean {
+  if (!tableExists(db, table)) return false;
+  return (db.query(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).some(
+    (entry) => entry.name === column,
+  );
+}
+
+/**
+ * Versions 017-020 existed briefly in local prerelease databases with a
+ * different schema. Reconcile that exact unpublished sequence instead of
+ * asking users to delete their local data.
+ */
+function reconcilePreReleaseSequence(db: Database, targetVersion: number): void {
+  if (targetVersion < 17) return;
+
+  const hasRecorded17 = Boolean(db.query("SELECT version FROM _migrations WHERE version = 17").get());
+  const hasLegacySchema =
+    tableExists(db, "workspaces") ||
+    tableExists(db, "workspace_debts") ||
+    columnExists(db, "execution_context_snapshots", "workspace_id") ||
+    columnExists(db, "follow_up_sessions", "workspace_id");
+
+  if (!hasRecorded17 || !hasLegacySchema) return;
+
+  db.run("BEGIN IMMEDIATE");
+  try {
+    if (!tableExists(db, "spaces")) {
+      runSpacesMigration(db);
+      runSpaceCustomizationMigration(db);
+    }
+    runSpaceConsolidationMigration(db);
+    if (targetVersion >= 18) runSettingsCleanupMigration(db);
+    if (targetVersion >= 19) runFollowUpSessionsMigration(db);
+
+    // Version 020 belonged to the discarded local-only sequence. Leaving it
+    // recorded would make a future real migration 020 get skipped.
+    db.run("DELETE FROM _migrations WHERE version > ?", [targetVersion]);
+    db.run("COMMIT");
+  } catch (error) {
+    db.run("ROLLBACK");
+    throw error;
+  }
+}
+
 export function runMigrationsThrough(db: Database, targetVersion = 19): void {
   db.run(MIGRATION_TABLE);
   const migrations: Array<[number, (database: Database) => void]> = [
@@ -60,6 +108,7 @@ export function runMigrationsThrough(db: Database, targetVersion = 19): void {
   for (const [version, migration] of migrations) {
     if (version <= targetVersion) applyMigration(db, version, migration);
   }
+  reconcilePreReleaseSequence(db, targetVersion);
 }
 
 export function runMigrations(db: Database): void {
