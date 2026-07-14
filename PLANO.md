@@ -1,10 +1,12 @@
-# Plano Helix — Consolidação de pré-release
+# Plano Helix — Mudanças finais da versão inicial
 
 Última atualização: 2026-07-14
 
+> **Este documento consolida todas as mudanças finais para a versão inicial do Helix.** O conteúdo abaixo representa o estado canônico da arquitetura já implementada e o plano de mudanças finais derivado do smoke test — cobrindo melhorias de UX/UX em 5 áreas funcionais e limpeza estrutural do projeto.
+
 ## Objetivo
 
-Entregar a pré-release do Helix com um produto coerente, verificável e centrado em três capacidades:
+Entregar a versão inicial do Helix com um produto coerente, verificável e centrado em três capacidades:
 
 1. conversar e executar ferramentas com segurança;
 2. organizar contexto persistente em Espaços configuráveis;
@@ -297,7 +299,7 @@ Não devem reaparecer em código de produto:
 
 As migrations antigas publicadas podem mencionar nomes históricos apenas quando necessário para upgrade. Testes de upgrade também podem usar esses nomes como fixture histórica.
 
-## Critérios de aceite da pré-release
+## Critérios de aceite da versão inicial
 
 ### Espaços
 
@@ -322,7 +324,7 @@ As migrations antigas publicadas podem mencionar nomes históricos apenas quando
 
 ### Follow-up
 
-- iniciar pela UI em writing e debug;
+- iniciar pela UI em writing, debug e inspect;
 - permanecer visível em todos os destinos e modos;
 - reiniciar e restaurar sessão ativa como pausada;
 - retomar, concluir e encerrar;
@@ -332,6 +334,7 @@ As migrations antigas publicadas podem mencionar nomes históricos apenas quando
 
 - cold start nos três modos configuráveis;
 - fallback normal quando pet oculto e padrão collapsed;
+- collapsed mostra quick actions idle e widget de tarefa ativa;
 - rail, painel lateral, Espaços e composer em `520×820` e `1180×820`;
 - composer sempre dentro do viewport;
 - scroll vertical funcional em telas longas;
@@ -359,14 +362,394 @@ Também validar:
 - fluxo de tool approval após reiniciar o sidecar;
 - ausência de chaves financeiras, Artifact e Workspace no bundle de UI.
 
+---
+
+## Mudanças finais — Smoke Test Feedback
+
+As seções abaixo consolidam os ajustes finais derivados do smoke test, divididos em melhorias funcionais (5 áreas) e limpeza estrutural do projeto.
+
+### MF1: Modos de Janela — Dinâmica entre Collapsed / Normal / Expanded
+
+#### Problema
+Os 3 modos não têm identidade útil distinta. Collapsed é só o pet decorativo. Normal e Expanded diferem só em tamanho.
+
+#### Solução
+
+**Collapsed = Quick Actions + Widget de tarefa ativa**
+- Quando idle: mostra quick actions (resumir clipboard, traduzir, OCR) com 1 clique. Mantém o pet como ponto de entrada mas o launcher radial mostra as quick actions primeiro.
+- Quando uma tarefa está rodando: o collapsed vira um widget compacto mostrando:
+  - Status da tarefa (thinking / using tool / result ready)
+  - Última linha do agent log
+  - Botão para expandir para normal e ver a resposta completa
+  - Indicador do follow-up ativo (se houver)
+- Tamanho do widget: 120×120 → expande para ~200×120 quando há tarefa rodando
+- Ao tocar/clicar no widget com resultado pronto, expande para normal mostrando a resposta
+
+**Normal = Chat focado (520×820)**
+- Chat + composer sem rail lateral
+- Header compacto com botão de expandir
+- Drawer para navegação (já existe)
+- Space switcher rápido no header (ver MF2)
+
+**Expanded = Workspace completo (1180×820)**
+- Rail lateral com Chat, Espaços, Fontes, Configurações
+- Painel lateral de Follow-up
+- Composer com seletor de modelo
+- Tudo que já existe, mantido
+
+#### Arquivos afetados
+- `apps/desktop/src/app.tsx` — lógica de renderização do collapsed com widget
+- `apps/desktop/src/components/ui/helix-launcher.tsx` — adicionar quick actions no launcher
+- `apps/desktop/src/lib/window.ts` — novo tamanho para widget mode
+- `apps/desktop/src/stores/agent.ts` — estado de tarefa ativa para o widget
+- `apps/desktop/src/components/ui/pet.tsx` — indicador de status no pet
+- Novo: `apps/desktop/src/components/ui/task-widget.tsx` — widget compacto de tarefa
+
+#### Critérios de aceite
+- [ ] Collapsed idle mostra quick actions acessíveis com 1 clique
+- [ ] Collapsed com tarefa rodando mostra status + última ação + botão expandir
+- [ ] Collapsed com resultado pronto indica visualmente e expande ao clicar
+- [ ] Normal permanece chat focado sem rail
+- [ ] Expanded permanece workspace completo
+- [ ] Transição entre estados é suave (sem flash de conteúdo)
+
+---
+
+### MF2: Spaces — Wizard com IA, UX de Formulários e Switcher
+
+#### Problema
+1. Campos (fields) de coleções não têm propósito claro para o usuário
+2. Formulário de criação é tedioso com campos chatos
+3. Trocar de Space no composer é difícil
+4. Memória e instruções são conceitos abstratos sem guidance
+
+#### Solução MF2A: Space Wizard com IA (Formulário Inteligente)
+- No formulário de criação, adicionar botão **"Sugerir com IA"** após o usuário digitar nome + propósito
+- O botão chama o runtime com uma completion pedindo para sugerir:
+  - `instructions` — instruções de sistema para o Space
+  - `preferredLayout` — chat ou collections
+  - `profileId` — profile recomendado (se houver)
+  - `memoryEnabled` — true se o Space se beneficia de memória persistente
+  - Sugestão de coleções iniciais com campos (ex: "Tarefas" com campos Título, Status, Prazo)
+- A IA recebe: nome, propósito, e lista de profiles disponíveis
+- O resultado preenche o formulário automaticamente, usuário pode editar antes de salvar
+- Implementação: nova RPC `suggestSpaceConfig({ name, purpose, profiles })` no runtime
+
+#### Solução MF2B: Switcher de Space no Composer
+- Adicionar um seletor de Space compacto no composer (normal e expanded)
+- Mostra o Space ativo com ícone + nome + cor
+- Dropdown lista todos os Spaces + opção "Nenhum"
+- Trocar de Space não recarrega a conversa, apenas atualiza o contexto ativo
+- Posicionado ao lado do seletor de modelo (expanded) ou no header (normal)
+
+#### Solução MF2C: Formulários Melhores
+- Form de criação: reduzir campos obrigatórios para apenas nome. Resto é opcional com defaults inteligentes.
+- Form de coleção: substituir inputs raw por um builder visual:
+  - Drag-and-drop de campos (ou pelo menos botões de mover cima/baixo)
+  - Preview da tabela enquanto cria
+  - Templates de coleção: "Tarefas", "Notas", "Contatos", "Custom"
+- Ao criar um campo, mostrar uma dica curta do tipo:
+  - text: "Texto livre — títulos, nomes, descrições"
+  - number: "Valores numéricos — quantidades, medidas"
+  - currency: "Valores monetários — preço, custo, orçamento"
+  - date: "Datas — prazos, eventos, marcos"
+  - boolean: "Sim/Não — status, flags, confirmações"
+  - select: "Lista de opções — status, categoria, prioridade"
+
+#### Solução MF2D: Guidance de Memória e Instruções
+- No formulário, adicionar hints contextuais:
+  - Instruções: "Diga ao assistant como se comportar neste Space. Ex: 'Sempre responda em português formal. Priorize fontes acadêmicas.'"
+  - Memória: "Fatos que o assistant lembra entre conversas. Ex: 'O usuário prefere resumos em bullets.' Adicione fatos manualmente ou promova respostas do chat."
+- No overview do Space, mostrar exemplos de uso ao invés de só listar instruções em texto plano
+
+#### Arquivos afetados
+- `apps/desktop/src/surfaces/helix/SpaceShell.tsx` — formulário, wizard, coleções
+- `apps/desktop/src/surfaces/helix/hooks/useSpaces.ts` — nova função `suggestSpaceConfig`
+- `apps/desktop/src/surfaces/helix/Composer.tsx` — space switcher
+- `apps/desktop/src/surfaces/helix/NormalCommandView.tsx` — space switcher no header
+- `packages/agent-runtime/src/api.ts` — nova RPC
+- `packages/shared/src/types/rpc.ts` — tipos para `SuggestSpaceConfigInput/Output`
+- `apps/desktop/src/i18n/locales/*/helix.json` — novas chaves de tradução
+
+#### Critérios de aceite
+- [ ] Botão "Sugerir com IA" aparece após digitar nome + propósito
+- [ ] Sugestão preenche instruções, layout, memory e sugere coleções
+- [ ] Usuário pode editar sugestões antes de salvar
+- [ ] Space switcher visível no composer em ambos os modos
+- [ ] Trocar de Space não perde a conversa atual
+- [ ] Form de coleção tem templates e dicas por tipo de campo
+- [ ] Hints de memória e instruções são visíveis e explicativas
+
+---
+
+### MF3: Transparência do Agente — Cards Inline no Chat
+
+#### Problema
+O usuário não sabe que memória o agente usou, que arquivos leu, nem que tools chamou. O `agentLogs` existe no store mas é só texto flat. O `ExecutionContextSnapshot` é salvo no DB mas nunca exibido na UI.
+
+#### Solução
+
+**Cards expansíveis inline na resposta do assistant**
+
+Cada turn do assistant recebe uma seção de "Contexto de execução" com cards:
+
+1. **Card de Memória** — "Memória usada (N fatos)"
+   - Expandir mostra cada fato com conteúdo e origem (manual/assistant)
+   - Só aparece se o Space tem memória ativa e fatos foram usados
+
+2. **Card de Arquivos** — "Arquivos lidos (N)" / "Arquivos escritos (N)"
+   - Expandir mostra nome do arquivo, tipo, preview (300 chars)
+   - Distingue lidos (anexados pelo usuário ou do Space) de escritos (tool output)
+
+3. **Card de Ferramentas** — "Ferramentas usadas (N)"
+   - Expandir mostra cada tool: nome, input (truncado), output (truncado), duração
+   - Status: sucesso/falha
+
+4. **Card de Instruções** — "Instruções do Space"
+   - Expandir mostra o system prompt aplicado (instruções do Space + profile)
+   - Só aparece se há instruções customizadas
+
+#### Implementação
+- O `ExecutionContextSnapshot` já é salvo no DB por `WorkflowRunner.executeRun()`
+- A RPC `getExecutionContextSnapshot({ runId })` já existe na API
+- Adicionar um bloco `executionContext` ao `Turn` do assistant:
+  ```ts
+  type ExecutionContextSummary = {
+    facts: { id: string; content: string; origin: string }[];
+    filesRead: { displayName: string; preview: string; mimeType: string }[];
+    toolsUsed: { toolName: string; inputPreview: string; outputPreview: string; durationMs: number; success: boolean }[];
+    instructions: string;
+    spaceName?: string;
+  };
+  ```
+- Após o run completar, buscar o snapshot e anexar ao turn
+- Renderizar cards expansíveis no `ChatView` abaixo da resposta
+
+#### Arquivos afetados
+- `packages/shared/src/types/rpc.ts` — tipo `ExecutionContextSummary`
+- `apps/desktop/src/stores/agent.ts` — adicionar `executionContext` ao Turn
+- `apps/desktop/src/surfaces/helix/hooks/useExecute.ts` — buscar snapshot após run
+- `apps/desktop/src/surfaces/helix/ChatView.tsx` — renderizar cards expansíveis
+- Novo: `apps/desktop/src/surfaces/helix/ExecutionContextCards.tsx` — componente dos cards
+
+#### Critérios de aceite
+- [ ] Card de memória aparece quando o Space tem fatos ativos usados no run
+- [ ] Card de arquivos aparece quando há fileContext ou fontes do Space
+- [ ] Card de ferramentas aparece quando tools foram chamadas (via AgentLoop)
+- [ ] Card de instruções aparece quando o Space tem instruções customizadas
+- [ ] Cada card expande/contrai com click
+- [ ] Cards aparecem durante o streaming (pelo menos tools) e completam ao final
+- [ ] Dados vêm do ExecutionContextSnapshot persistido + workflow steps
+
+---
+
+### MF4: Follow-up — Rethink de Casos de Uso
+
+#### Problema
+Follow-up existe como feature mas o usuário não encontrou uso concreto. Os modos writing/debug são manuais (adicionar observação a dedo) e não se conectam ao chat.
+
+#### Solução MF4A: Follow-up conectado ao chat
+- Quando uma sessão de follow-up está ativa, cada mensagem do chat é automaticamente registrada como observação ou evento
+- Writing mode: cada versão do assistant é registrada como `assistant` observation
+- Debug mode: cada tool call é registrada como observação com source `assistant`
+- O follow-up injeta o objetivo + observações recentes no contexto do chat (como memória de sessão)
+- Usuário pode pedir "continue de onde paramos" e o assistant tem o histórico do follow-up
+
+#### Solução MF4B: Novo modo "Inspect" (anotação de componentes)
+- Novo `FollowUpMode = "inspect"` para acompanhar desenvolvimento de uma aplicação web
+- O usuário aponta uma URL ou arquivo HTML local
+- O assistant pode:
+  - Ler o arquivo/URL (via web.extract ou file context)
+  - Anotar componentes que precisam mudança (observations com source `file` ou `screen`)
+  - Sugerir mudanças específicas (hipóteses = propostas de mudança)
+  - Acompanhar quais mudanças foram feitas (evidências = diffs ou screenshots)
+- UI do modo inspect:
+  - Lista de componentes anotados (observations agrupadas por componente/seletor)
+  - Status de cada anotação: pendente / em progresso / resolvido
+  - Botão "Ler arquivo novamente" para refresh
+  - Botão "Comparar com versão anterior" para ver diff
+
+#### Solução MF4C: Follow-up como monitor de tarefa longa
+- Ao iniciar um run com mode `workflow` e múltiplos steps, oferecer "Acompanhar esta tarefa"
+- Cria uma sessão de follow-up automaticamente com objetivo = prompt do run
+- Cada step completado vira um evento no follow-up
+- O usuário pode pausar o follow-up (não o run) e voltar depois
+- O widget no collapsed mode (MF1) mostra progresso do follow-up
+
+#### Arquivos afetados
+- `packages/shared/src/follow-up.ts` — adicionar modo "inspect"
+- `packages/agent-runtime/src/workflow/WorkflowRunner.ts` — emitir eventos de follow-up durante run
+- `apps/desktop/src/surfaces/helix/hooks/useFollowUp.ts` — conectar ao chat
+- `apps/desktop/src/surfaces/helix/hooks/useExecute.ts` — auto-registrar observações
+- `apps/desktop/src/surfaces/helix/FollowUpDock.tsx` — UI do modo inspect
+- Novo: `apps/desktop/src/surfaces/helix/FollowUpInspectPanel.tsx` — painel inspect
+- `apps/desktop/src/surfaces/helix/FollowUpWritingPanel.tsx` — conectar com chat
+- `apps/desktop/src/surfaces/helix/FollowUpDebugPanel.tsx` — conectar com chat
+- `packages/storage/src/migrations/020_follow_up_inspect_mode.ts` — migration se necessário
+- `apps/desktop/src/i18n/locales/*/helix.json` — novas chaves
+
+#### Critérios de aceite
+- [ ] Sessão de writing ativa registra versões do assistant automaticamente
+- [ ] Sessão de debug ativa registra tool calls como observações
+- [ ] Objetivo do follow-up é injetado no contexto do chat
+- [ ] Modo inspect permite apontar URL/arquivo e anotar componentes
+- [ ] Anotações têm status (pendente/em progresso/resolvido)
+- [ ] "Acompanhar esta tarefa" cria follow-up a partir de um run
+- [ ] Pausar/retomar follow-up não perde observações
+- [ ] Widget no collapsed mostra status do follow-up ativo
+
+---
+
+### MF5: Tool Approval — Visibilidade
+
+#### Problema
+O usuário não viu o tool approval aparecer. Provavelmente porque nenhuma tool com `executionPolicy: "explicit_approval"` foi chamada.
+
+#### Solução
+1. **Investigar quais tools têm `explicit_approval`** no tool registry
+2. **Tornar o approval card mais visível** — hoje é um `approval` object no workflowRun mas pode não estar renderizando em todos os modos
+3. **Adicionar um indicador no composer** quando o run está `waiting_approval` — badge pulsante + botão "Aprovar/Negar" inline
+4. **No collapsed widget** (MF1), mostrar "Aprovação pendente" com botão rápido
+5. **Considerar adicionar approval a mais tools** — ex: tools que escrevem arquivos, tools que fazem web requests externas
+
+#### Arquivos afetados
+- `packages/agent-runtime/src/workflow/ToolExecutor.ts` — revisar policies
+- `packages/tool-registry/src/registry.ts` — revisar quais tools têm explicit_approval
+- `apps/desktop/src/surfaces/helix/ChatView.tsx` — renderizar approval card
+- `apps/desktop/src/surfaces/helix/NormalCommandView.tsx` — badge de approval
+- `apps/desktop/src/surfaces/helix/Composer.tsx` — indicador de approval pendente
+
+#### Critérios de aceite
+- [ ] Approval card aparece inline no chat quando uma tool precisa de aprovação
+- [ ] Badge pulsante no composer/header indica approval pendente
+- [ ] Botões Aprovar/Negar são acessíveis com 1 clique
+- [ ] No collapsed widget, approval pendente é visível
+- [ ] Após aprovar/negar, o run continua corretamente
+
+---
+
+## Mudanças finais — Limpeza Estrutural do Projeto
+
+### LE1: `.gitignore` — Entradas Faltantes
+
+Adicionar ao `.gitignore`:
+```
+# Tauri generated
+apps/desktop/src-tauri/gen/
+
+# Accidental home dir
+apps/desktop/src-tauri/$HOME/
+
+# Database files (any location)
+*.db
+*.db-shm
+*.db-wal
+
+# Playwright output (already partially covered)
+output/playwright/
+```
+
+### LE2: Arquivos e Diretórios para Deletar
+
+- `apps/desktop/src-tauri/$HOME/` — diretório acidental criado por bug do sidecar com `data.db` dentro
+- `.playwright-cli/` — 75+ logs antigos acumulados desde Jul 5
+- `output/playwright/` — screenshots de teste antigos
+- `BACKLOG.md` — arquivo legacy, verificar se ainda é relevante
+- `apps/desktop/src/lib/mermaid.ts` vs `mermaid-utils.ts` — consolidar em um só se redundantes
+
+### LE3: Padronização de Testes
+
+- Manter `tests/` na raiz para testes de integração cross-package
+- Manter `packages/*/src/__tests__/` para testes unitários
+- Mover `packages/tools-desktop/src/dev-tools.test.ts`, `file.test.ts`, `native.test.ts` para `packages/tools-desktop/src/__tests__/`
+
+### LE4: Reorganização de Pastas — `surfaces/helix/`
+
+Estrutura proposta:
+```
+surfaces/helix/
+  index.tsx, constants.tsx, types.ts
+
+  views/         NormalCommandView, ExpandedView, ChatView
+  composer/      Composer, ContextChipBar, QueryBubble, ProviderModelSelect
+  response/      ResponseBubble
+  followup/      FollowUpDock, FollowUpDebugPanel, FollowUpTimeline, FollowUpWritingPanel
+  space/         SpaceShell, SpaceMemoryPanel, space-visuals
+  panels/        SettingsPanel, ConnectorsPanel, SourcesPanel, PromptsPanel, SkillsPanel, WorkflowsPanel
+  selectors/     SkillSelector, WorkflowSelector
+  history/       history-list
+  hooks/         (mantém)
+  parser-mode/   (mantém)
+```
+
+### LE5: Reorganização de Pastas — `components/ui/`
+
+Estrutura proposta:
+```
+components/ui/
+  primitives/    badge, button, card, input, label, select, separator, textarea, toast, icon-button, tag-input
+  helix/         helix-action-icon, helix-action-rail, helix-drawer, helix-header, helix-launcher, helix-mark, helix-navigation, helix-quick-actions, helix-shell, helix-sidebar
+  content/       code-block, markdown-renderer, mermaid-block, compact-result-card
+  media/         capture-preview, clipboard-modal, clipboard-preview, screen-region-modal
+  layout/        boot-screen, hero-home, starfield
+  identity/      agent-identity, profile-switch, recent-conversations, model-selector
+  feedback/      error-boundary, context-bar, context-menu-popup
+```
+
+### LE6: Organização de `packages/`
+
+- Mover `packages/shared/src/api.ts` para `packages/shared/src/types/api.ts` para centralizar tipos
+- Verificar imports de `z` re-exportado do `@desktop-agent/shared` — corrigir para importar diretamente do `zod`
+- Avaliar mover `packages/agent-runtime/src/i18n/` para `packages/shared/src/i18n/` ou manter como está
+
+### LE7: Limpeza de Código
+
+- Rodar `bun run lint` para remover imports não usados
+- Consolidar `mermaid.ts` + `mermaid-utils.ts` em um único arquivo
+- Verificar `BACKLOG.md` — arquivar se não for mais relevante
+
+### Critérios de aceite da limpeza estrutural
+- [ ] `.gitignore` cobre todos os arquivos temporários identificados
+- [ ] `$HOME/` acidental deletado
+- [ ] Logs antigos do Playwright deletados
+- [ ] Testes do `tools-desktop` padronizados em `__tests__/`
+- [ ] `surfaces/helix/` organizado em subpastas com imports atualizados
+- [ ] `components/ui/` organizado em subpastas com imports atualizados
+- [ ] `bun run typecheck` passa
+- [ ] `bun run lint` passa
+- [ ] `bun test` passa
+- [ ] `bun run build:sidecar` passa
+
+---
+
+## Ordem de execução — Mudanças finais
+
+| Fase | Área | Esforço | Impacto |
+|------|------|---------|---------|
+| 1 | LE1+LE2+LE3 — gitignore + deletar lixo + padronizar testes | Baixo | Imediato |
+| 2 | MF3 — Cards inline de transparência | Médio | Alto — resolve a maior quebra de confiança |
+| 3 | MF2A+MF2B — Space Wizard com IA + switcher | Médio | Alto — reduz fricção de criação |
+| 4 | MF5 — Tool approval | Baixo | Médio — investigar + melhorar visibilidade |
+| 5 | MF2C+MF2D — Formulários melhores + guidance | Médio | Médio — polish |
+| 6 | LE4+LE5+LE6+LE7 — Reorganização de pastas + limpeza de código | Médio | Médio — saúde do projeto |
+| 7 | MF1 — Modos de janela | Alto | Médio — melhora UX mas precisa refactor |
+| 8 | MF4 — Follow-up rethink | Alto | Variável — depende de adoção |
+
 ## Riscos restantes
 
 1. A validação visual em navegador não substitui o smoke test dentro do host Tauri; RPC e comportamento nativo precisam ser conferidos no `.app`.
 2. O upgrade automatizado cobre uma fixture `016`; ainda falta testar uma cópia do banco de desenvolvimento real.
-3. Board e summary possuem contrato persistido, mas a profundidade visual principal desta pré-release está na tabela.
+3. Board e summary possuem contrato persistido, mas a profundidade visual principal desta versão está na tabela.
 4. Follow-up Vision permanece deliberadamente fora de escopo para evitar observação contínua sem política madura.
 5. O build ainda emite warnings não bloqueantes sobre o bundle identifier terminado em `.app` e o tamanho do chunk principal; ambos devem entrar no hardening pós-checkpoint.
+6. A reorganização de pastas (LE4+LE5) exige atualização de todas as importações — risco médio se feito sem verificação incremental.
+7. O modo inspect do follow-up (MF4B) depende de capacidade de leitura de URL/arquivo que pode precisar de ajustes de permissão no Tauri.
 
-## Próxima ação
+## Notas técnicas finais
 
-Executar o build desktop, abrir o bundle macOS e realizar o smoke test final de janela, Espaços, tool approval e follow-up. Qualquer falha encontrada nessa etapa bloqueia a tag de pré-release.
+- Todas as mudanças devem passar: `bun run typecheck`, `bun run lint`, `bun test`, `bun run build:sidecar`
+- Novas RPCs precisam de tipo em `packages/shared/src/types/rpc.ts` + implementação em `packages/agent-runtime/src/api.ts`
+- Novas migrations precisam de teste de upgrade
+- i18n: manter pt-BR e en sincronizados
+- Não reintroduzir domínios removidos (Artifact, Workspace, financeiro)
+- Reorganização de pastas deve ser feita em commits separados por subpasta, com typecheck após cada move
