@@ -63,6 +63,20 @@ export type {
 } from "./native";
 export { normalizeNativeError } from "./native";
 export type {
+  ExecutionContextSnapshot,
+  Space,
+  SpaceCollection,
+  SpaceDocument,
+  SpaceField,
+  SpaceFieldType,
+  SpaceLayout,
+  SpaceMemoryFact,
+  SpaceRecord,
+  SpaceRecordValue,
+  SpaceView,
+  SpaceViewType,
+} from "./space";
+export type {
   MarkdownSource,
   ParsedDocument,
 } from "./types/parsed-documents";
@@ -111,17 +125,3 @@ export type {
   WorkflowTemplate,
   WorkflowTemplateSettings,
 } from "./types/rpc";
-export {
-  type ExecutionContextSnapshot,
-  type Space,
-  type SpaceCollection,
-  type SpaceDocument,
-  type SpaceField,
-  type SpaceFieldType,
-  type SpaceLayout,
-  type SpaceMemoryFact,
-  type SpaceRecord,
-  type SpaceRecordValue,
-  type SpaceView,
-  type SpaceViewType,
-} from "./space";

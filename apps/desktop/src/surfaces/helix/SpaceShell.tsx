@@ -1,4 +1,11 @@
-import type { AgentProfile, Space, SpaceField, SpaceFieldType, SpaceRecordValue, SpaceViewType } from "@desktop-agent/shared";
+import type {
+  AgentProfile,
+  Space,
+  SpaceField,
+  SpaceFieldType,
+  SpaceRecordValue,
+  SpaceViewType,
+} from "@desktop-agent/shared";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import {
   Archive,
@@ -258,10 +265,7 @@ function SpaceEditor({
       </section>
 
       <section className="grid gap-3 border-t border-line pt-5">
-        <FormField
-          label={t("helix:space.instructionsLabel")}
-          hint={t("helix:space.instructionsHint")}
-        >
+        <FormField label={t("helix:space.instructionsLabel")} hint={t("helix:space.instructionsHint")}>
           <textarea
             className={`${inputClass} min-h-28 resize-y leading-relaxed`}
             value={form.instructions}
@@ -357,6 +361,7 @@ export function SpaceShell({ ws, onBack, onOpenChat, profiles }: Props) {
   if (viewedSpace) {
     return (
       <SpaceDetail
+        key={viewedSpace.id}
         ws={ws}
         space={viewedSpace}
         profiles={profiles}
@@ -439,9 +444,7 @@ export function SpaceShell({ ws, onBack, onOpenChat, profiles }: Props) {
             <FolderOpen className="h-5 w-5 text-signal" />
           </div>
           <p className="text-sm font-medium text-fg">{t("helix:space.empty")}</p>
-          <p className="mt-1.5 max-w-sm text-xs leading-relaxed text-faint">
-            {t("helix:space.emptyHint")}
-          </p>
+          <p className="mt-1.5 max-w-sm text-xs leading-relaxed text-faint">{t("helix:space.emptyHint")}</p>
           <Button variant="secondary" size="sm" onClick={() => setShowCreate(true)} className="mt-4 gap-1.5">
             <Plus className="h-3.5 w-3.5" />
             {t("helix:space.new")}
@@ -496,9 +499,7 @@ export function SpaceShell({ ws, onBack, onOpenChat, profiles }: Props) {
                   </span>
                   <span className="flex items-center gap-1.5">
                     <Brain className="h-3 w-3" />
-                    {space.memoryEnabled
-                      ? t("helix:space.memoryEnabled")
-                      : t("helix:space.memoryDisabled")}
+                    {space.memoryEnabled ? t("helix:space.memoryEnabled") : t("helix:space.memoryDisabled")}
                   </span>
                 </div>
                 <ChevronRight className="h-3.5 w-3.5 text-faint transition-transform group-hover:translate-x-0.5 group-hover:text-mute" />
@@ -527,7 +528,9 @@ function SpaceDetail({
   onOpenChat: () => void;
 }) {
   const { t } = useTranslation("helix");
-  const [tab, setTab] = useState<DetailTab>("overview");
+  const [tab, setTab] = useState<DetailTab>(() =>
+    space.preferredLayout === "collections" ? "collections" : "overview",
+  );
   const [form, setForm] = useState<FormState>({
     name: space.name,
     folderPath: space.folderPath,
@@ -545,9 +548,14 @@ function SpaceDetail({
   const activeFacts = ws.memoryFacts.filter((fact) => fact.status === "active");
   const tabs: Array<{ id: DetailTab; label: string; icon: typeof Brain; count?: number }> = [
     { id: "overview", label: t("helix:space.overviewTab"), icon: SlidersHorizontal },
+    {
+      id: "collections",
+      label: t("helix:space.collectionsTab", "Coleções"),
+      icon: Database,
+      count: ws.collections.length,
+    },
     { id: "memory", label: t("helix:space.memory"), icon: Brain, count: activeFacts.length },
     { id: "sources", label: t("helix:space.sources"), icon: FileText, count: ws.documents.length },
-    { id: "collections", label: t("helix:space.collectionsTab", "Coleções"), icon: Database, count: ws.collections.length },
     { id: "settings", label: t("helix:space.settingsTab"), icon: Settings2 },
   ];
 
@@ -909,7 +917,7 @@ function SpaceCollections({ ws }: { ws: Props["ws"] }) {
 
   useEffect(() => {
     if (selected) void ws.loadRecords(selected.id);
-  }, [selected?.id]);
+  }, [selected, ws.loadRecords]);
 
   const addField = () => {
     setFields((current) => [
@@ -968,7 +976,9 @@ function SpaceCollections({ ws }: { ws: Props["ws"] }) {
                   value={field.name}
                   onChange={(event) =>
                     setFields((current) =>
-                      current.map((item) => (item.id === field.id ? { ...item, name: event.target.value } : item)),
+                      current.map((item) =>
+                        item.id === field.id ? { ...item, name: event.target.value } : item,
+                      ),
                     )
                   }
                   placeholder={t("helix:space.fieldName", "Campo")}
@@ -983,7 +993,7 @@ function SpaceCollections({ ws }: { ws: Props["ws"] }) {
                           ? {
                               ...item,
                               type: event.target.value as SpaceFieldType,
-                              options: event.target.value === "select" ? item.options ?? [] : undefined,
+                              options: event.target.value === "select" ? (item.options ?? []) : undefined,
                             }
                           : item,
                       ),
@@ -992,7 +1002,9 @@ function SpaceCollections({ ws }: { ws: Props["ws"] }) {
                   className={inputClass}
                 >
                   {FIELD_TYPES.map((type) => (
-                    <option key={type} value={type}>{type}</option>
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
                   ))}
                 </select>
                 <label className="col-span-2 flex items-center gap-2 text-[10px] text-faint">
@@ -1001,7 +1013,9 @@ function SpaceCollections({ ws }: { ws: Props["ws"] }) {
                     checked={field.required}
                     onChange={(event) =>
                       setFields((current) =>
-                        current.map((item) => item.id === field.id ? { ...item, required: event.target.checked } : item),
+                        current.map((item) =>
+                          item.id === field.id ? { ...item, required: event.target.checked } : item,
+                        ),
                       )
                     }
                   />
@@ -1012,9 +1026,19 @@ function SpaceCollections({ ws }: { ws: Props["ws"] }) {
                     className={`${inputClass} col-span-2`}
                     value={(field.options ?? []).join(", ")}
                     onChange={(event) =>
-                      setFields((current) => current.map((item) => item.id === field.id
-                        ? { ...item, options: event.target.value.split(",").map((option) => option.trim()).filter(Boolean) }
-                        : item))
+                      setFields((current) =>
+                        current.map((item) =>
+                          item.id === field.id
+                            ? {
+                                ...item,
+                                options: event.target.value
+                                  .split(",")
+                                  .map((option) => option.trim())
+                                  .filter(Boolean),
+                              }
+                            : item,
+                        ),
+                      )
                     }
                     placeholder={t("helix:space.selectOptions", "Opções separadas por vírgula")}
                   />
@@ -1042,11 +1066,18 @@ function SpaceCollections({ ws }: { ws: Props["ws"] }) {
               <div>
                 <h3 className="text-sm font-semibold text-fg">{selected.name}</h3>
                 <p className="mt-1 text-[10px] text-faint">
-                  {t("helix:space.recordsCount", { count: selectedRecords.length, defaultValue: `${selectedRecords.length} registros` })}
+                  {t("helix:space.recordsCount", {
+                    count: selectedRecords.length,
+                    defaultValue: `${selectedRecords.length} registros`,
+                  })}
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <select className={inputClass} value={viewType} onChange={(event) => setViewType(event.target.value as SpaceViewType)}>
+                <select
+                  className={inputClass}
+                  value={viewType}
+                  onChange={(event) => setViewType(event.target.value as SpaceViewType)}
+                >
                   <option value="table">table</option>
                   <option value="board">board</option>
                   <option value="summary">summary</option>
@@ -1062,17 +1093,26 @@ function SpaceCollections({ ws }: { ws: Props["ws"] }) {
             </div>
             <div className="mt-2 flex flex-wrap gap-1.5">
               {selectedViews.map((view) => (
-                <span key={view.id} className="rounded-full border border-line px-2 py-1 text-[10px] text-mute">
+                <span
+                  key={view.id}
+                  className="rounded-full border border-line px-2 py-1 text-[10px] text-mute"
+                >
                   {view.name} · {view.type}
                 </span>
               ))}
             </div>
             <div className="mt-4 grid gap-2 rounded-xl border border-line p-3 md:grid-cols-2">
               {selected.fields.map((field) => (
-                <label key={field.id} className="grid gap-1 text-[10px] text-faint">
-                  {field.name}{field.required ? " *" : ""}
+                <label
+                  key={field.id}
+                  htmlFor={`space-record-${field.id}`}
+                  className="grid gap-1 text-[10px] text-faint"
+                >
+                  {field.name}
+                  {field.required ? " *" : ""}
                   {field.type === "boolean" ? (
                     <input
+                      id={`space-record-${field.id}`}
                       type="checkbox"
                       checked={Boolean(recordValues[field.id])}
                       onChange={(event) =>
@@ -1081,23 +1121,38 @@ function SpaceCollections({ ws }: { ws: Props["ws"] }) {
                     />
                   ) : field.type === "select" ? (
                     <select
+                      id={`space-record-${field.id}`}
                       value={(recordValues[field.id] as string | undefined) ?? ""}
-                      onChange={(event) => setRecordValues((current) => ({ ...current, [field.id]: event.target.value }))}
+                      onChange={(event) =>
+                        setRecordValues((current) => ({ ...current, [field.id]: event.target.value }))
+                      }
                       className={inputClass}
                     >
                       <option value="">—</option>
-                      {(field.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}
+                      {(field.options ?? []).map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
                     </select>
                   ) : (
                     <input
-                      type={field.type === "date" ? "date" : field.type === "number" || field.type === "currency" ? "number" : "text"}
+                      id={`space-record-${field.id}`}
+                      type={
+                        field.type === "date"
+                          ? "date"
+                          : field.type === "number" || field.type === "currency"
+                            ? "number"
+                            : "text"
+                      }
                       value={(recordValues[field.id] as string | number | undefined) ?? ""}
                       onChange={(event) =>
                         setRecordValues((current) => ({
                           ...current,
-                          [field.id]: field.type === "number" || field.type === "currency"
-                            ? Number(event.target.value)
-                            : event.target.value,
+                          [field.id]:
+                            field.type === "number" || field.type === "currency"
+                              ? Number(event.target.value)
+                              : event.target.value,
                         }))
                       }
                       className={inputClass}
@@ -1114,13 +1169,21 @@ function SpaceCollections({ ws }: { ws: Props["ws"] }) {
             <div className="mt-4 overflow-x-auto rounded-xl border border-line">
               <table className="w-full text-left text-xs">
                 <thead className="border-b border-line bg-white/[0.025] text-faint">
-                  <tr>{selected.fields.map((field) => <th key={field.id} className="px-3 py-2 font-medium">{field.name}</th>)}</tr>
+                  <tr>
+                    {selected.fields.map((field) => (
+                      <th key={field.id} className="px-3 py-2 font-medium">
+                        {field.name}
+                      </th>
+                    ))}
+                  </tr>
                 </thead>
                 <tbody>
                   {selectedRecords.map((record) => (
                     <tr key={record.id} className="border-b border-line/60 last:border-0">
                       {selected.fields.map((field) => (
-                        <td key={field.id} className="px-3 py-2 text-mute">{String(record.values[field.id] ?? "—")}</td>
+                        <td key={field.id} className="px-3 py-2 text-mute">
+                          {String(record.values[field.id] ?? "—")}
+                        </td>
                       ))}
                     </tr>
                   ))}

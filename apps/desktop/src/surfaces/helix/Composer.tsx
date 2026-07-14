@@ -12,7 +12,6 @@ import {
   ArrowUp,
   Eye,
   FileText,
-  FolderOpen,
   Loader2,
   Monitor,
   Paperclip,
@@ -476,6 +475,8 @@ export function Composer({
       }
     } else if (src.id === "file") {
       await handleAttachFile();
+    } else if (src.id === "folder") {
+      await handleAttachFolder();
     } else if (
       src.id === "screen-read" ||
       src.id === "screen-capture" ||
@@ -533,6 +534,33 @@ export function Composer({
     }
     setContextMenuOpen(false);
   };
+
+  const slashEntries = (() => {
+    if (!query.trimStart().startsWith("/")) return [];
+    const search = query.trimStart().slice(1).toLocaleLowerCase();
+    const actions = (quickActions ?? []).map((action) => ({
+      id: `action:${action.id}`,
+      label: action.label,
+      description: action.prompt,
+      icon: action.icon,
+      run: () => handleQuickAction(action),
+    }));
+    const sources = CONTEXT_SOURCES.map((source) => ({
+      id: `source:${source.id}`,
+      label: t(`helix:${source.labelKey}`),
+      description: t(`helix:${source.descriptionKey}`),
+      icon: source.icon,
+      run: () => {
+        setQuery("");
+        void handleContextToggle(source);
+      },
+    }));
+    return [...actions, ...sources]
+      .filter(
+        (entry) => !search || `${entry.label} ${entry.description}`.toLocaleLowerCase().includes(search),
+      )
+      .slice(0, 8);
+  })();
 
   const activeSources = useMemo(() => {
     const set = new Set<string>();
@@ -861,10 +889,35 @@ export function Composer({
           ))}
         </div>
       )}
+      {slashEntries.length > 0 && (
+        <div
+          className="overflow-hidden rounded-xl border border-line-strong bg-ink/95 p-1 shadow-xl"
+          role="listbox"
+          aria-label={t("helix:composer.contextMenu.title")}
+        >
+          {slashEntries.map((entry) => {
+            const Icon = entry.icon;
+            return (
+              <button
+                key={entry.id}
+                type="button"
+                onClick={entry.run}
+                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-white/[0.055] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/45"
+              >
+                <Icon className="h-3.5 w-3.5 shrink-0 text-signal" />
+                <span className="min-w-0">
+                  <span className="block truncate text-[11px] font-medium text-fg">{entry.label}</span>
+                  <span className="block truncate text-[9px] text-faint">{entry.description}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
       <div className="relative">
         <div
           ref={composerRef}
-          className={`composer-field group flex flex-col rounded-2xl border border-line bg-white/[0.04] transition-all duration-300 focus-within:border-signal/40 focus-within:bg-signal/[0.02] focus-within:shadow-[0_0_0_1px_var(--color-signal,theme(colors.signal/40)),0_0_24px_-8px_var(--color-signal,theme(colors.signal.DEFAULT))] ${
+          className={`composer-field group flex flex-col rounded-2xl border border-line-strong bg-[#15141e] shadow-[0_10px_30px_rgba(0,0,0,0.24)] transition-colors duration-200 focus-within:border-signal/55 focus-within:bg-[#181622] focus-within:shadow-[0_0_0_1px_rgba(196,153,244,0.25),0_12px_34px_rgba(0,0,0,0.32)] ${
             clipboardEnabled ? "border-signal/25 bg-signal/[0.02]" : ""
           } ${shellClasses}`}
         >
@@ -922,28 +975,6 @@ export function Composer({
                 <span className="text-[10px] text-mute truncate hidden sm:inline animate-fade-in">
                   {t("helix:composer.contextMenu.title")}
                 </span>
-              )}
-              {onAttachFiles && (
-                <>
-                  <button
-                    type="button"
-                    onClick={handleAttachFile}
-                    className={`shrink-0 ${contextSize} rounded-lg flex items-center justify-center border border-line-strong bg-ink/40 text-fg hover:text-signal hover:border-signal/30 hover:bg-signal/5 transition-all duration-200 cursor-pointer`}
-                    title={t("helix:composer.attachFile")}
-                    aria-label={t("helix:composer.attachFile")}
-                  >
-                    <Paperclip className={contextIconSize} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleAttachFolder}
-                    className={`shrink-0 ${contextSize} rounded-lg flex items-center justify-center border border-line-strong bg-ink/40 text-fg hover:text-signal hover:border-signal/30 hover:bg-signal/5 transition-all duration-200 cursor-pointer`}
-                    title={t("helix:composer.attachFolder")}
-                    aria-label={t("helix:composer.attachFolder")}
-                  >
-                    <FolderOpen className={contextIconSize} />
-                  </button>
-                </>
               )}
             </div>
 

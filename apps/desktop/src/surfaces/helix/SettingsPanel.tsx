@@ -1,28 +1,25 @@
-import {
-  type AgentProfile,
-  type AppSettings,
-  type PromptTemplate,
-  type SaveProfileInput,
-  type Skill,
-  type WorkflowStepKind,
-  type WorkflowTemplate,
-  type WorkflowTemplateSettings,
+import type {
+  AgentProfile,
+  AppSettings,
+  PromptTemplate,
+  SaveProfileInput,
+  Skill,
+  WorkflowStepKind,
+  WorkflowTemplate,
+  WorkflowTemplateSettings,
 } from "@desktop-agent/shared";
 import {
   AppWindow,
   Bot,
   ChevronDown,
   Clock,
-  Database,
   Eye,
   EyeOff,
-  History,
   Keyboard,
   KeyRound,
   Layers,
   Link,
   Monitor,
-  Plug,
   Settings,
   ShieldCheck,
   Sparkles,
@@ -51,10 +48,8 @@ export type SettingsSection =
   | "shortcuts"
   | "privacy"
   | "profiles"
-  | "connectors"
   | "workflows"
   | "skills"
-  | "data"
   | "advanced";
 
 export type ProfilesSectionProps = {
@@ -193,12 +188,6 @@ function useSections(t: (key: string) => string) {
         icon: Bot,
       },
       {
-        id: "connectors" as const,
-        label: t("common:connectors"),
-        description: t("settings:connectors.description"),
-        icon: Plug,
-      },
-      {
         id: "workflows" as const,
         label: t("common:workflows"),
         description: t("settings:workflows.description"),
@@ -209,12 +198,6 @@ function useSections(t: (key: string) => string) {
         label: t("common:skills"),
         description: t("settings:skills.description"),
         icon: Sparkles,
-      },
-      {
-        id: "data" as const,
-        label: t("common:data"),
-        description: t("settings:data.description"),
-        icon: History,
       },
       {
         id: "advanced" as const,
@@ -236,7 +219,8 @@ function useDirtyCheck(p: SettingsPanelProps) {
     p.formTimeout !== p.settings.timeout ||
     Math.abs(p.formWindowOpacity - p.settings.windowOpacity) > 0.005 ||
     p.formPetSize !== p.settings.petSize ||
-    p.formLanguage !== p.settings.language
+    p.formLanguage !== p.settings.language ||
+    p.formDefaultWindowMode !== p.settings.defaultWindowMode
   );
 }
 
@@ -407,16 +391,10 @@ export function SettingsPanel(p: SettingsPanelProps) {
               {activeSection === "profiles" && p.sections?.profiles && (
                 <ProfilesSection props={p.sections.profiles} />
               )}
-              {activeSection === "connectors" && <ConnectorsSection />}
               {activeSection === "workflows" &&
-                (p.sections?.workflows ? (
-                  <WorkflowsSection props={p.sections.workflows} />
-                ) : (
-                  <WorkflowsPlaceholderSection />
-                ))}
+                (p.sections?.workflows ? <WorkflowsSection props={p.sections.workflows} /> : null)}
               {activeSection === "skills" &&
                 (p.sections?.skills ? <SkillsSection props={p.sections.skills} /> : null)}
-              {activeSection === "data" && <DataSection />}
               {activeSection === "advanced" && (
                 <AdvancedSection p={p} timeoutOutOfRange={timeoutOutOfRange} />
               )}
@@ -442,26 +420,6 @@ export function SettingsPanel(p: SettingsPanelProps) {
           </footer>
         )}
       </form>
-    </div>
-  );
-}
-
-function StatusRow({
-  title,
-  description,
-  status = "Planejado",
-}: {
-  title: string;
-  description: string;
-  status?: string;
-}) {
-  return (
-    <div className="flex items-start justify-between gap-4 rounded-xl border border-line bg-white/[0.02] p-3.5">
-      <div className="min-w-0">
-        <div className="text-xs font-semibold text-fg">{title}</div>
-        <div className="mt-1 text-[11px] leading-relaxed text-faint">{description}</div>
-      </div>
-      <Badge>{status}</Badge>
     </div>
   );
 }
@@ -623,7 +581,6 @@ function ModelSection({
           </label>
         )}
       </Card>
-
     </div>
   );
 }
@@ -683,7 +640,6 @@ function PetSection({ p }: { p: SettingsPanelProps }) {
           </span>
         </span>
       </label>
-
     </div>
   );
 }
@@ -718,7 +674,7 @@ function ShortcutsSection() {
 }
 
 function PrivacySection() {
-  const { t } = useTranslation(["settings", "common"]);
+  const { t } = useTranslation("settings");
   const settings = useAgentStore((state) => state.settings);
   const setSettings = useAgentStore((state) => state.setSettings);
 
@@ -738,10 +694,8 @@ function PrivacySection() {
       <div className="rounded-xl border border-line p-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-xs font-semibold text-fg">Notificações nativas</div>
-            <div className="mt-1 text-[11px] text-faint">
-              Desligadas por padrão; o conteúdo permanece genérico.
-            </div>
+            <div className="text-xs font-semibold text-fg">{t("settings:privacy.notifications")}</div>
+            <div className="mt-1 text-[11px] text-faint">{t("settings:privacy.notificationsHint")}</div>
           </div>
           <button
             type="button"
@@ -750,11 +704,13 @@ function PrivacySection() {
               settings.notificationsEnabled ? "bg-good/20 text-good" : "bg-white/[0.06] text-mute"
             }`}
           >
-            {settings.notificationsEnabled ? "Ativadas" : "Desativadas"}
+            {settings.notificationsEnabled
+              ? t("settings:privacy.notificationsEnabled")
+              : t("settings:privacy.notificationsDisabled")}
           </button>
         </div>
         <label className="mt-3 flex items-center justify-between gap-3 text-[11px] text-faint">
-          Conteúdo
+          {t("settings:privacy.notificationContent")}
           <select
             value={settings.notificationContentMode}
             onChange={(event) =>
@@ -764,8 +720,8 @@ function PrivacySection() {
             }
             className="rounded border border-line bg-bg px-2 py-1 text-[10px] text-fg"
           >
-            <option value="generic">Genérico</option>
-            <option value="preview">Preview sanitizado</option>
+            <option value="generic">{t("settings:privacy.notificationGeneric")}</option>
+            <option value="preview">{t("settings:privacy.notificationPreview")}</option>
           </select>
         </label>
       </div>
@@ -777,31 +733,6 @@ function ProfilesSection({ props }: { props: ProfilesSectionProps }) {
   return <PromptsPanel {...props} />;
 }
 
-function ConnectorsSection() {
-  const { t } = useTranslation(["settings", "common"]);
-  return (
-    <div>
-      <div className="grid gap-3 md:grid-cols-2">
-        {["Brave Search", "Filesystem escopado", "Firecrawl", "GitHub", "Jina Reader/Search"].map(
-          (connector, index) => (
-            <Card key={connector}>
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-semibold text-fg">{connector}</span>
-                <Badge variant={index === 4 ? "success" : "default"}>
-                  {index === 4 ? t("common:available") : t("common:configure")}
-                </Badge>
-              </div>
-              <p className="mt-2 text-[11px] leading-relaxed text-faint">
-                {t("settings:connectors.permissionsHint")}
-              </p>
-            </Card>
-          ),
-        )}
-      </div>
-    </div>
-  );
-}
-
 function WorkflowsSection({ props }: { props: WorkflowsSectionProps }) {
   return <WorkflowsPanel {...props} />;
 }
@@ -810,49 +741,7 @@ function SkillsSection({ props }: { props: SkillsSectionProps }) {
   return <SkillsPanel {...props} />;
 }
 
-function WorkflowsPlaceholderSection() {
-  const { t } = useTranslation(["settings"]);
-  return (
-    <div>
-      <StatusRow
-        title={t("settings:workflows.pinRadial")}
-        description={t("settings:workflows.pinRadialHint")}
-      />
-      <div className="mt-2">
-        <StatusRow
-          title={t("settings:workflows.defaultApproval")}
-          description={t("settings:workflows.defaultApprovalHint")}
-        />
-      </div>
-    </div>
-  );
-}
-
-function DataSection() {
-  const { t } = useTranslation(["settings", "common"]);
-  return (
-    <div>
-      <div className="grid gap-2">
-        <StatusRow title={t("settings:data.retention")} description={t("settings:data.retentionHint")} />
-        <StatusRow title={t("settings:data.export")} description={t("settings:data.exportHint")} />
-        <StatusRow title={t("settings:data.clearCache")} description={t("settings:data.clearCacheHint")} />
-        <StatusRow
-          title={t("settings:data.reset")}
-          description={t("settings:data.resetHint")}
-          status={t("common:blocked")}
-        />
-      </div>
-    </div>
-  );
-}
-
-function AdvancedSection({
-  p,
-  timeoutOutOfRange,
-}: {
-  p: SettingsPanelProps;
-  timeoutOutOfRange: boolean;
-}) {
+function AdvancedSection({ p, timeoutOutOfRange }: { p: SettingsPanelProps; timeoutOutOfRange: boolean }) {
   const { t } = useTranslation(["settings", "common"]);
   const timeoutId = useId();
   const baseUrlId = useId();
@@ -892,7 +781,6 @@ function AdvancedSection({
           <span className="text-[10px] text-faint">{t("settings:advanced.baseUrlHint")}</span>
         </label>
       </Card>
-
     </div>
   );
 }

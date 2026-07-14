@@ -1,4 +1,4 @@
-import { Clock3, FileText, FolderOpen, Layers3, MessageSquarePlus, Settings2 } from "lucide-react";
+import { Database, FolderOpen, MessageSquare, MessageSquarePlus, Settings2 } from "lucide-react";
 import type { ComponentType } from "react";
 import type { HelixMode } from "../../surfaces/helix/types";
 
@@ -18,15 +18,9 @@ export const HELIX_NAV_GROUPS: HelixNavGroup[] = [
   {
     labelKey: "work",
     items: [
-      { id: "history", icon: Clock3 },
+      { id: "command", icon: MessageSquare },
       { id: "space", icon: FolderOpen },
-    ],
-  },
-  {
-    labelKey: "sources",
-    items: [
-      { id: "parser", icon: FileText },
-      { id: "connectors", icon: Layers3 },
+      { id: "sources", icon: Database },
     ],
   },
 ];

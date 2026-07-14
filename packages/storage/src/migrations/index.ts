@@ -37,12 +37,24 @@ function applyMigration(db: Database, version: number, fn: (db: Database) => voi
 export function runMigrationsThrough(db: Database, targetVersion = 19): void {
   db.run(MIGRATION_TABLE);
   const migrations: Array<[number, (database: Database) => void]> = [
-    [1, runInitialMigration], [2, runTurnsMigration], [3, runSettingsV2Migration],
-    [4, runMcpEnvMigration], [5, runUiPreferencesMigration], [6, runPromptLibraryMigration],
-    [7, runAgentProfilesFieldsMigration], [8, runWorkflowsAndSkillsMigration], [9, runSkillMetadataMigration],
-    [10, runConversationProfileIdMigration], [11, runTurnProfileIdMigration], [12, runParsedDocumentsMigration],
-    [13, runParsedDocumentsIdentityMigration], [14, runMarkdownSourcesMigration], [15, runSpacesMigration],
-    [16, runSpaceCustomizationMigration], [17, runSpaceConsolidationMigration], [18, runSettingsCleanupMigration],
+    [1, runInitialMigration],
+    [2, runTurnsMigration],
+    [3, runSettingsV2Migration],
+    [4, runMcpEnvMigration],
+    [5, runUiPreferencesMigration],
+    [6, runPromptLibraryMigration],
+    [7, runAgentProfilesFieldsMigration],
+    [8, runWorkflowsAndSkillsMigration],
+    [9, runSkillMetadataMigration],
+    [10, runConversationProfileIdMigration],
+    [11, runTurnProfileIdMigration],
+    [12, runParsedDocumentsMigration],
+    [13, runParsedDocumentsIdentityMigration],
+    [14, runMarkdownSourcesMigration],
+    [15, runSpacesMigration],
+    [16, runSpaceCustomizationMigration],
+    [17, runSpaceConsolidationMigration],
+    [18, runSettingsCleanupMigration],
     [19, runFollowUpSessionsMigration],
   ];
   for (const [version, migration] of migrations) {

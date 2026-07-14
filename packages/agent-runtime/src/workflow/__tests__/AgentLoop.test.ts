@@ -1,8 +1,8 @@
-import type { CompletionChunk, CompletionInput, CompletionOutput, ToolCall } from "@desktop-agent/shared";
 import { afterEach, describe, expect, test } from "bun:test";
-import { z } from "zod";
 import type { LlmProvider } from "@desktop-agent/provider-gateway";
+import type { CompletionChunk, CompletionInput, CompletionOutput, ToolCall } from "@desktop-agent/shared";
 import { registry } from "@desktop-agent/tool-registry";
+import { z } from "zod";
 import { AgentLoopApprovalRequiredError, runAgentLoop, zodToJsonSchema } from "../AgentLoop";
 import { createExecutionGrant } from "../ExecutionGrant";
 import { ToolExecutor } from "../ToolExecutor";
@@ -62,21 +62,43 @@ function config(provider: LlmProvider, toolExecutor: ToolExecutor) {
 describe("AgentLoop streaming tool state machine", () => {
   test("returns a direct streamed response without a second completion", async () => {
     const provider = new SequenceProvider([[{ content: "Olá", done: true }]]);
-    const result = await runAgentLoop(config(provider, new ToolExecutor(() => {}, () => provider.name)));
+    const result = await runAgentLoop(
+      config(
+        provider,
+        new ToolExecutor(
+          () => {},
+          () => provider.name,
+        ),
+      ),
+    );
     expect(result).toBe("Olá");
     expect(provider.calls).toHaveLength(1);
   });
 
   test("executes multiple standard tools and continues with structured tool messages", async () => {
     const values: string[] = [];
-    registerTool("test.one", async (input) => { values.push((input as { value: string }).value); return { saved: true }; });
-    registerTool("test.two", async (input) => { values.push((input as { value: string }).value); return { read: true }; });
+    registerTool("test.one", async (input) => {
+      values.push((input as { value: string }).value);
+      return { saved: true };
+    });
+    registerTool("test.two", async (input) => {
+      values.push((input as { value: string }).value);
+      return { read: true };
+    });
     const provider = new SequenceProvider([
       [{ content: "", done: true, toolCalls: [call("1", "test.one", "a"), call("2", "test.two", "b")] }],
       [{ content: "Concluído", done: true }],
     ]);
 
-    const result = await runAgentLoop(config(provider, new ToolExecutor(() => {}, () => provider.name)));
+    const result = await runAgentLoop(
+      config(
+        provider,
+        new ToolExecutor(
+          () => {},
+          () => provider.name,
+        ),
+      ),
+    );
     expect(result).toBe("Concluído");
     expect(values).toEqual(["a", "b"]);
     expect(provider.calls[1]?.messages.filter((message) => message.role === "tool")).toHaveLength(2);
@@ -87,7 +109,13 @@ describe("AgentLoop streaming tool state machine", () => {
     registerTool("test.hidden", async () => ({}));
     const provider = new SequenceProvider([[{ content: "ok", done: true }]]);
     await runAgentLoop({
-      ...config(provider, new ToolExecutor(() => {}, () => provider.name)),
+      ...config(
+        provider,
+        new ToolExecutor(
+          () => {},
+          () => provider.name,
+        ),
+      ),
       toolAllowlist: ["test.allowed"],
     });
     expect(provider.calls[0]?.tools?.map((tool) => tool.function.name)).toEqual(["test.allowed"]);
@@ -95,12 +123,22 @@ describe("AgentLoop streaming tool state machine", () => {
 
   test("pauses an explicit tool and resumes once with an input-bound grant", async () => {
     let executions = 0;
-    registerTool("test.approved", async () => { executions += 1; return { ok: true }; }, true);
+    registerTool(
+      "test.approved",
+      async () => {
+        executions += 1;
+        return { ok: true };
+      },
+      true,
+    );
     const provider = new SequenceProvider([
       [{ content: "", done: true, toolCalls: [call("approval", "test.approved", "safe")] }],
       [{ content: "feito", done: true }],
     ]);
-    const toolExecutor = new ToolExecutor(() => {}, () => provider.name);
+    const toolExecutor = new ToolExecutor(
+      () => {},
+      () => provider.name,
+    );
     let approval: AgentLoopApprovalRequiredError | null = null;
     try {
       await runAgentLoop(config(provider, toolExecutor));
@@ -123,7 +161,10 @@ describe("AgentLoop streaming tool state machine", () => {
 
   test("returns invalid arguments to the model as a structured tool result", async () => {
     let executions = 0;
-    registerTool("test.arguments", async () => { executions += 1; return {}; });
+    registerTool("test.arguments", async () => {
+      executions += 1;
+      return {};
+    });
     const invalidCall: ToolCall = {
       id: "invalid",
       type: "function",
@@ -133,37 +174,72 @@ describe("AgentLoop streaming tool state machine", () => {
       [{ content: "", done: true, toolCalls: [invalidCall] }],
       [{ content: "corrigido", done: true }],
     ]);
-    const result = await runAgentLoop(config(provider, new ToolExecutor(() => {}, () => provider.name)));
+    const result = await runAgentLoop(
+      config(
+        provider,
+        new ToolExecutor(
+          () => {},
+          () => provider.name,
+        ),
+      ),
+    );
     expect(result).toBe("corrigido");
     expect(executions).toBe(0);
-    expect((provider.calls[1]?.messages.at(-1) as { content: string }).content).toContain("INVALID_ARGUMENTS");
+    expect((provider.calls[1]?.messages.at(-1) as { content: string }).content).toContain(
+      "INVALID_ARGUMENTS",
+    );
   });
 
   test("fails explicitly for unknown tools and the step limit", async () => {
-    const unknownProvider = new SequenceProvider([[
-      { content: "", done: true, toolCalls: [call("unknown", "test.unknown", "x")] },
-    ]]);
-    await expect(runAgentLoop(config(unknownProvider, new ToolExecutor(() => {}, () => unknownProvider.name))))
-      .rejects.toThrow("Unknown tool: test.unknown");
+    const unknownProvider = new SequenceProvider([
+      [{ content: "", done: true, toolCalls: [call("unknown", "test.unknown", "x")] }],
+    ]);
+    await expect(
+      runAgentLoop(
+        config(
+          unknownProvider,
+          new ToolExecutor(
+            () => {},
+            () => unknownProvider.name,
+          ),
+        ),
+      ),
+    ).rejects.toThrow("Unknown tool: test.unknown");
 
     registerTool("test.loop", async () => ({}));
-    const loopProvider = new SequenceProvider([[
-      { content: "", done: true, toolCalls: [call("loop", "test.loop", "x")] },
-    ]]);
-    await expect(runAgentLoop({
-      ...config(loopProvider, new ToolExecutor(() => {}, () => loopProvider.name)),
-      maxSteps: 1,
-    })).rejects.toThrow("AGENT_STEP_LIMIT_EXCEEDED:1");
+    const loopProvider = new SequenceProvider([
+      [{ content: "", done: true, toolCalls: [call("loop", "test.loop", "x")] }],
+    ]);
+    await expect(
+      runAgentLoop({
+        ...config(
+          loopProvider,
+          new ToolExecutor(
+            () => {},
+            () => loopProvider.name,
+          ),
+        ),
+        maxSteps: 1,
+      }),
+    ).rejects.toThrow("AGENT_STEP_LIMIT_EXCEEDED:1");
   });
 
   test("stops before provider execution when cancelled", async () => {
     const provider = new SequenceProvider([[{ content: "never", done: true }]]);
     const controller = new AbortController();
     controller.abort();
-    await expect(runAgentLoop({
-      ...config(provider, new ToolExecutor(() => {}, () => provider.name)),
-      signal: controller.signal,
-    })).rejects.toThrow("EXECUTION_ABORTED");
+    await expect(
+      runAgentLoop({
+        ...config(
+          provider,
+          new ToolExecutor(
+            () => {},
+            () => provider.name,
+          ),
+        ),
+        signal: controller.signal,
+      }),
+    ).rejects.toThrow("EXECUTION_ABORTED");
     expect(provider.calls).toHaveLength(0);
   });
 });

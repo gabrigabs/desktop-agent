@@ -3,6 +3,13 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { closeDb, getDb } from "../db";
 import { runMigrations, runMigrationsThrough } from "../migrations";
 import { createConversation, getConversation, listTurns, upsertTurn } from "../repositories/conversations";
+import {
+  completeSession as completeFollowUpSession,
+  createSession as createFollowUpSession,
+  getSession as getFollowUpSession,
+  listActiveSessions as listActiveFollowUpSessions,
+  restoreActiveSessions as restoreActiveFollowUpSessions,
+} from "../repositories/follow-up-sessions";
 import { createInteraction, getRecentInteractions, searchInteractions } from "../repositories/interactions";
 import { listMarkdownSources, upsertMarkdownSource } from "../repositories/markdown-sources";
 import {
@@ -20,14 +27,6 @@ import {
   upsertParsedDocument,
 } from "../repositories/parsed-documents";
 import {
-  createWorkflowRun,
-  createWorkflowStep,
-  getWorkflowRun,
-  listWorkflowRuns,
-  updateWorkflowRun,
-  updateWorkflowStep,
-} from "../repositories/workflows";
-import {
   addMemoryFact,
   createSpace,
   createSpaceCollection,
@@ -39,12 +38,13 @@ import {
   updateMemoryFact,
 } from "../repositories/spaces";
 import {
-  completeSession as completeFollowUpSession,
-  createSession as createFollowUpSession,
-  getSession as getFollowUpSession,
-  listActiveSessions as listActiveFollowUpSessions,
-  restoreActiveSessions as restoreActiveFollowUpSessions,
-} from "../repositories/follow-up-sessions";
+  createWorkflowRun,
+  createWorkflowStep,
+  getWorkflowRun,
+  listWorkflowRuns,
+  updateWorkflowRun,
+  updateWorkflowStep,
+} from "../repositories/workflows";
 
 describe("Storage Package Tests", () => {
   let db: Database;
@@ -119,7 +119,9 @@ describe("Storage Package Tests", () => {
       ],
     });
 
-    expect(() => createSpaceRecord(db, first.id, collection.id, {})).toThrow("SPACE_RECORD_REQUIRED_FIELD:title");
+    expect(() => createSpaceRecord(db, first.id, collection.id, {})).toThrow(
+      "SPACE_RECORD_REQUIRED_FIELD:title",
+    );
     expect(() => createSpaceRecord(db, first.id, collection.id, { title: "A", status: "invalid" })).toThrow(
       "SPACE_RECORD_INVALID_OPTION:status",
     );
@@ -167,14 +169,18 @@ describe("Storage Package Tests", () => {
     closeDb();
     db = getDb(":memory:");
     runMigrationsThrough(db, 16);
-    db.run(
-      "INSERT INTO workspaces (id, name, folder_path, preferred_layout) VALUES (?, ?, ?, ?)",
-      ["legacy-space", "Legado", "", "dashboard"],
-    );
-    db.run(
-      "INSERT INTO workspace_memory (id, workspace_id, content, origin) VALUES (?, ?, ?, ?)",
-      ["legacy-memory", "legacy-space", "Fato preservado", "manual"],
-    );
+    db.run("INSERT INTO workspaces (id, name, folder_path, preferred_layout) VALUES (?, ?, ?, ?)", [
+      "legacy-space",
+      "Legado",
+      "",
+      "dashboard",
+    ]);
+    db.run("INSERT INTO workspace_memory (id, workspace_id, content, origin) VALUES (?, ?, ?, ?)", [
+      "legacy-memory",
+      "legacy-space",
+      "Fato preservado",
+      "manual",
+    ]);
 
     runMigrations(db);
 

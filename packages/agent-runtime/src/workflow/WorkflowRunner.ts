@@ -25,8 +25,8 @@ import {
   getWorkflowRun,
   getWorkflowTemplate,
   listActiveMemoryFacts as listActiveStoredMemoryFacts,
-  listWorkflowSteps,
   listSpaceDocumentIds,
+  listWorkflowSteps,
   saveExecutionContextSnapshot,
   toFileContextInput,
   updateWorkflowRun,
@@ -36,11 +36,7 @@ import { registry } from "@desktop-agent/tool-registry";
 import type { SupportedLanguage } from "../i18n";
 import { t } from "../i18n";
 import type { ParserAgent } from "../parser";
-import {
-  AgentLoopApprovalRequiredError,
-  type AgentLoopCheckpoint,
-  runAgentLoop,
-} from "./AgentLoop";
+import { AgentLoopApprovalRequiredError, type AgentLoopCheckpoint, runAgentLoop } from "./AgentLoop";
 import { requiresApproval } from "./ApprovalEngine";
 import { createExecutionGrant } from "./ExecutionGrant";
 import { McpSessionManager } from "./McpSessionManager";
@@ -250,8 +246,7 @@ export class WorkflowRunner {
     const provider = this.getLlmProvider();
     const model = this.getActiveModel() || "gpt-4o";
 
-    const profileId =
-      input.profileId ?? space?.profileId ?? (run.metadata.profileId as string | undefined);
+    const profileId = input.profileId ?? space?.profileId ?? (run.metadata.profileId as string | undefined);
     const profile = profileId ? getAgentProfile(db, profileId) : null;
 
     let template: WorkflowTemplate | null = null;
@@ -331,9 +326,13 @@ export class WorkflowRunner {
 
         let executionGrant: ExecutionGrant | undefined;
         const plannedTool = step.kind === "tool" ? registry.get(step.toolName ?? "") : undefined;
-        const loopApproval = (step.input as {
-          agentLoopApproval?: { toolName: string; permissionLevel: PermissionLevel; input: unknown };
-        } | undefined)?.agentLoopApproval;
+        const loopApproval = (
+          step.input as
+            | {
+                agentLoopApproval?: { toolName: string; permissionLevel: PermissionLevel; input: unknown };
+              }
+            | undefined
+        )?.agentLoopApproval;
 
         if (step.status === "waiting_approval" && resumeApproved !== undefined) {
           if (!resumeApproved) {
@@ -420,7 +419,7 @@ export class WorkflowRunner {
         } catch (error) {
           if (!(error instanceof AgentLoopApprovalRequiredError)) throw error;
           const persistedInput = {
-            ...(typeof step.input === "object" && step.input ? step.input as Record<string, unknown> : {}),
+            ...(typeof step.input === "object" && step.input ? (step.input as Record<string, unknown>) : {}),
             agentLoopCheckpoint: error.checkpoint,
             agentLoopApproval: {
               toolName: error.toolName,
@@ -434,7 +433,9 @@ export class WorkflowRunner {
             input: persistedInput,
             detail: `Approval required for ${error.toolName}`,
           });
-          const waitingStep = listWorkflowSteps(db, run.id).find((item) => item.id === step.id) as WorkflowStep;
+          const waitingStep = listWorkflowSteps(db, run.id).find(
+            (item) => item.id === step.id,
+          ) as WorkflowStep;
           emitter.stepUpdated(waitingStep);
           const approval: ApprovalRequest = {
             id: randomUUID(),
@@ -610,7 +611,9 @@ export class WorkflowRunner {
 
   private async executeStep(step: WorkflowStep, ctx: StepExecutionContext): Promise<WorkflowStep> {
     const db = getDb();
-    const hasLoopCheckpoint = Boolean((step.input as { agentLoopCheckpoint?: unknown } | undefined)?.agentLoopCheckpoint);
+    const hasLoopCheckpoint = Boolean(
+      (step.input as { agentLoopCheckpoint?: unknown } | undefined)?.agentLoopCheckpoint,
+    );
     updateWorkflowStep(db, step.id, {
       status: "running",
       startedAt: nowIso(),
@@ -682,7 +685,8 @@ export class WorkflowRunner {
       maxSteps: 8,
       temperature,
       toolAllowlist: config.toolAllowlist as string[] | undefined,
-      checkpoint: (step.input as { agentLoopCheckpoint?: AgentLoopCheckpoint } | undefined)?.agentLoopCheckpoint,
+      checkpoint: (step.input as { agentLoopCheckpoint?: AgentLoopCheckpoint } | undefined)
+        ?.agentLoopCheckpoint,
       executionGrant: ctx.executionGrant,
       signal: ctx.signal,
     });

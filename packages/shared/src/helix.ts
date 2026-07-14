@@ -180,4 +180,3 @@ export const HELIX_ACTIONS: readonly HelixAction[] = [
 export function getHelixAction(id: string) {
   return HELIX_ACTIONS.find((action) => action.id === id);
 }
-

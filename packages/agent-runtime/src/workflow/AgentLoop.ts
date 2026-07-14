@@ -1,16 +1,24 @@
 import type { LlmProvider } from "@desktop-agent/provider-gateway";
-import type { AgentEvent, CompletionInput, ExecutionGrant, PermissionLevel, ToolCall } from "@desktop-agent/shared";
-import { ToolApprovalRequiredError, ToolSecurityError, type ToolExecutor } from "./ToolExecutor";
+import type {
+  AgentEvent,
+  CompletionInput,
+  ExecutionGrant,
+  PermissionLevel,
+  ToolCall,
+} from "@desktop-agent/shared";
+import { ToolApprovalRequiredError, type ToolExecutor, ToolSecurityError } from "./ToolExecutor";
 
-type LoopMessage = CompletionInput["messages"][number] | {
-  role: "assistant";
-  content: string;
-  tool_calls: Array<{
-    id: string;
-    type: "function";
-    function: { name: string; arguments: string };
-  }>;
-};
+type LoopMessage =
+  | CompletionInput["messages"][number]
+  | {
+      role: "assistant";
+      content: string;
+      tool_calls: Array<{
+        id: string;
+        type: "function";
+        function: { name: string; arguments: string };
+      }>;
+    };
 
 export type AgentLoopCheckpoint = {
   messages: LoopMessage[];
@@ -83,10 +91,15 @@ async function executeCalls(
     try {
       input = parseToolArguments(call.function.arguments);
     } catch (error) {
-      messages.push(toolMessage(call, {
-        ok: false,
-        error: { code: "INVALID_ARGUMENTS", message: error instanceof Error ? error.message : String(error) },
-      }));
+      messages.push(
+        toolMessage(call, {
+          ok: false,
+          error: {
+            code: "INVALID_ARGUMENTS",
+            message: error instanceof Error ? error.message : String(error),
+          },
+        }),
+      );
       continue;
     }
 
@@ -114,11 +127,16 @@ async function executeCalls(
         );
       }
       if (error instanceof ToolSecurityError) throw error;
-      messages.push(toolMessage(call, {
-        ok: false,
-        toolName: call.function.name,
-        error: { code: "TOOL_EXECUTION_FAILED", message: error instanceof Error ? error.message : String(error) },
-      }));
+      messages.push(
+        toolMessage(call, {
+          ok: false,
+          toolName: call.function.name,
+          error: {
+            code: "TOOL_EXECUTION_FAILED",
+            message: error instanceof Error ? error.message : String(error),
+          },
+        }),
+      );
     }
   }
 }
@@ -152,7 +170,11 @@ export async function runAgentLoop(config: AgentLoopConfig): Promise<string> {
 
   for (let stepIndex = firstStep; stepIndex < maxSteps; stepIndex++) {
     throwIfAborted(config.signal);
-    config.emit({ type: "agent.thought", requestId: config.requestId, thought: "Analisando próxima ação..." });
+    config.emit({
+      type: "agent.thought",
+      requestId: config.requestId,
+      thought: "Analisando próxima ação...",
+    });
 
     let content = "";
     let toolCalls: ToolCall[] = [];
@@ -204,8 +226,13 @@ function typeName(schema: ZodLike): string {
 
 function isOptional(schema: ZodLike): boolean {
   const name = typeName(schema);
-  return name === "ZodOptional" || name === "ZodDefault" || name === "optional" || name === "default"
-    || schema.isOptional?.() === true;
+  return (
+    name === "ZodOptional" ||
+    name === "ZodDefault" ||
+    name === "optional" ||
+    name === "default" ||
+    schema.isOptional?.() === true
+  );
 }
 
 export function zodToJsonSchema(schema: unknown): Record<string, unknown> {
@@ -215,13 +242,23 @@ export function zodToJsonSchema(schema: unknown): Record<string, unknown> {
   const name = typeName(value);
   let result: Record<string, unknown>;
 
-  if (name === "ZodOptional" || name === "ZodDefault" || name === "ZodNullable" || name === "optional" || name === "default" || name === "nullable") {
+  if (
+    name === "ZodOptional" ||
+    name === "ZodDefault" ||
+    name === "ZodNullable" ||
+    name === "optional" ||
+    name === "default" ||
+    name === "nullable"
+  ) {
     const inner = (def.innerType ?? def.type) as ZodLike | undefined;
     result = inner && typeof inner === "object" ? zodToJsonSchema(inner) : {};
     if (name === "ZodNullable" || name === "nullable") result = { anyOf: [result, { type: "null" }] };
   } else if (name === "ZodObject" || name === "object") {
     const rawShape = typeof value.shape === "function" ? value.shape() : value.shape;
-    const shape = rawShape ?? (typeof def.shape === "function" ? (def.shape as () => Record<string, ZodLike>)() : def.shape) ?? {};
+    const shape =
+      rawShape ??
+      (typeof def.shape === "function" ? (def.shape as () => Record<string, ZodLike>)() : def.shape) ??
+      {};
     const properties: Record<string, unknown> = {};
     const required: string[] = [];
     for (const [key, field] of Object.entries(shape as Record<string, ZodLike>)) {
@@ -234,7 +271,8 @@ export function zodToJsonSchema(schema: unknown): Record<string, unknown> {
   else if (name === "ZodNumber" || name === "number") result = { type: "number" };
   else if (name === "ZodBoolean" || name === "boolean") result = { type: "boolean" };
   else if (name === "ZodArray" || name === "array") {
-    const element = value.element ?? (def.type as ZodLike | undefined) ?? (def.element as ZodLike | undefined);
+    const element =
+      value.element ?? (def.type as ZodLike | undefined) ?? (def.element as ZodLike | undefined);
     result = { type: "array", items: zodToJsonSchema(element) };
   } else if (name === "ZodEnum" || name === "enum") {
     const values = (def.values ?? def.entries) as string[] | Record<string, string> | undefined;

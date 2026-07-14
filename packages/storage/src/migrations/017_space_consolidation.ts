@@ -74,9 +74,7 @@ export function runMigration(db: Database): void {
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
   `);
-  db.run(
-    "CREATE INDEX IF NOT EXISTS idx_space_records_collection ON space_records(space_id, collection_id)",
-  );
+  db.run("CREATE INDEX IF NOT EXISTS idx_space_records_collection ON space_records(space_id, collection_id)");
 
   db.run(`
     CREATE TABLE IF NOT EXISTS space_views (

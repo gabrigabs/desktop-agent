@@ -182,10 +182,7 @@ export function attachDocument(db: Database, spaceId: string, documentId: string
 }
 
 export function detachDocument(db: Database, spaceId: string, documentId: string): void {
-  db.run("DELETE FROM space_documents WHERE space_id = ? AND document_id = ?", [
-    spaceId,
-    documentId,
-  ]);
+  db.run("DELETE FROM space_documents WHERE space_id = ? AND document_id = ?", [spaceId, documentId]);
 }
 
 export function listSpaceDocumentIds(db: Database, spaceId: string): string[] {
@@ -204,9 +201,7 @@ export function listMemoryFacts(db: Database, spaceId: string): SpaceMemoryFact[
 
 export function listActiveMemoryFacts(db: Database, spaceId: string): SpaceMemoryFact[] {
   return db
-    .query(
-      "SELECT * FROM space_memory WHERE space_id = ? AND status = 'active' ORDER BY created_at DESC",
-    )
+    .query("SELECT * FROM space_memory WHERE space_id = ? AND status = 'active' ORDER BY created_at DESC")
     .all(spaceId)
     .map((row) => mapMemoryFact(row as Record<string, unknown>));
 }
@@ -409,7 +404,10 @@ function validateRecordValues(fields: SpaceField[], values: Record<string, Space
     if (field.type === "boolean" && typeof value !== "boolean") {
       throw new Error(`SPACE_RECORD_INVALID_BOOLEAN:${field.id}`);
     }
-    if ((field.type === "text" || field.type === "date" || field.type === "select") && typeof value !== "string") {
+    if (
+      (field.type === "text" || field.type === "date" || field.type === "select") &&
+      typeof value !== "string"
+    ) {
       throw new Error(`SPACE_RECORD_INVALID_TEXT:${field.id}`);
     }
     if (field.type === "select" && !field.options?.includes(value as string)) {
@@ -419,9 +417,11 @@ function validateRecordValues(fields: SpaceField[], values: Record<string, Space
 }
 
 export function listSpaceCollections(db: Database, spaceId: string): SpaceCollection[] {
-  return (db
-    .query("SELECT * FROM space_collections WHERE space_id = ? ORDER BY created_at ASC")
-    .all(spaceId) as Record<string, unknown>[]).map(mapCollection);
+  return (
+    db
+      .query("SELECT * FROM space_collections WHERE space_id = ? ORDER BY created_at ASC")
+      .all(spaceId) as Record<string, unknown>[]
+  ).map(mapCollection);
 }
 
 export function createSpaceCollection(
@@ -431,10 +431,13 @@ export function createSpaceCollection(
 ): SpaceCollection {
   validateFields(input.fields);
   const id = randomUUID();
-  db.run(
-    "INSERT INTO space_collections (id, space_id, name, icon, fields_json) VALUES (?, ?, ?, ?, ?)",
-    [id, spaceId, input.name.trim(), input.icon ?? "table", JSON.stringify(input.fields)],
-  );
+  db.run("INSERT INTO space_collections (id, space_id, name, icon, fields_json) VALUES (?, ?, ?, ?, ?)", [
+    id,
+    spaceId,
+    input.name.trim(),
+    input.icon ?? "table",
+    JSON.stringify(input.fields),
+  ]);
   return getOwnedCollection(db, spaceId, id);
 }
 
@@ -462,11 +465,11 @@ export function deleteSpaceCollection(db: Database, spaceId: string, id: string)
 
 export function listSpaceRecords(db: Database, spaceId: string, collectionId: string): SpaceRecord[] {
   getOwnedCollection(db, spaceId, collectionId);
-  return (db
-    .query(
-      "SELECT * FROM space_records WHERE space_id = ? AND collection_id = ? ORDER BY created_at DESC",
-    )
-    .all(spaceId, collectionId) as Record<string, unknown>[]).map(mapRecord);
+  return (
+    db
+      .query("SELECT * FROM space_records WHERE space_id = ? AND collection_id = ? ORDER BY created_at DESC")
+      .all(spaceId, collectionId) as Record<string, unknown>[]
+  ).map(mapRecord);
 }
 
 export function createSpaceRecord(
@@ -478,10 +481,12 @@ export function createSpaceRecord(
   const collection = getOwnedCollection(db, spaceId, collectionId);
   validateRecordValues(collection.fields, values);
   const id = randomUUID();
-  db.run(
-    "INSERT INTO space_records (id, space_id, collection_id, values_json) VALUES (?, ?, ?, ?)",
-    [id, spaceId, collectionId, JSON.stringify(values)],
-  );
+  db.run("INSERT INTO space_records (id, space_id, collection_id, values_json) VALUES (?, ?, ?, ?)", [
+    id,
+    spaceId,
+    collectionId,
+    JSON.stringify(values),
+  ]);
   const row = db.query("SELECT * FROM space_records WHERE id = ? AND space_id = ?").get(id, spaceId);
   return mapRecord(row as Record<string, unknown>);
 }

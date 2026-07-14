@@ -1,6 +1,6 @@
-import type { CompletionChunk, CompletionInput, CompletionOutput } from "@desktop-agent/shared";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { LlmProvider } from "@desktop-agent/provider-gateway";
-import { registry } from "@desktop-agent/tool-registry";
+import type { CompletionChunk, CompletionInput, CompletionOutput } from "@desktop-agent/shared";
 import {
   closeDb,
   createWorkflowRun,
@@ -8,7 +8,7 @@ import {
   runMigrations,
   saveWorkflowTemplate,
 } from "@desktop-agent/storage";
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { registry } from "@desktop-agent/tool-registry";
 import { z } from "zod";
 import { ParserAgent } from "../../parser";
 import { WorkflowRunner } from "../WorkflowRunner";
@@ -28,11 +28,13 @@ class ApprovalProvider implements LlmProvider {
       yield {
         content: "",
         done: true,
-        toolCalls: [{
-          id: "native-call",
-          type: "function",
-          function: { name: "test.restart-safe", arguments: JSON.stringify({ value: "approved" }) },
-        }],
+        toolCalls: [
+          {
+            id: "native-call",
+            type: "function",
+            function: { name: "test.restart-safe", arguments: JSON.stringify({ value: "approved" }) },
+          },
+        ],
       };
       return;
     }
@@ -52,7 +54,10 @@ describe("WorkflowRunner native tool approval checkpoint", () => {
       permissionLevel: "local.write",
       executionPolicy: "explicit_approval",
       inputSchema: z.object({ value: z.string() }),
-      handler: async () => { executions += 1; return { ok: true }; },
+      handler: async () => {
+        executions += 1;
+        return { ok: true };
+      },
     });
   });
 
@@ -68,11 +73,13 @@ describe("WorkflowRunner native tool approval checkpoint", () => {
       name: "Approval",
       prompt: "Use tool",
       settings: { mode: "workflow", maxSteps: 2, toolAllowlist: ["test.restart-safe"] },
-      steps: [{
-        name: "Responder",
-        kind: "llm",
-        config: { prompt: "Use the sensitive tool", toolAllowlist: ["test.restart-safe"] },
-      }],
+      steps: [
+        {
+          name: "Responder",
+          kind: "llm",
+          config: { prompt: "Use the sensitive tool", toolAllowlist: ["test.restart-safe"] },
+        },
+      ],
     });
     const runId = createWorkflowRun(db, {
       mode: "workflow",
@@ -83,13 +90,14 @@ describe("WorkflowRunner native tool approval checkpoint", () => {
       maxSteps: 2,
     });
     const provider = new ApprovalProvider();
-    const createRunner = () => new WorkflowRunner({
-      getLlmProvider: () => provider,
-      getActiveModel: () => "model",
-      getLanguage: () => "pt-BR",
-      emit: () => {},
-      parserAgent: new ParserAgent(),
-    });
+    const createRunner = () =>
+      new WorkflowRunner({
+        getLlmProvider: () => provider,
+        getActiveModel: () => "model",
+        getLanguage: () => "pt-BR",
+        emit: () => {},
+        parserAgent: new ParserAgent(),
+      });
 
     const waiting = await createRunner().start({
       requestId: "request-start",
@@ -118,7 +126,13 @@ describe("WorkflowRunner native tool approval checkpoint", () => {
     const template = saveWorkflowTemplate(db, {
       name: "Denied approval",
       prompt: "Use tool",
-      steps: [{ name: "Responder", kind: "llm", config: { prompt: "Use tool", toolAllowlist: ["test.restart-safe"] } }],
+      steps: [
+        {
+          name: "Responder",
+          kind: "llm",
+          config: { prompt: "Use tool", toolAllowlist: ["test.restart-safe"] },
+        },
+      ],
     });
     const runId = createWorkflowRun(db, {
       mode: "workflow",
@@ -135,7 +149,12 @@ describe("WorkflowRunner native tool approval checkpoint", () => {
       emit: () => {},
       parserAgent: new ParserAgent(),
     });
-    const waiting = await runner.start({ requestId: "start-denied", runId, prompt: "Use tool", clipboardText: "" });
+    const waiting = await runner.start({
+      requestId: "start-denied",
+      runId,
+      prompt: "Use tool",
+      clipboardText: "",
+    });
     expect(waiting.status).toBe("waiting_approval");
     const denied = await runner.resume({
       requestId: "deny",

@@ -7,15 +7,15 @@ import type {
   ExecutionMode,
   FileContextInput,
   FollowUpSession,
-  SpaceMemoryFact,
   MessageBlock,
   NativeBoundingBox,
   NativeCapturePreview,
   RunStatus,
+  Space,
+  SpaceMemoryFact,
   Turn,
   WorkflowRun,
   WorkflowStep,
-  Space,
 } from "@desktop-agent/shared";
 import { create } from "zustand";
 import { parseAssistantContent } from "../lib/assistant-content";

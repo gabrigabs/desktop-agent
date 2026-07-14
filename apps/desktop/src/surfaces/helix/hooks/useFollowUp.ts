@@ -22,8 +22,11 @@ export function useFollowUp() {
       const list = await api.listFollowUpSessions();
       setSessions(list);
       const active =
-        list.find((session) =>
-          session.status === "active" || session.status === "waiting_approval" || session.status === "paused",
+        list.find(
+          (session) =>
+            session.status === "active" ||
+            session.status === "waiting_approval" ||
+            session.status === "paused",
         ) ?? null;
       setActiveSession(active);
       setError(null);

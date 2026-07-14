@@ -95,7 +95,8 @@ export function useSettingsForm(
           windowOpacity: Number(formWindowOpacity),
           petSize: Number(formPetSize),
           language: formLanguage,
-          defaultWindowMode: formHidePet && formDefaultWindowMode === "collapsed" ? "normal" : formDefaultWindowMode,
+          defaultWindowMode:
+            formHidePet && formDefaultWindowMode === "collapsed" ? "normal" : formDefaultWindowMode,
         };
         await api.saveSettings(newSettings);
         setSettings(newSettings);

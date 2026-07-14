@@ -3,7 +3,6 @@ import type {
   Space,
   SpaceCollection,
   SpaceField,
-  SpaceMemoryFact,
   SpaceRecord,
   SpaceRecordValue,
   SpaceView,
@@ -341,66 +340,84 @@ export function useSpaces() {
 
   const activeSpace: Space | null = spaces.find((w) => w.id === activeSpaceId) ?? null;
 
-  const loadRecords = useCallback(async (collectionId: string) => {
-    if (!activeSpaceId) return;
-    try {
-      const api = await getAgent();
-      const list = await api.listSpaceRecords({ spaceId: activeSpaceId, collectionId });
-      setRecords((current) => ({ ...current, [collectionId]: list }));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load records");
-    }
-  }, [activeSpaceId]);
+  const loadRecords = useCallback(
+    async (collectionId: string) => {
+      if (!activeSpaceId) return;
+      try {
+        const api = await getAgent();
+        const list = await api.listSpaceRecords({ spaceId: activeSpaceId, collectionId });
+        setRecords((current) => ({ ...current, [collectionId]: list }));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load records");
+      }
+    },
+    [activeSpaceId],
+  );
 
-  const createCollection = useCallback(async (name: string, fields: SpaceField[]) => {
-    if (!activeSpaceId) return null;
-    try {
-      const api = await getAgent();
-      const collection = await api.createSpaceCollection({ spaceId: activeSpaceId, name, fields });
-      setCollections((current) => [...current, collection]);
-      const view = await api.createSpaceView({
-        spaceId: activeSpaceId,
-        collectionId: collection.id,
-        name: "Tabela",
-        type: "table",
-        config: {},
-      });
-      setViews((current) => [...current, view]);
-      return collection;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create collection");
-      return null;
-    }
-  }, [activeSpaceId]);
+  const createCollection = useCallback(
+    async (name: string, fields: SpaceField[]) => {
+      if (!activeSpaceId) return null;
+      try {
+        const api = await getAgent();
+        const collection = await api.createSpaceCollection({ spaceId: activeSpaceId, name, fields });
+        setCollections((current) => [...current, collection]);
+        const view = await api.createSpaceView({
+          spaceId: activeSpaceId,
+          collectionId: collection.id,
+          name: "Tabela",
+          type: "table",
+          config: {},
+        });
+        setViews((current) => [...current, view]);
+        return collection;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to create collection");
+        return null;
+      }
+    },
+    [activeSpaceId],
+  );
 
-  const createView = useCallback(async (collectionId: string, name: string, type: SpaceViewType) => {
-    if (!activeSpaceId) return null;
-    try {
-      const api = await getAgent();
-      const view = await api.createSpaceView({ spaceId: activeSpaceId, collectionId, name, type, config: {} });
-      setViews((current) => [...current, view]);
-      return view;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create view");
-      return null;
-    }
-  }, [activeSpaceId]);
+  const createView = useCallback(
+    async (collectionId: string, name: string, type: SpaceViewType) => {
+      if (!activeSpaceId) return null;
+      try {
+        const api = await getAgent();
+        const view = await api.createSpaceView({
+          spaceId: activeSpaceId,
+          collectionId,
+          name,
+          type,
+          config: {},
+        });
+        setViews((current) => [...current, view]);
+        return view;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to create view");
+        return null;
+      }
+    },
+    [activeSpaceId],
+  );
 
-  const createRecord = useCallback(async (collectionId: string, values: Record<string, SpaceRecordValue>) => {
-    if (!activeSpaceId) return null;
-    try {
-      const api = await getAgent();
-      const record = await api.createSpaceRecord({ spaceId: activeSpaceId, collectionId, values });
-      setRecords((current) => ({
-        ...current,
-        [collectionId]: [record, ...(current[collectionId] ?? [])],
-      }));
-      return record;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create record");
-      return null;
-    }
-  }, [activeSpaceId]);
+  const createRecord = useCallback(
+    async (collectionId: string, values: Record<string, SpaceRecordValue>) => {
+      if (!activeSpaceId) return null;
+      try {
+        const api = await getAgent();
+        const record = await api.createSpaceRecord({ spaceId: activeSpaceId, collectionId, values });
+        setRecords((current) => ({
+          ...current,
+          [collectionId]: [record, ...(current[collectionId] ?? [])],
+        }));
+        return record;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to create record");
+        return null;
+      }
+    },
+    [activeSpaceId],
+  );
 
   return {
     spaces,

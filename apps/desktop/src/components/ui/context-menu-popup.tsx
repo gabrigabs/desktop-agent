@@ -4,6 +4,7 @@ import {
   Check,
   Clipboard,
   FileText,
+  FolderOpen,
   Globe,
   Layout,
   Plus,
@@ -70,6 +71,14 @@ export const CONTEXT_SOURCES: ContextMenuSource[] = [
     labelKey: "composer.contextMenu.file",
     descriptionKey: "composer.contextMenu.fileDescription",
     icon: FileText,
+    mock: false,
+  },
+  {
+    id: "folder",
+    source: "file",
+    labelKey: "composer.contextMenu.folder",
+    descriptionKey: "composer.contextMenu.folderDescription",
+    icon: FolderOpen,
     mock: false,
   },
   {

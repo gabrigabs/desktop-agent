@@ -7,6 +7,18 @@ import type {
   FollowUpSession,
 } from "./follow-up";
 import type { ContextAttachment } from "./native";
+import type {
+  ExecutionContextSnapshot,
+  Space,
+  SpaceCollection,
+  SpaceField,
+  SpaceLayout,
+  SpaceMemoryFact,
+  SpaceRecord,
+  SpaceRecordValue,
+  SpaceView,
+  SpaceViewType,
+} from "./space";
 import type { MarkdownSource, ParsedDocument } from "./types/parsed-documents";
 import type {
   AgentEvent,
@@ -30,18 +42,6 @@ import type {
   WorkflowTemplate,
   WorkflowTemplateSettings,
 } from "./types/rpc";
-import type {
-  ExecutionContextSnapshot,
-  Space,
-  SpaceCollection,
-  SpaceField,
-  SpaceLayout,
-  SpaceMemoryFact,
-  SpaceRecord,
-  SpaceRecordValue,
-  SpaceView,
-  SpaceViewType,
-} from "./space";
 
 type SpaceInput = {
   name: string;

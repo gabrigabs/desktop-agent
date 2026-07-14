@@ -34,8 +34,9 @@ import type { QuickActionItem } from "./hooks/useQuickActions";
 import type { useSpaces } from "./hooks/useSpaces";
 import { ParserModePanel } from "./parser-mode/ParserModePanel";
 import type { ParserModeState } from "./parser-mode/useParserMode";
-import type { HelixMode } from "./types";
+import { SourcesPanel } from "./SourcesPanel";
 import { SpaceShell } from "./SpaceShell";
+import type { HelixMode } from "./types";
 
 type Props = {
   error: string | null;
@@ -177,7 +178,7 @@ export function NormalCommandView(p: Props) {
   );
 
   return (
-    <div className="helix-view-enter h-full w-full overflow-y-auto p-4 text-fg">
+    <div className="helix-view-enter h-full w-full overflow-hidden p-4 text-fg">
       {p.mode === "command" ? (
         p.messages.length > 0 ? (
           <ChatActive {...p} onPromoteToMemory={handlePromoteToMemory} />
@@ -201,15 +202,36 @@ export function NormalCommandView(p: Props) {
           onToastError={p.onToastError}
         />
       ) : p.mode === "space" ? (
-        <PanelWrapper
-          title={t("helix:navigation.space", "Space")}
-          onBack={() => p.setMode("command")}
-        >
+        <PanelWrapper title={t("helix:navigation.space", "Space")} onBack={() => p.setMode("command")}>
           <SpaceShell
             ws={spacesHook}
             onBack={() => p.setMode("command")}
             onOpenChat={() => p.setMode("command")}
             profiles={p.profiles}
+          />
+        </PanelWrapper>
+      ) : p.mode === "sources" ? (
+        <PanelWrapper title={t("helix:navigation.sources")} onBack={() => p.setMode("command")}>
+          <SourcesPanel
+            variant="normal"
+            parser={p.parser}
+            connectors={p.connectors}
+            testingConnectorId={p.testingConnectorId}
+            connectorTestResults={p.connectorTestResults}
+            editingConnectorId={p.editingConnectorId}
+            showAddConnector={p.showAddConnector}
+            onTestConnector={p.onTestConnector}
+            onToggleConnector={p.onToggleConnector}
+            onRefreshCapabilities={p.onRefreshCapabilities}
+            onSaveConnector={p.onSaveConnector}
+            onDeleteConnector={p.onDeleteConnector}
+            onStartEditing={p.onStartEditing}
+            onCancelEditing={p.onCancelEditing}
+            onShowAddConnector={p.onShowAddConnector}
+            setQuery={p.setQuery}
+            setMode={p.setMode}
+            onToastSuccess={p.onToastSuccess}
+            onToastError={p.onToastError}
           />
         </PanelWrapper>
       ) : (
@@ -360,7 +382,7 @@ function ChatActive(p: Props) {
         onToastError={p.onToastError}
       />
 
-      <div className="shrink-0">
+      <div className="sticky bottom-0 z-20 -mx-1 shrink-0 bg-ink/95 px-1 pt-2 backdrop-blur-xl">
         <Composer
           mode="normal"
           query={p.query}
@@ -529,7 +551,7 @@ function TaskActive(p: Props) {
         onExpand={p.onExpandedMode}
       />
 
-      <div className="shrink-0">
+      <div className="sticky bottom-0 z-20 -mx-1 shrink-0 bg-ink/95 px-1 pt-2 backdrop-blur-xl">
         <Composer
           mode="normal"
           query={p.query}

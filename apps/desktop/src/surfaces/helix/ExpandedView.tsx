@@ -12,15 +12,7 @@ import type {
   WorkflowTemplateSettings,
 } from "@desktop-agent/shared";
 import { unwrapAgentResponse } from "@desktop-agent/shared";
-import {
-  AlertCircle,
-  ArrowLeft,
-  Check,
-  Clipboard,
-  RefreshCw,
-  Sparkles,
-  X,
-} from "lucide-react";
+import { AlertCircle, ArrowLeft, Check, Clipboard, RefreshCw, Sparkles, X } from "lucide-react";
 import type { RefObject } from "react";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -38,8 +30,9 @@ import type { QuickActionItem } from "./hooks/useQuickActions";
 import type { useSpaces } from "./hooks/useSpaces";
 import { ParserModePanel } from "./parser-mode/ParserModePanel";
 import type { ParserModeState } from "./parser-mode/useParserMode";
-import type { HelixMode } from "./types";
+import { SourcesPanel } from "./SourcesPanel";
 import { SpaceShell } from "./SpaceShell";
+import type { HelixMode } from "./types";
 
 type Props = {
   error: string | null;
@@ -161,7 +154,6 @@ type Props = {
 };
 
 export function ExpandedView(p: Props) {
-  const { t } = useTranslation("helix");
   const spacesHook = p.spaces;
 
   const handlePromoteToMemory = useCallback(
@@ -179,11 +171,32 @@ export function ExpandedView(p: Props) {
 
   return (
     <div className="helix-view-enter h-full w-full overflow-hidden text-fg">
-      <main className="min-w-0 min-h-0 overflow-y-auto p-5">
+      <main className="h-full min-w-0 min-h-0 overflow-hidden p-5">
         {p.mode === "history" ? (
           <div className="max-w-5xl">
             <HistoryList variant="page" onSelectConversation={() => p.setMode("command")} />
           </div>
+        ) : p.mode === "sources" ? (
+          <SourcesPanel
+            variant="expanded"
+            parser={p.parser}
+            connectors={p.connectors}
+            testingConnectorId={p.testingConnectorId}
+            connectorTestResults={p.connectorTestResults}
+            editingConnectorId={p.editingConnectorId}
+            showAddConnector={p.showAddConnector}
+            onTestConnector={p.onTestConnector}
+            onToggleConnector={p.onToggleConnector}
+            onSaveConnector={p.onSaveConnector}
+            onDeleteConnector={p.onDeleteConnector}
+            onStartEditing={p.onStartEditing}
+            onCancelEditing={p.onCancelEditing}
+            onShowAddConnector={p.onShowAddConnector}
+            setQuery={p.setQuery}
+            setMode={p.setMode}
+            onToastSuccess={p.onToastSuccess}
+            onToastError={p.onToastError}
+          />
         ) : p.mode === "connectors" ? (
           <div className="max-w-5xl">
             <ConnectorsPanel
@@ -215,12 +228,14 @@ export function ExpandedView(p: Props) {
             />
           </div>
         ) : p.mode === "space" ? (
-          <SpaceShell
-            ws={spacesHook}
-            onBack={() => p.setMode("command")}
-            onOpenChat={() => p.setMode("command")}
-            profiles={p.profiles}
-          />
+          <div className="h-full min-h-0 overflow-y-auto overscroll-contain pr-1">
+            <SpaceShell
+              ws={spacesHook}
+              onBack={() => p.setMode("command")}
+              onOpenChat={() => p.setMode("command")}
+              profiles={p.profiles}
+            />
+          </div>
         ) : p.messages.length > 0 ? (
           <ChatActive {...p} onPromoteToMemory={handlePromoteToMemory} />
         ) : p.taskActive ? (
@@ -320,30 +335,32 @@ function ChatActive(p: Props) {
         onToastError={p.onToastError}
       />
 
-      <div className="shrink-0 w-full mx-auto max-w-[var(--composer-expanded-width)]">
-        <Composer
-          mode="expanded"
-          query={p.query}
-          setQuery={p.setQuery}
-          placeholder={p.composerPlaceholder}
-          disabled={p.streaming}
-          streaming={p.streaming}
-          clipboardText={p.clipboardText}
-          hasClipboard={p.hasClipboard}
-          ignoreClipboard={p.ignoreClipboard}
-          setIgnoreClipboard={p.setIgnoreClipboard}
-          onPasteClipboard={p.onPasteClipboard}
-          textareaRef={p.textareaRef}
-          quickActions={p.quickActions}
-          onQuickAction={p.onQuickAction}
-          onExecute={p.onExecute}
-          onAbort={p.onAbort}
-          showQuickActions={false}
-          fileContext={p.fileContext}
-          onAttachFiles={p.onAttachFiles}
-          onRemoveFile={p.onRemoveFile}
-          isDraggingFile={p.isDraggingFile}
-        />
+      <div className="sticky bottom-0 z-20 -mx-1 shrink-0 bg-ink/95 px-1 pt-2 backdrop-blur-xl w-[calc(100%+0.5rem)]">
+        <div className="mx-auto w-full max-w-[var(--composer-expanded-width)]">
+          <Composer
+            mode="expanded"
+            query={p.query}
+            setQuery={p.setQuery}
+            placeholder={p.composerPlaceholder}
+            disabled={p.streaming}
+            streaming={p.streaming}
+            clipboardText={p.clipboardText}
+            hasClipboard={p.hasClipboard}
+            ignoreClipboard={p.ignoreClipboard}
+            setIgnoreClipboard={p.setIgnoreClipboard}
+            onPasteClipboard={p.onPasteClipboard}
+            textareaRef={p.textareaRef}
+            quickActions={p.quickActions}
+            onQuickAction={p.onQuickAction}
+            onExecute={p.onExecute}
+            onAbort={p.onAbort}
+            showQuickActions={false}
+            fileContext={p.fileContext}
+            onAttachFiles={p.onAttachFiles}
+            onRemoveFile={p.onRemoveFile}
+            isDraggingFile={p.isDraggingFile}
+          />
+        </div>
       </div>
     </div>
   );
@@ -445,7 +462,7 @@ function TaskActive(p: Props) {
         </section>
       )}
 
-      <section className="flex-1 min-h-[200px] rounded-2xl bg-white/[0.03] overflow-hidden flex flex-col border border-line">
+      <section className="flex-1 min-h-0 rounded-2xl bg-white/[0.03] overflow-hidden flex flex-col border border-line">
         <div className="px-4 py-3 flex items-center justify-between bg-white/[0.03]">
           <span className="text-[10px] text-mute font-medium tracking-tight">
             {t("helix:normalCommandView.result")}
@@ -471,30 +488,32 @@ function TaskActive(p: Props) {
         </div>
       </section>
 
-      <div className="shrink-0 w-full mx-auto max-w-[var(--composer-expanded-width)]">
-        <Composer
-          mode="expanded"
-          query={p.query}
-          setQuery={p.setQuery}
-          placeholder={p.composerPlaceholder}
-          disabled={p.streaming}
-          streaming={p.streaming}
-          clipboardText={p.clipboardText}
-          hasClipboard={p.hasClipboard}
-          ignoreClipboard={p.ignoreClipboard}
-          setIgnoreClipboard={p.setIgnoreClipboard}
-          onPasteClipboard={p.onPasteClipboard}
-          textareaRef={p.textareaRef}
-          quickActions={p.quickActions}
-          onQuickAction={p.onQuickAction}
-          onExecute={p.onExecute}
-          onAbort={p.onAbort}
-          showQuickActions={false}
-          fileContext={p.fileContext}
-          onAttachFiles={p.onAttachFiles}
-          onRemoveFile={p.onRemoveFile}
-          isDraggingFile={p.isDraggingFile}
-        />
+      <div className="sticky bottom-0 z-20 -mx-1 shrink-0 bg-ink/95 px-1 pt-2 backdrop-blur-xl w-[calc(100%+0.5rem)]">
+        <div className="mx-auto w-full max-w-[var(--composer-expanded-width)]">
+          <Composer
+            mode="expanded"
+            query={p.query}
+            setQuery={p.setQuery}
+            placeholder={p.composerPlaceholder}
+            disabled={p.streaming}
+            streaming={p.streaming}
+            clipboardText={p.clipboardText}
+            hasClipboard={p.hasClipboard}
+            ignoreClipboard={p.ignoreClipboard}
+            setIgnoreClipboard={p.setIgnoreClipboard}
+            onPasteClipboard={p.onPasteClipboard}
+            textareaRef={p.textareaRef}
+            quickActions={p.quickActions}
+            onQuickAction={p.onQuickAction}
+            onExecute={p.onExecute}
+            onAbort={p.onAbort}
+            showQuickActions={false}
+            fileContext={p.fileContext}
+            onAttachFiles={p.onAttachFiles}
+            onRemoveFile={p.onRemoveFile}
+            isDraggingFile={p.isDraggingFile}
+          />
+        </div>
       </div>
     </div>
   );

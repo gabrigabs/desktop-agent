@@ -136,11 +136,8 @@ export function useExecute(activeProfileId?: string | null) {
       let requestId: string | null = null;
       let runId: string | null = null;
       try {
-        const spaceProfileId = store.spaces.find(
-          (space) => space.id === store.activeSpaceId,
-        )?.profileId;
-        const effectiveProfileId =
-          spaceProfileId ?? store.currentProfileId ?? activeProfileId ?? undefined;
+        const spaceProfileId = store.spaces.find((space) => space.id === store.activeSpaceId)?.profileId;
+        const effectiveProfileId = spaceProfileId ?? store.currentProfileId ?? activeProfileId ?? undefined;
         const rawClipboardText = store.clipboardText || "";
         const hasClipboard = rawClipboardText.trim().length > 0 && !store.ignoreClipboard;
         const sourceMode: "free" | "clipboard" = hasClipboard ? "clipboard" : "free";

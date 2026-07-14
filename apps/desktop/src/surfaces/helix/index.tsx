@@ -1,9 +1,9 @@
 import { type ContextAttachment, getHelixAction } from "@desktop-agent/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { HelixBottomNav } from "../../components/ui/helix-bottom-nav";
 import { HelixDrawer } from "../../components/ui/helix-drawer";
 import { HelixHeader } from "../../components/ui/helix-header";
+import { HelixSidebar } from "../../components/ui/helix-sidebar";
 import { getAgent } from "../../lib/rpc";
 import { closeApp, setWindowMode } from "../../lib/window";
 import { useAgentStore } from "../../stores/agent";
@@ -14,13 +14,13 @@ import { useClipboard } from "./hooks/useClipboard";
 import { useDragDrop } from "./hooks/useDragDrop";
 import { useExecute } from "./hooks/useExecute";
 import { useFileContext } from "./hooks/useFileContext";
+import { useFollowUp } from "./hooks/useFollowUp";
 import { useKeyboard } from "./hooks/useKeyboard";
 import { usePrompts } from "./hooks/usePrompts";
 import { type QuickActionItem, useQuickActions } from "./hooks/useQuickActions";
 import { useSettingsForm } from "./hooks/useSettingsForm";
-import { useSpaces } from "./hooks/useSpaces";
-import { useFollowUp } from "./hooks/useFollowUp";
 import { useSkills } from "./hooks/useSkills";
+import { useSpaces } from "./hooks/useSpaces";
 import { useWorkflows } from "./hooks/useWorkflows";
 import { NormalCommandView } from "./NormalCommandView";
 import { useParserMode } from "./parser-mode/useParserMode";
@@ -336,7 +336,7 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
     workflowRun?.status === "waiting_approval"
       ? t("helix:helixIndex.waitingApproval")
       : error
-        ? JSON.stringify(error)
+        ? t("helix:workflow.failed")
         : streaming
           ? agentLogs[agentLogs.length - 1]?.type === "tool_start"
             ? t("helix:helixIndex.usingTool")
@@ -512,7 +512,12 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
           open={followUpOpen}
           onOpenChange={setFollowUpOpen}
         />
-        <div className="flex-1 min-h-0 flex flex-col">
+        <div className="flex flex-1 min-h-0">
+          <HelixSidebar
+            mode={showSettings ? "settings" : mode}
+            onChangeMode={handleChangeMode}
+            onNewTask={handleNewTask}
+          />
           <main className="relative flex-1 min-h-0 overflow-hidden">
             {showSettings ? (
               <SettingsPanel variant="expanded" {...settingsPanelProps} />
@@ -520,12 +525,6 @@ export function Helix({ onToastSuccess, onToastError, onToggleAlwaysOnTop }: Hel
               <ExpandedView {...commonProps} />
             )}
           </main>
-          <HelixBottomNav
-            mode={showSettings ? "settings" : mode}
-            onChangeMode={handleChangeMode}
-            onNewTask={handleNewTask}
-            onToggleExpand={handleToggleExpand}
-          />
         </div>
       </div>
     );
