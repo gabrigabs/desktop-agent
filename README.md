@@ -32,14 +32,25 @@ Copy text, press `Control+Shift+Space`, type what you want, and Helix does the r
 ## Features
 
 - **Floating command surface** — a compact, always-on-top window with three modes: collapsed seed, normal panel, and expanded workspace.
-- **Keyboard-first** — global shortcut, radial launcher, and composer-first navigation keep you on the keyboard.
-- **Context-aware** — optional clipboard context, screen awareness, and active-app context with explicit permission disclosures.
-- **Multi-turn chat** — persistent conversations, streaming assistant responses, and Markdown rendering.
-- **Local-first tools** — text tools, desktop actions, and local SQLite storage with FTS5.
-- **Pluggable providers** — Pinstripes-first model selection with OpenAI-compatible and mock providers.
-- **Workflow engine** *(foundation)* — persistent multi-step runs with plan, act, observe, approval, and resume loops.
-- **Artifacts** *(foundation)* — specialized assistants for finance, code, writing, studies, and product work.
-- **MCP connectors** *(foundation)* — extensible tool registration for external servers and services.
+- **Keyboard-first** — global shortcut (`Control+Shift+Space`), system tray integration, and composer-first navigation keep you on the keyboard.
+- **Context-aware** — optional clipboard context, screen capture, and active-app context with explicit permission disclosures.
+- **Multi-turn chat** — persistent conversations, streaming assistant responses, and Markdown rendering with syntax highlighting.
+- **Workflow engine** — persistent multi-step runs with plan, act, observe, approval, and resume loops.
+- **Skills** — specialized assistant profiles with custom system prompts, tones, response styles, and constraints.
+- **Spaces** — workspace organization with collections, records, views, and customization.
+- **Prompt library** — saved and reusable prompt templates.
+- **Follow-up sessions** — persistent observation tracking with hypothesis management and approval workflows.
+- **MCP connectors** — extensible tool registration for external MCP servers with permission policies and environment variable expansion.
+- **Pluggable providers** — Pinstripes, OpenAI-compatible, and Mock providers with configurable models and timeouts.
+- **Local-first tools**:
+  - **Text** — rewrite, summarize, translate, and Mermaid diagram generation.
+  - **Desktop** — clipboard, file read/write, file patch, shell execution, and Git diff/log/status.
+  - **Native** — desktop app control, notifications, and system context via Tauri.
+  - **Web** — search (Brave/Tavily/Jina), URL extraction (local/Firecrawl/Jina), and crawling.
+  - **Vision/OCR** — on-device image OCR, screen capture analysis with text, classification, barcode, and saliency features.
+- **Document parsing** — PDF, DOCX, and other formats via LiteParse with AI-powered document improvement.
+- **i18n** — Portuguese (pt-BR) and English (en) interface.
+- **Local storage** — SQLite with FTS5 full-text search, 20 migrations, and repositories for conversations, workflows, skills, spaces, MCP servers, parsed documents, prompt templates, and follow-up sessions.
 
 ## Quick Start
 
@@ -67,26 +78,52 @@ Common commands:
 | `bun test`               | Run all tests                   |
 | `bun run lint`           | Lint all code                   |
 | `bun run format`         | Format all code                 |
+| `bun run typecheck`      | Type-check all packages         |
+
+## Project Structure
+
+```
+desktop-agent/
+├── apps/
+│   └── desktop/              # Tauri 2 + React 19 desktop app
+│       ├── src/              # Frontend (surfaces, components, hooks, stores)
+│       └── src-tauri/        # Rust native shell (Vision, clipboard, shortcuts, tray)
+├── packages/
+│   ├── agent-runtime/        # Agent runtime (workflow engine, MCP, orchestrator, parser)
+│   ├── provider-gateway/     # LLM provider abstraction (Mock, OpenAI-compatible, Pinstripes)
+│   ├── shared/               # Shared types, schemas, and utilities
+│   ├── storage/              # SQLite storage with migrations and repositories
+│   ├── tool-registry/        # Tool registration and discovery
+│   ├── tools-desktop/        # Desktop tools (clipboard, file, git, shell, patch, native)
+│   ├── tools-text/           # Text tools (rewrite, summarize, translate, mermaid)
+│   ├── tools-web/            # Web tools (search, extract, crawl)
+│   ├── tools-ocr/            # Vision/OCR tools (image OCR, screen capture)
+│   └── lite-parse/           # Document parsing via LiteParse
+├── tests/                    # Integration and end-to-end tests
+└── docs/                     # Documentation
+```
 
 ## Tech Stack
 
 | Layer            | Technology                                              |
 | ---------------- | ------------------------------------------------------- |
 | Desktop shell    | Tauri 2, Rust                                           |
-| UI               | React 19, Vite 7, Tailwind CSS 4, Zustand               |
+| UI               | React 19, Vite 7, Tailwind CSS 4, Zustand, Lucide icons |
+| Markdown         | react-markdown, remark-gfm, react-syntax-highlighter    |
 | Agent runtime    | Bun, TypeScript                                         |
 | IPC              | kkrpc (type-safe bidirectional RPC over stdio)          |
 | Storage          | SQLite + FTS5 (via bun:sqlite)                          |
-| Providers        | Pinstripes, OpenAI-compatible, Mock                       |
+| Document parsing | LiteParse (via @llamaindex/liteparse)                   |
+| Providers        | Pinstripes, OpenAI-compatible, Mock                     |
 
 ## Environment
 
-| Variable         | Description                                   | Default                     |
-| ---------------- | --------------------------------------------- | --------------------------- |
-| `AGENT_PROVIDER` | Provider type (`mock` or `openai-compatible`) | `mock`                      |
-| `AGENT_API_KEY`  | API key for provider                          | -                           |
-| `AGENT_BASE_URL` | Base URL for provider                         | `https://api.openai.com/v1` |
-| `AGENT_MODEL`    | Model name                                    | `gpt-4o`                    |
+| Variable         | Description                                          | Default                     |
+| ---------------- | ---------------------------------------------------- | --------------------------- |
+| `AGENT_PROVIDER` | Provider type (`mock`, `pinstripes`, `openai-compatible`) | `mock`                      |
+| `AGENT_API_KEY`  | API key for provider                                 | -                           |
+| `AGENT_BASE_URL` | Base URL for provider                                | `https://api.openai.com/v1` |
+| `AGENT_MODEL`    | Model name                                           | `gpt-4o`                    |
 
 ## License
 
