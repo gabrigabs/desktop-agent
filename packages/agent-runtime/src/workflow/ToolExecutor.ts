@@ -125,7 +125,22 @@ export class ToolExecutor {
     const key = grantKey(grant);
     if (this.consumedGrants.has(key)) return "EXECUTION_GRANT_REUSED: approval grant was already consumed";
     this.consumedGrants.add(key);
+    this.pruneExpiredGrants();
     return null;
+  }
+
+  private pruneExpiredGrants(): void {
+    if (this.consumedGrants.size < 100) return;
+    const now = Date.now();
+    for (const key of this.consumedGrants) {
+      const parts = key.split(":");
+      const lastPart = parts[parts.length - 1];
+      if (!lastPart) continue;
+      const expiresAt = Number.parseInt(lastPart, 10);
+      if (Number.isNaN(expiresAt) || expiresAt <= now) {
+        this.consumedGrants.delete(key);
+      }
+    }
   }
 
   list(allowlist?: string[]): ReturnType<typeof registry.list> {

@@ -427,7 +427,7 @@ export const useAgentStore = create<State>((set) => ({
     }),
   setResult: (result) => set({ result }),
   setStreaming: (streaming) => set({ streaming }),
-  addEvent: (event) => set((s) => ({ events: [...s.events, event] })),
+  addEvent: (event) => set((s) => ({ events: [...s.events.slice(-499), event] })),
   appendAssistantBlock: (block) =>
     set((s) => {
       if (s.messages.length === 0) return s;
@@ -528,7 +528,7 @@ export const useAgentStore = create<State>((set) => ({
   addAgentLog: (entry) =>
     set((s) => ({
       agentLogs: [
-        ...s.agentLogs,
+        ...s.agentLogs.slice(-499),
         {
           ...entry,
           id: crypto.randomUUID(),

@@ -279,5 +279,13 @@ export class OpenAICompatibleProvider implements LlmProvider {
     } finally {
       reader.releaseLock();
     }
+
+    if (accumulatedToolCalls.size > 0) {
+      yield {
+        content: "",
+        done: true,
+        toolCalls: Array.from(accumulatedToolCalls.values()),
+      };
+    }
   }
 }

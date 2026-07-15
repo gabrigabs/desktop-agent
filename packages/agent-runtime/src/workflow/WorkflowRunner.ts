@@ -370,7 +370,7 @@ export class WorkflowRunner {
         const step = steps[i];
         if (!step) continue;
 
-        throwIfAborted(input.signal);
+        throwIfAborted(input.signal, this.lang);
 
         if (step.status === "completed" || step.status === "skipped") {
           continue;
@@ -424,7 +424,7 @@ export class WorkflowRunner {
             status: "waiting_approval",
             requiresApproval: true,
           });
-          emitter.stepUpdated(listWorkflowSteps(db, run.id).find((s) => s.id === step.id) as WorkflowStep);
+          emitter.stepUpdated(findStep(db, run.id, step.id));
 
           const approval: ApprovalRequest = {
             id: randomUUID(),
@@ -487,9 +487,7 @@ export class WorkflowRunner {
             input: persistedInput,
             detail: `Approval required for ${error.toolName}`,
           });
-          const waitingStep = listWorkflowSteps(db, run.id).find(
-            (item) => item.id === step.id,
-          ) as WorkflowStep;
+          const waitingStep = findStep(db, run.id, step.id);
           emitter.stepUpdated(waitingStep);
           const approval: ApprovalRequest = {
             id: randomUUID(),
@@ -552,6 +550,22 @@ export class WorkflowRunner {
       mcpSessionManager.stopAll();
       return completedRun;
     } catch (err) {
+      if (input.signal?.aborted) {
+        const current = getWorkflowRun(db, run.id);
+        if (!current || !isTerminalRunStatus(current.status)) {
+          updateWorkflowRun(db, run.id, {
+            status: "cancelled",
+            completedAt: nowIso(),
+            errorMessage: t("errors:workflow.aborted", this.lang),
+          });
+        }
+        const cancelledRun = getWorkflowRun(db, run.id) as WorkflowRun;
+        emitter.runStatusChanged(cancelledRun);
+        emitter.runCompleted(cancelledRun);
+        this.emit({ type: "agent.cancelled", requestId: input.requestId });
+        mcpSessionManager.stopAll();
+        return cancelledRun;
+      }
       const errorMessage = err instanceof Error ? err.message : String(err);
       await this.failRun(db, run, errorMessage, emitter);
       mcpSessionManager.stopAll();
@@ -714,7 +728,7 @@ export class WorkflowRunner {
         requiresApproval: false,
       });
 
-      const step = listWorkflowSteps(db, run.id).find((s) => s.id === stepId) as WorkflowStep;
+      const step = findStep(db, run.id, stepId);
       emitter.stepCreated(step);
     }
   }
@@ -743,14 +757,14 @@ export class WorkflowRunner {
       startedAt: nowIso(),
       input: hasLoopCheckpoint ? step.input : resolveVariables(step.config ?? {}, ctx.context),
     });
-    const runningStep = listWorkflowSteps(db, step.runId).find((s) => s.id === step.id) as WorkflowStep;
+    const runningStep = findStep(db, step.runId, step.id);
     ctx.emitter.stepUpdated(runningStep);
 
     let output: unknown = {};
     let errorMessage: string | undefined;
 
     try {
-      throwIfAborted(ctx.signal);
+      throwIfAborted(ctx.signal, this.lang);
       const resolvedConfig = resolveVariables(step.config ?? {}, ctx.context);
 
       switch (step.kind) {
@@ -782,7 +796,7 @@ export class WorkflowRunner {
       completedAt: nowIso(),
     });
 
-    const finalStep = listWorkflowSteps(db, step.runId).find((s) => s.id === step.id) as WorkflowStep;
+    const finalStep = findStep(db, step.runId, step.id);
     ctx.emitter.stepUpdated(finalStep);
     return finalStep;
   }
@@ -806,7 +820,7 @@ export class WorkflowRunner {
       messages: [...ctx.history, { role: "user", content: prompt }],
       toolExecutor: ctx.toolExecutor,
       emit: ctx.emit,
-      maxSteps: 8,
+      maxSteps: (config.maxSteps as number) ?? 8,
       temperature,
       toolAllowlist: config.toolAllowlist as string[] | undefined,
       checkpoint: (step.input as { agentLoopCheckpoint?: AgentLoopCheckpoint } | undefined)
@@ -865,9 +879,9 @@ export class WorkflowRunner {
     const prompt = (config.prompt as string) ?? ctx.prompt;
     const clipboard = (config.clipboard as string) ?? ctx.clipboard;
     const systemPrompt = skill.systemPrompt ?? (config.system as string) ?? "";
-    const _toolAllowlist = skill.toolAllowlist ?? (config.toolAllowlist as string[] | undefined);
-    const _maxSteps = skill.maxSteps ?? (config.maxSteps as number) ?? 5;
-    const _temperature = skill.temperature ?? (config.temperature as number) ?? 0.3;
+    const toolAllowlist = skill.toolAllowlist ?? (config.toolAllowlist as string[] | undefined);
+    const maxSteps = skill.maxSteps ?? (config.maxSteps as number) ?? 5;
+    const temperature = skill.temperature ?? (config.temperature as number) ?? 0.3;
 
     return runResponseEngine(
       ctx.requestId,
@@ -881,9 +895,9 @@ export class WorkflowRunner {
         emit: ctx.emit,
         signal: ctx.signal,
         toolExecutor: ctx.toolExecutor,
-        temperature: (config.temperature as number) ?? 0.3,
-        toolAllowlist: (config.toolAllowlist as string[] | undefined) ?? skill.toolAllowlist,
-        maxSteps: (config.maxSteps as number) ?? 5,
+        temperature,
+        toolAllowlist,
+        maxSteps,
       },
       this.lang,
     );
@@ -895,6 +909,8 @@ export class WorkflowRunner {
     errorMessage: string,
     emitter: WorkflowEventEmitter,
   ): Promise<void> {
+    const current = getWorkflowRun(db, run.id);
+    if (current && isTerminalRunStatus(current.status)) return;
     updateWorkflowRun(db, run.id, {
       status: "failed",
       completedAt: nowIso(),
@@ -919,10 +935,20 @@ export class WorkflowRunner {
   }
 }
 
-function throwIfAborted(signal?: AbortSignal) {
+function throwIfAborted(signal?: AbortSignal, lang: SupportedLanguage = "pt-BR") {
   if (signal?.aborted) {
-    throw new Error(t("errors:workflow.aborted"));
+    throw new Error(t("errors:workflow.aborted", lang));
   }
+}
+
+function isTerminalRunStatus(status: RunStatus): boolean {
+  return status === "completed" || status === "failed" || status === "cancelled";
+}
+
+function findStep(db: Database, runId: string, stepId: string): WorkflowStep {
+  const step = listWorkflowSteps(db, runId).find((s) => s.id === stepId);
+  if (!step) throw new Error(`Workflow step not found: ${stepId}`);
+  return step;
 }
 
 type Database = ReturnType<typeof getDb>;

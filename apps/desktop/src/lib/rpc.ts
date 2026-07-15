@@ -29,6 +29,7 @@ let channel: RPCChannel<FrontendApi, AgentApi> | null = null;
 let child: Child | null = null;
 let beforeUnloadHandler: (() => void) | null = null;
 let activeRequestId: string | null = null;
+const knownRequestIds = new Set<string>();
 let bootPromise: Promise<AgentApi> | null = null;
 let sidecarVersion: string | null = null;
 let bootAttempt = 0;
@@ -74,10 +75,12 @@ async function notifyNativeIfEnabled(input: NativeNotificationInput): Promise<vo
 
 export function setActiveRequestId(id: string | null) {
   activeRequestId = id;
+  if (id) knownRequestIds.add(id);
 }
 
 export function clearActiveRequestId(id: string | null) {
   if (id && activeRequestId === id) activeRequestId = null;
+  if (id) knownRequestIds.delete(id);
 }
 
 export function isMissingRpcMethodError(err: unknown, method?: string) {
@@ -173,7 +176,11 @@ async function doInitializeRpc(attempt: number): Promise<AgentApi> {
         store.addEvent(event as AgentEvent);
 
         // Filter stale events from cancelled/superseded requests
-        if ("requestId" in event && event.requestId !== activeRequestId) {
+        if (
+          "requestId" in event &&
+          event.requestId !== activeRequestId &&
+          !knownRequestIds.has(event.requestId)
+        ) {
           return;
         }
 
@@ -443,6 +450,12 @@ export async function destroyRpc(): Promise<void> {
   bootAttempt += 1;
   bootPromise = null;
   sidecarVersion = null;
+  flushChunksNow();
+  if (chunkFlushTimer) {
+    clearTimeout(chunkFlushTimer);
+    chunkFlushTimer = null;
+  }
+  knownRequestIds.clear();
   if (beforeUnloadHandler) {
     window.removeEventListener("beforeunload", beforeUnloadHandler);
     beforeUnloadHandler = null;

@@ -190,7 +190,7 @@ describe("AgentLoop streaming tool state machine", () => {
     );
   });
 
-  test("fails explicitly for unknown tools and the step limit", async () => {
+  test("fails explicitly for unknown tools", async () => {
     const unknownProvider = new SequenceProvider([
       [{ content: "", done: true, toolCalls: [call("unknown", "test.unknown", "x")] }],
     ]);
@@ -205,23 +205,24 @@ describe("AgentLoop streaming tool state machine", () => {
         ),
       ),
     ).rejects.toThrow("Unknown tool: test.unknown");
+  });
 
+  test("returns accumulated content when step limit is reached instead of throwing", async () => {
     registerTool("test.loop", async () => ({}));
     const loopProvider = new SequenceProvider([
-      [{ content: "", done: true, toolCalls: [call("loop", "test.loop", "x")] }],
+      [{ content: "partial response", done: true, toolCalls: [call("loop", "test.loop", "x")] }],
     ]);
-    await expect(
-      runAgentLoop({
-        ...config(
-          loopProvider,
-          new ToolExecutor(
-            () => {},
-            () => loopProvider.name,
-          ),
+    const result = await runAgentLoop({
+      ...config(
+        loopProvider,
+        new ToolExecutor(
+          () => {},
+          () => loopProvider.name,
         ),
-        maxSteps: 1,
-      }),
-    ).rejects.toThrow("AGENT_STEP_LIMIT_EXCEEDED:1");
+      ),
+      maxSteps: 1,
+    });
+    expect(typeof result).toBe("string");
   });
 
   test("stops before provider execution when cancelled", async () => {

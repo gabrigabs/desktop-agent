@@ -209,13 +209,24 @@ async function isAuthorizedFilePath(targetPath: string): Promise<boolean> {
   for (const folder of spaceFolderRoots) {
     allRoots.add(folder);
   }
+  const resolvedTarget = path.resolve(targetPath);
+
+  // Check the parent directory for new files
   let canonicalParent: string;
   try {
-    canonicalParent = await fs.realpath(path.dirname(path.resolve(targetPath)));
+    canonicalParent = await fs.realpath(path.dirname(resolvedTarget));
   } catch {
-    const resolvedTarget = path.resolve(targetPath);
     return [...allRoots].some((root) => resolvedTarget.startsWith(`${root}${path.sep}`));
   }
+
+  // For existing files, also resolve the target itself to prevent symlink bypass
+  let canonicalTarget: string | null = null;
+  try {
+    canonicalTarget = await fs.realpath(resolvedTarget);
+  } catch {
+    // File doesn't exist yet — parent check is sufficient
+  }
+
   const canonicalRoots = await Promise.all(
     [...allRoots].map(async (root) => {
       try {
@@ -225,19 +236,41 @@ async function isAuthorizedFilePath(targetPath: string): Promise<boolean> {
       }
     }),
   );
-  return canonicalRoots.some(
+
+  const isParentAuthorized = canonicalRoots.some(
     (root) => canonicalParent === root || canonicalParent.startsWith(`${root}${path.sep}`),
   );
+
+  if (!isParentAuthorized) return false;
+  if (canonicalTarget) {
+    return canonicalRoots.some(
+      (root) => canonicalTarget === root || canonicalTarget.startsWith(`${root}${path.sep}`),
+    );
+  }
+  return true;
 }
 
 async function isAuthorizedImagePath(targetPath: string): Promise<boolean> {
   const fs = await import("node:fs/promises");
   const path = await import("node:path");
+  const allRoots = new Set<string>([...authorizedFileRoots]);
+  for (const folder of spaceFolderRoots) {
+    allRoots.add(folder);
+  }
   try {
     const canonicalTarget = await fs.realpath(path.resolve(targetPath));
     const stat = await fs.stat(canonicalTarget);
     if (!stat.isFile()) return false;
-    return [...authorizedFileRoots].some(
+    const canonicalRoots = await Promise.all(
+      [...allRoots].map(async (root) => {
+        try {
+          return await fs.realpath(root);
+        } catch {
+          return root;
+        }
+      }),
+    );
+    return canonicalRoots.some(
       (root) => canonicalTarget === root || canonicalTarget.startsWith(`${root}${path.sep}`),
     );
   } catch {
@@ -457,6 +490,7 @@ function createQueuedRun(input: {
   spaceId?: string;
   followUpSessionId?: string;
   contexts?: ContextAttachment[];
+  fileContext?: FileContextInput[];
 }) {
   const db = getDb();
   const config = getActiveProviderConfig();
@@ -477,6 +511,8 @@ function createQueuedRun(input: {
       profileId: input.profileId,
       spaceId: input.spaceId,
       followUpSessionId: input.followUpSessionId,
+      clipboardText: input.clipboardText,
+      fileContext: input.fileContext,
       contexts: input.contexts?.map(({ content, ...context }) => ({ ...context, content })) ?? [],
     },
   });
@@ -658,7 +694,7 @@ export const agentApi: AgentApi = {
     }
 
     if (mode === "simple" && !maxSteps) {
-      maxSteps = 1;
+      maxSteps = 5;
     }
 
     const run = createQueuedRun({
@@ -673,6 +709,7 @@ export const agentApi: AgentApi = {
       spaceId: input.spaceId,
       followUpSessionId: input.followUpSessionId,
       contexts: input.contexts,
+      fileContext: input.fileContext,
     });
 
     const controller = new AbortController();
@@ -743,6 +780,7 @@ export const agentApi: AgentApi = {
   },
 
   async resumeRun({ requestId, runId, approved }) {
+    syncSpaceFolderRoots();
     const existingRun = getWorkflowRun(getDb(), runId);
     if (!existingRun) {
       throw new Error(`Workflow run não encontrado: ${runId}`);
@@ -768,7 +806,11 @@ export const agentApi: AgentApi = {
         requestId,
         runId,
         prompt: existingRun.prompt,
-        clipboardText: existingRun.clipboardPreview,
+        clipboardText:
+          (existingRun.metadata.clipboardText as string | undefined) ?? existingRun.clipboardPreview,
+        fileContext: Array.isArray(existingRun.metadata.fileContext)
+          ? (existingRun.metadata.fileContext as FileContextInput[])
+          : undefined,
         contexts: Array.isArray(existingRun.metadata.contexts)
           ? (existingRun.metadata.contexts as ContextAttachment[])
           : undefined,

@@ -13,8 +13,8 @@ export class McpSessionManager {
 
   async callTool(serverId: string, toolName: string, input: unknown): Promise<unknown> {
     const session = await this.getSession(serverId);
-    sendMcpMessage(session.child, "tools/call", { name: toolName, arguments: input });
-    const result = await waitForMcpResponse(session.child, 60000);
+    const callId = sendMcpMessage(session.child, "tools/call", { name: toolName, arguments: input });
+    const result = await waitForMcpResponse(session.child, 60000, callId);
     if (!result) throw new Error(`MCP server ${serverId} did not respond to tools/call.`);
     if (result.error) throw new Error(result.error.message || `MCP tools/call failed on ${serverId}.`);
     return result.result;
@@ -22,8 +22,8 @@ export class McpSessionManager {
 
   async listTools(serverId: string): Promise<{ name: string; description?: string }[]> {
     const session = await this.getSession(serverId);
-    sendMcpMessage(session.child, "tools/list", {});
-    const result = await waitForMcpResponse(session.child, 10000);
+    const listId = sendMcpMessage(session.child, "tools/list", {});
+    const result = await waitForMcpResponse(session.child, 10000, listId);
     if (!result) throw new Error(`MCP server ${serverId} did not respond to tools/list.`);
     if (result.error) throw new Error(result.error.message || `MCP tools/list failed on ${serverId}.`);
     const list =

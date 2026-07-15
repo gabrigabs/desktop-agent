@@ -208,7 +208,16 @@ export async function runAgentLoop(config: AgentLoopConfig): Promise<string> {
     config.executionGrant = undefined;
   }
 
-  throw new Error(`AGENT_STEP_LIMIT_EXCEEDED:${maxSteps}`);
+  const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
+  const fallbackContent = typeof lastAssistant?.content === "string" ? lastAssistant.content : "";
+  if (fallbackContent) {
+    config.emit({
+      type: "agent.chunk",
+      requestId: config.requestId,
+      chunk: fallbackContent,
+    });
+  }
+  return fallbackContent;
 }
 
 type ZodLike = {

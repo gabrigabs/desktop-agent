@@ -45,27 +45,26 @@ export function sendMcpMessage(
   child: import("node:child_process").ChildProcessWithoutNullStreams,
   method: string,
   params: Record<string, unknown>,
-) {
+): number {
+  const id = Math.floor(Math.random() * 1e9);
   const msg = JSON.stringify({
     jsonrpc: "2.0",
-    id: Math.floor(Math.random() * 1e9),
+    id,
     method,
     params,
   });
   child.stdin.write(`${msg}\n`);
+  return id;
 }
 
 export function waitForMcpResponse(
   child: import("node:child_process").ChildProcessWithoutNullStreams,
   timeoutMs: number,
+  expectedId?: number,
 ): Promise<{ result?: unknown; error?: { message: string } } | null> {
   return new Promise((resolve) => {
     let buf = "";
-    const timer = setTimeout(() => {
-      child.stdout.removeAllListeners("data");
-      resolve(null);
-    }, timeoutMs);
-
+    let resolved = false;
     const onData = (chunk: Buffer) => {
       buf += chunk.toString();
       const lines = buf.split("\n");
@@ -75,6 +74,8 @@ export function waitForMcpResponse(
         try {
           const parsed = JSON.parse(line);
           if (parsed.id !== undefined) {
+            if (expectedId !== undefined && parsed.id !== expectedId) continue;
+            resolved = true;
             clearTimeout(timer);
             child.stdout.removeListener("data", onData);
             resolve({ result: parsed.result, error: parsed.error });
@@ -85,7 +86,11 @@ export function waitForMcpResponse(
         }
       }
     };
-
+    const timer = setTimeout(() => {
+      if (resolved) return;
+      child.stdout.removeListener("data", onData);
+      resolve(null);
+    }, timeoutMs);
     child.stdout.on("data", onData);
   });
 }
@@ -108,13 +113,13 @@ export async function spawnMcpServer(server: ConnectorConfig) {
     if (stderrBuf.length > 2000) stderrBuf = stderrBuf.slice(-2000);
   });
 
-  sendMcpMessage(child, "initialize", {
+  const initId = sendMcpMessage(child, "initialize", {
     protocolVersion: "2024-11-05",
     capabilities: {},
     clientInfo: { name: "helix-desktop", version: "1.0.0" },
   });
 
-  const initResult = await waitForMcpResponse(child, 10000);
+  const initResult = await waitForMcpResponse(child, 10000, initId);
   if (!initResult) {
     child.stdin.end();
     child.kill("SIGTERM");
@@ -162,8 +167,8 @@ export async function executeMcpTool(serverId: string, toolName: string, input: 
 
   const { child } = await spawnMcpServer(server);
   try {
-    sendMcpMessage(child, "tools/call", { name: toolName, arguments: input });
-    const result = await waitForMcpResponse(child, 60000);
+    const callId = sendMcpMessage(child, "tools/call", { name: toolName, arguments: input });
+    const result = await waitForMcpResponse(child, 60000, callId);
     if (!result) throw new Error("MCP did not respond to tools/call.");
     if (result.error) throw new Error(result.error.message || "MCP tools/call failed.");
     return result.result;
@@ -185,8 +190,8 @@ export async function registerMcpToolsForServer(serverId: string): Promise<void>
 
   const { child } = await spawnMcpServer(server);
   try {
-    sendMcpMessage(child, "tools/list", {});
-    const result = await waitForMcpResponse(child, 10000);
+    const listId = sendMcpMessage(child, "tools/list", {});
+    const result = await waitForMcpResponse(child, 10000, listId);
     if (!result) throw new Error("MCP did not respond to tools/list.");
     if (result.error) throw new Error(result.error.message || "MCP tools/list failed.");
 
