@@ -5,13 +5,26 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
+    "core:window:allow-hide",
+    "core:window:allow-show",
+    "core:window:allow-set-always-on-top",
+    "core:window:allow-set-focus",
+    "core:window:allow-set-fullscreen",
+    "core:window:allow-set-max-size",
+    "core:window:allow-set-min-size",
+    "core:window:allow-set-position",
+    "core:window:allow-set-resizable",
+    "core:window:allow-set-simple-fullscreen",
+    "core:window:allow-set-size",
+    "core:window:allow-start-dragging",
+    "core:window:allow-unmaximize",
     {
       "identifier": "shell:allow-execute",
       "allow": [
         {
           "name": "binaries/agent-runtime",
           "sidecar": true,
-          "args": true
+          "args": false
         }
       ]
     },
@@ -21,13 +34,14 @@
         {
           "name": "binaries/agent-runtime",
           "sidecar": true,
-          "args": true
+          "args": false
         }
       ]
     },
     "shell:allow-stdin-write",
     "clipboard-manager:allow-read-text",
     "clipboard-manager:allow-write-text",
+    "dialog:allow-open",
     "global-shortcut:allow-register",
     "global-shortcut:allow-unregister"
   ]

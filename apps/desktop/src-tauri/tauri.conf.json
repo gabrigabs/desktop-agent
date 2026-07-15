@@ -1,39 +1,49 @@
 {
-  "$schema": "https://raw.githubusercontent.com/nickkuk/nickkuk/master/config.schema.json",
-  "productName": "Desktop Agent",
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Helix",
   "version": "0.1.0",
   "identifier": "com.desktop-agent.app",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
-    "beforeDevCommand": "bun run dev",
-    "beforeBuildCommand": "bun run build"
+    "beforeDevCommand": "bun run --cwd ../.. build:sidecar && bun run dev",
+    "beforeBuildCommand": "bun run --cwd ../.. build:sidecar && bun run build"
   },
   "app": {
     "withGlobalTauri": true,
+    "macOSPrivateApi": true,
     "windows": [
       {
         "label": "main",
-        "title": "Desktop Agent",
-        "width": 640,
-        "height": 520,
+        "title": "Helix",
+        "width": 520,
+        "height": 820,
         "center": true,
-        "decorations": true,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
         "resizable": true,
-        "focus": true,
+        "alwaysOnTop": false,
+        "skipTaskbar": true,
         "visible": true
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:"
     }
   },
   "bundle": {
     "active": true,
+    "macOS": {
+      "minimumSystemVersion": "13.0"
+    },
     "targets": "all",
     "externalBin": [
       "binaries/agent-runtime"
-    ]
+    ],
+    "resources": {
+      "resources/liteparse/": "liteparse/"
+    }
   },
   "plugins": {
     "shell": {

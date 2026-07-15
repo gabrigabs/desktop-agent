@@ -1,13 +1,20 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.3.10/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.2/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
     "useIgnoreFile": true
   },
   "files": {
-    "include": ["packages/**/*.ts", "apps/desktop/src/**/*.ts", "apps/desktop/src/**/*.tsx"],
-    "ignore": ["node_modules", "dist", "target", "src-tauri"]
+    "includes": [
+      "**/packages/**/*.ts",
+      "**/apps/desktop/src/**/*.ts",
+      "**/apps/desktop/src/**/*.tsx",
+      "!**/node_modules",
+      "!**/dist",
+      "!**/target",
+      "!**/src-tauri"
+    ]
   },
   "formatter": {
     "indentStyle": "space",
@@ -17,7 +24,7 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
+      "preset": "recommended",
       "style": {
         "noNonNullAssertion": "warn"
       }

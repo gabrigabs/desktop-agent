@@ -12,6 +12,7 @@
     "@desktop-agent/shared": "workspace:*"
   },
   "devDependencies": {
+    "@types/bun": "latest",
     "typescript": "^5.9"
   }
 }

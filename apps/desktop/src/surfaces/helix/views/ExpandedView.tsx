@@ -1,0 +1,681 @@
+import type {
+  AgentProfile,
+  ConnectorConfig,
+  ContextAttachment,
+  FileContextInput,
+  McpTestResult,
+  PromptTemplate,
+  Skill,
+  Turn,
+  WorkflowStep,
+  WorkflowStepKind,
+  WorkflowTemplate,
+  WorkflowTemplateSettings,
+} from "@desktop-agent/shared";
+import { unwrapAgentResponse } from "@desktop-agent/shared";
+import {
+  AlertCircle,
+  ArrowLeft,
+  Check,
+  Clipboard,
+  Eye,
+  FileText,
+  Monitor,
+  RefreshCw,
+  Sparkles,
+  X,
+} from "lucide-react";
+import type { RefObject } from "react";
+import { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { useShallow } from "zustand/react/shallow";
+import { AgentIdentity } from "../../../components/ui/identity/agent-identity";
+import { RecentConversations } from "../../../components/ui/identity/recent-conversations";
+import { HeroHome } from "../../../components/ui/layout/hero-home";
+import { Badge } from "../../../components/ui/primitives/badge";
+import { Button } from "../../../components/ui/primitives/button";
+import { useAgentStore } from "../../../stores/agent";
+import { Composer } from "../composer/Composer";
+import { HistoryList } from "../history/history-list";
+import type { SaveConnectorInput } from "../hooks/useCapabilities";
+import type { QuickActionItem } from "../hooks/useQuickActions";
+import type { useSpaces } from "../hooks/useSpaces";
+import { ConnectorsPanel } from "../panels/ConnectorsPanel";
+import { SourcesPanel } from "../panels/SourcesPanel";
+import { ParserModePanel } from "../parser-mode/ParserModePanel";
+import type { ParserModeState } from "../parser-mode/useParserMode";
+import { ApprovalCard, type ApprovalViewModel } from "../response/ApprovalCard";
+import { SpaceShell } from "../space/SpaceShell";
+import { SpaceIcon } from "../space/space-visuals";
+import type { HelixMode } from "../types";
+import { ChatView } from "./ChatView";
+
+type Props = {
+  error: string | null;
+  result: string | null;
+  streaming: boolean;
+  query: string;
+  clipboardText: string;
+  hasClipboard: boolean;
+  ignoreClipboard: boolean;
+  setIgnoreClipboard: (v: boolean) => void;
+  onPasteClipboard: (text: string) => void;
+  taskActive: boolean;
+  taskStatus: string;
+  messages: Turn[];
+  workflowSteps: WorkflowStep[];
+  approval?: ApprovalViewModel;
+  visibleLogs: { id: string; type: string; text: string }[];
+  latestLogText: string | undefined;
+  connectors: ConnectorConfig[];
+  testingConnectorId: string | null;
+  textareaRef: RefObject<HTMLTextAreaElement | null>;
+  mode: HelixMode;
+  activeRequestId: string | null;
+  copied: boolean;
+  executionMode: "simple" | "workflow";
+  selectedWorkflowId: string | null;
+  selectedSkillId: string | null;
+  composerPlaceholder: string;
+  quickActions?: QuickActionItem[];
+  onQuickAction?: (action: QuickActionItem) => void;
+  onExecute: () => void;
+  onAbort: () => void;
+  onApproval: (approved: boolean) => void;
+  onCopy: () => void;
+  onNewTask: () => void;
+  onSelectRecentConversation?: (id: string) => void;
+  onToastSuccess?: (message: string, duration?: number) => void;
+  onToastError?: (message: string, duration?: number) => void;
+  onStarterAction: (prompt: string, modeOverride?: "simple" | "workflow") => void;
+  onTestConnector: (id: string) => void;
+  onToggleConnector: (id: string) => void;
+  onSaveConnector?: (input: SaveConnectorInput) => void;
+  onDeleteConnector?: (id: string) => void;
+  onStartEditing?: (id: string) => void;
+  onCancelEditing?: () => void;
+  onShowAddConnector?: (v: boolean) => void;
+  connectorTestResults?: Record<string, McpTestResult>;
+  editingConnectorId?: string | null;
+  showAddConnector?: boolean;
+  onEditPrompt: (text: string) => void;
+  onCopyResponse: (text: string) => void;
+  onRegenerate: () => void;
+  setMode: (m: HelixMode | "settings") => void;
+  setExecutionMode: (m: "simple" | "workflow") => void;
+  setSelectedWorkflowId: (id: string | null) => void;
+  setSelectedSkillId: (id: string | null) => void;
+  setQuery: (q: string) => void;
+  prompts: PromptTemplate[];
+  profiles: AgentProfile[];
+  activeProfileId: string | null;
+  onSavePrompt: (input: {
+    id?: string;
+    title: string;
+    prompt: string;
+    category?: string;
+    icon?: string;
+    executionMode?: "simple" | "workflow";
+  }) => void;
+  onDeletePrompt: (id: string) => void;
+  onSaveProfile: (input: {
+    id?: string;
+    name: string;
+    systemPrompt?: string;
+    description?: string;
+    icon?: string;
+    tone?: string;
+    responseStyle?: string;
+    constraints?: string;
+  }) => void;
+  onDeleteProfile: (id: string) => void;
+  onSetActiveProfile: (profileId: string | null) => void;
+  workflowTemplates: WorkflowTemplate[];
+  skills: Skill[];
+  onSaveWorkflowTemplate: (input: {
+    id?: string;
+    name: string;
+    description?: string;
+    prompt: string;
+    settings?: WorkflowTemplateSettings;
+    steps?: Array<{ name: string; kind: WorkflowStepKind; config: Record<string, unknown> }>;
+    enabled?: boolean;
+  }) => void;
+  onDeleteWorkflowTemplate: (id: string) => void;
+  onSaveSkill: (input: {
+    id?: string;
+    name: string;
+    description?: string;
+    prompt: string;
+    systemPrompt?: string;
+    provider?: string;
+    model?: string;
+    temperature?: number;
+    maxTokens?: number;
+    toolAllowlist?: string[];
+    mcpAllowlist?: string[];
+    maxSteps?: number;
+    metadata?: Record<string, string>;
+    compatibility?: string;
+    enabled?: boolean;
+  }) => void;
+  onDeleteSkill: (id: string) => void;
+  fileContext?: FileContextInput[];
+  onAttachFiles?: (paths: string[]) => void;
+  onRemoveFile?: (path: string) => void;
+  isDraggingFile?: boolean;
+  onPromoteToMemory?: (turn: Turn) => Promise<string | null>;
+  parser: ParserModeState;
+  spaces: ReturnType<typeof useSpaces>;
+};
+
+export function ExpandedView(p: Props) {
+  const spacesHook = p.spaces;
+  const contexts = useAgentStore(useShallow((s) => s.contexts));
+  const screenContexts = contexts.filter((c) => c.source === "screen");
+  const fileContexts = p.fileContext ?? [];
+
+  const handlePromoteToMemory = useCallback(
+    async (turn: Turn): Promise<string | null> => {
+      if (!spacesHook.activeSpaceId) return null;
+      const text = turn.blocks
+        .filter((b): b is { type: "text"; content: string } => b.type === "text")
+        .map((b) => unwrapAgentResponse(b.content))
+        .join("");
+      if (!text.trim()) return null;
+      return spacesHook.promoteChatResponseToMemoryFact(spacesHook.activeSpaceId, text, turn.id);
+    },
+    [spacesHook.activeSpaceId, spacesHook.promoteChatResponseToMemoryFact],
+  );
+
+  const showInspector =
+    p.mode === "command" &&
+    (Boolean(spacesHook.activeSpace) ||
+      p.taskActive ||
+      p.messages.length > 0 ||
+      contexts.length > 0 ||
+      fileContexts.length > 0);
+
+  return (
+    <div
+      className={`helix-view-enter h-full w-full overflow-hidden text-fg ${
+        showInspector ? "grid grid-cols-[minmax(0,1fr)_280px]" : "grid-cols-1"
+      }`}
+    >
+      <main className="h-full min-w-0 min-h-0 overflow-hidden p-5">
+        {p.mode === "history" ? (
+          <div className="max-w-5xl">
+            <HistoryList variant="page" onSelectConversation={() => p.setMode("command")} />
+          </div>
+        ) : p.mode === "sources" ? (
+          <SourcesPanel
+            variant="expanded"
+            parser={p.parser}
+            connectors={p.connectors}
+            testingConnectorId={p.testingConnectorId}
+            connectorTestResults={p.connectorTestResults}
+            editingConnectorId={p.editingConnectorId}
+            showAddConnector={p.showAddConnector}
+            onTestConnector={p.onTestConnector}
+            onToggleConnector={p.onToggleConnector}
+            onSaveConnector={p.onSaveConnector}
+            onDeleteConnector={p.onDeleteConnector}
+            onStartEditing={p.onStartEditing}
+            onCancelEditing={p.onCancelEditing}
+            onShowAddConnector={p.onShowAddConnector}
+            setQuery={p.setQuery}
+            setMode={p.setMode}
+            onToastSuccess={p.onToastSuccess}
+            onToastError={p.onToastError}
+          />
+        ) : p.mode === "connectors" ? (
+          <div className="max-w-5xl">
+            <ConnectorsPanel
+              connectors={p.connectors.slice(0, 7)}
+              testingConnectorId={p.testingConnectorId}
+              connectorTestResults={p.connectorTestResults}
+              editingConnectorId={p.editingConnectorId}
+              showAddConnector={p.showAddConnector}
+              onTest={p.onTestConnector}
+              onToggle={p.onToggleConnector}
+              onSaveConnector={p.onSaveConnector}
+              onDeleteConnector={p.onDeleteConnector}
+              onStartEditing={p.onStartEditing}
+              onCancelEditing={p.onCancelEditing}
+              onShowAddConnector={p.onShowAddConnector}
+              variant="grid"
+            />
+          </div>
+        ) : p.mode === "parser" ? (
+          <div className="h-full w-full">
+            <ParserModePanel
+              variant="expanded"
+              parser={p.parser}
+              onBack={() => p.setMode("command")}
+              setQuery={p.setQuery}
+              setMode={p.setMode}
+              onToastSuccess={p.onToastSuccess}
+              onToastError={p.onToastError}
+            />
+          </div>
+        ) : p.mode === "space" ? (
+          <div className="h-full min-h-0 overflow-y-auto overscroll-contain pr-1">
+            <SpaceShell
+              ws={spacesHook}
+              onBack={() => p.setMode("command")}
+              onOpenChat={() => p.setMode("command")}
+              profiles={p.profiles}
+            />
+          </div>
+        ) : p.messages.length > 0 ? (
+          <ChatActive {...p} onPromoteToMemory={handlePromoteToMemory} />
+        ) : p.taskActive ? (
+          <TaskActive {...p} />
+        ) : (
+          <CommandHome {...p} />
+        )}
+      </main>
+
+      {showInspector && (
+        <ContextInspector
+          spaceName={spacesHook.activeSpace?.name}
+          spaceIcon={spacesHook.activeSpace?.icon}
+          spaceId={spacesHook.activeSpaceId}
+          onManageSpace={() => p.setMode("space")}
+          hasClipboard={p.hasClipboard}
+          clipboardText={p.clipboardText}
+          screenContexts={screenContexts}
+          fileContexts={fileContexts}
+          onRemoveFile={p.onRemoveFile}
+        />
+      )}
+    </div>
+  );
+}
+
+function CommandHome(p: Props) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  return (
+    <div className="h-full w-full flex flex-col items-center justify-center px-6 py-4">
+      <div className="w-full max-w-[var(--composer-expanded-width)] flex flex-col gap-3">
+        <HeroHome expanded />
+
+        <Composer
+          mode="expanded"
+          query={p.query}
+          setQuery={p.setQuery}
+          placeholder={p.composerPlaceholder}
+          disabled={p.streaming}
+          streaming={p.streaming}
+          clipboardText={p.clipboardText}
+          hasClipboard={p.hasClipboard}
+          ignoreClipboard={p.ignoreClipboard}
+          setIgnoreClipboard={p.setIgnoreClipboard}
+          onPasteClipboard={p.onPasteClipboard}
+          textareaRef={p.textareaRef}
+          quickActions={p.quickActions}
+          onQuickAction={p.onQuickAction}
+          onExecute={p.onExecute}
+          onAbort={p.onAbort}
+          onContextMenuOpenChange={setMenuOpen}
+          fileContext={p.fileContext}
+          onAttachFiles={p.onAttachFiles}
+          onRemoveFile={p.onRemoveFile}
+          isDraggingFile={p.isDraggingFile}
+          approval={p.approval}
+          onApproval={p.onApproval}
+        />
+
+        {!menuOpen && p.onSelectRecentConversation && (
+          <RecentConversations
+            limit={3}
+            showViewAll
+            onSelect={p.onSelectRecentConversation}
+            onViewAll={() => p.setMode("history")}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ChatActive(p: Props) {
+  const { t } = useTranslation("helix");
+  const selectedWorkflow = p.workflowTemplates.find((t) => t.id === p.selectedWorkflowId);
+
+  return (
+    <div className="h-full flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-2 shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <Button variant="ghost" size="sm" onClick={p.onNewTask} disabled={p.streaming}>
+            <ArrowLeft className="w-3.5 h-3.5" /> {t("helix:normalCommandView.newConversation")}
+          </Button>
+          <AgentIdentity
+            profiles={p.profiles}
+            activeProfileId={p.activeProfileId}
+            onSetActiveProfile={p.onSetActiveProfile}
+          />
+          {selectedWorkflow ? (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-signal/10 text-signal border border-signal/30 truncate max-w-[140px]">
+              {selectedWorkflow.name}
+            </span>
+          ) : null}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Badge variant={p.error ? "error" : p.streaming ? "warning" : "success"}>{p.taskStatus}</Badge>
+          {p.streaming && (
+            <Button variant="danger" size="sm" onClick={p.onAbort} disabled={!p.activeRequestId}>
+              <X className="w-3.5 h-3.5" /> {t("helix:normalCommandView.stop")}
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <ChatView
+        turns={p.messages}
+        streaming={p.streaming}
+        onEditPrompt={p.onEditPrompt}
+        onCopyResponse={p.onCopyResponse}
+        onRegenerate={p.onRegenerate}
+        onPromoteToMemory={p.onPromoteToMemory}
+        onToastSuccess={p.onToastSuccess}
+        onToastError={p.onToastError}
+        approval={p.approval}
+        onApproval={p.onApproval}
+      />
+
+      <div className="sticky bottom-0 z-20 shrink-0 bg-gradient-to-t from-ink via-ink/95 to-transparent pt-3 pb-1">
+        <div className="mx-auto w-full max-w-[var(--composer-expanded-width)]">
+          <Composer
+            mode="expanded"
+            query={p.query}
+            setQuery={p.setQuery}
+            placeholder={p.composerPlaceholder}
+            disabled={p.streaming}
+            streaming={p.streaming}
+            clipboardText={p.clipboardText}
+            hasClipboard={p.hasClipboard}
+            ignoreClipboard={p.ignoreClipboard}
+            setIgnoreClipboard={p.setIgnoreClipboard}
+            onPasteClipboard={p.onPasteClipboard}
+            textareaRef={p.textareaRef}
+            quickActions={p.quickActions}
+            onQuickAction={p.onQuickAction}
+            onExecute={p.onExecute}
+            onAbort={p.onAbort}
+            showQuickActions={false}
+            fileContext={p.fileContext}
+            onAttachFiles={p.onAttachFiles}
+            onRemoveFile={p.onRemoveFile}
+            isDraggingFile={p.isDraggingFile}
+            approval={p.approval}
+            onApproval={p.onApproval}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TaskActive(p: Props) {
+  const { t } = useTranslation("helix");
+  return (
+    <div className="h-full flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-2 shrink-0">
+        <Button variant="ghost" size="sm" onClick={p.onNewTask} disabled={p.streaming}>
+          <ArrowLeft className="w-3.5 h-3.5" /> {t("helix:normalCommandView.newConversation")}
+        </Button>
+        <div className="flex items-center gap-2">
+          <Badge variant={p.error ? "error" : p.streaming ? "warning" : "success"}>{p.taskStatus}</Badge>
+          {p.streaming && (
+            <Button variant="danger" size="sm" onClick={p.onAbort} disabled={!p.activeRequestId}>
+              <X className="w-3.5 h-3.5" /> {t("helix:normalCommandView.stop")}
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <section className="rounded-xl bg-white/[0.03] border border-line p-4 flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="text-[10px] text-mute font-medium tracking-tight mb-1">
+              {t("helix:normalCommandView.request")}
+            </div>
+            <p className="text-sm leading-relaxed text-fg select-text whitespace-pre-wrap">{p.query}</p>
+          </div>
+          <div
+            className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+              p.error ? "bg-bad/10 text-bad" : p.streaming ? "bg-warn/10 text-warn" : "bg-good/10 text-good"
+            }`}
+          >
+            {p.streaming ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : p.error ? (
+              <AlertCircle className="w-4 h-4" />
+            ) : (
+              <Check className="w-4 h-4" />
+            )}
+          </div>
+        </div>
+      </section>
+
+      {p.approval && <ApprovalCard approval={p.approval} onDecision={p.onApproval} busy={p.streaming} />}
+
+      {p.visibleLogs.length > 0 && (
+        <section className="rounded-xl bg-white/[0.02] p-3 flex flex-col gap-2 border border-line">
+          <div className="text-[10px] text-mute font-medium tracking-tight">
+            {t("helix:normalCommandView.activity")}
+          </div>
+          {p.visibleLogs.map((log) => (
+            <div key={log.id} className="flex items-start gap-2.5 min-w-0">
+              <span
+                className={`mt-1 w-1.5 h-1.5 rounded-full shrink-0 ${
+                  log.type === "tool_fail"
+                    ? "bg-bad"
+                    : log.type === "tool_start"
+                      ? "bg-warn animate-pulse"
+                      : log.type === "tool_complete"
+                        ? "bg-good"
+                        : "bg-signal"
+                }`}
+              />
+              <p className="text-xs text-mute leading-relaxed truncate min-w-0">{log.text}</p>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {p.error && (
+        <section className="p-3.5 bg-bad/10 rounded-xl text-bad text-xs flex gap-2.5 items-start border border-bad/20">
+          <AlertCircle className="w-4 h-4 text-bad flex-shrink-0 mt-0.5" />
+          <div className="select-text">{p.error}</div>
+        </section>
+      )}
+
+      <section className="flex-1 min-h-0 rounded-2xl bg-white/[0.03] overflow-hidden flex flex-col border border-line">
+        <div className="px-4 py-3 flex items-center justify-between bg-white/[0.03]">
+          <span className="text-[10px] text-mute font-medium tracking-tight">
+            {t("helix:normalCommandView.result")}
+          </span>
+          {p.result && (
+            <Button variant="ghost" size="sm" onClick={p.onCopy}>
+              {p.copied ? <Check className="w-3.5 h-3.5" /> : <Clipboard className="w-3.5 h-3.5" />}
+              {p.copied ? t("helix:normalCommandView.copied") : t("helix:normalCommandView.copy")}
+            </Button>
+          )}
+        </div>
+        <div className="flex-1 p-4 text-sm text-fg leading-relaxed whitespace-pre-wrap overflow-y-auto select-text">
+          {p.result ? (
+            <>
+              {p.result}
+              {p.streaming && (
+                <span className="inline-block w-1.5 h-4 ml-1 align-[-2px] rounded-sm bg-warn animate-pulse" />
+              )}
+            </>
+          ) : (
+            <span className="text-faint">{t("helix:normalCommandView.resultPlaceholder")}</span>
+          )}
+        </div>
+      </section>
+
+      <div className="sticky bottom-0 z-20 shrink-0 bg-gradient-to-t from-ink via-ink/95 to-transparent pt-3 pb-1">
+        <div className="mx-auto w-full max-w-[var(--composer-expanded-width)]">
+          <Composer
+            mode="expanded"
+            query={p.query}
+            setQuery={p.setQuery}
+            placeholder={p.composerPlaceholder}
+            disabled={p.streaming}
+            streaming={p.streaming}
+            clipboardText={p.clipboardText}
+            hasClipboard={p.hasClipboard}
+            ignoreClipboard={p.ignoreClipboard}
+            setIgnoreClipboard={p.setIgnoreClipboard}
+            onPasteClipboard={p.onPasteClipboard}
+            textareaRef={p.textareaRef}
+            quickActions={p.quickActions}
+            onQuickAction={p.onQuickAction}
+            onExecute={p.onExecute}
+            onAbort={p.onAbort}
+            showQuickActions={false}
+            fileContext={p.fileContext}
+            onAttachFiles={p.onAttachFiles}
+            onRemoveFile={p.onRemoveFile}
+            isDraggingFile={p.isDraggingFile}
+            approval={p.approval}
+            onApproval={p.onApproval}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ContextInspector({
+  spaceName,
+  spaceIcon,
+  spaceId,
+  onManageSpace,
+  hasClipboard,
+  clipboardText,
+  screenContexts,
+  fileContexts,
+  onRemoveFile,
+}: {
+  spaceName?: string;
+  spaceIcon?: string;
+  spaceId: string | null;
+  onManageSpace: () => void;
+  hasClipboard: boolean;
+  clipboardText: string;
+  screenContexts: ContextAttachment[];
+  fileContexts: FileContextInput[];
+  onRemoveFile?: (path: string) => void;
+}) {
+  const { t } = useTranslation("helix");
+
+  return (
+    <aside className="min-w-0 border-l border-line bg-ink/20 p-3 flex flex-col gap-3 overflow-y-auto">
+      {spaceName && spaceId && (
+        <section className="rounded-lg border border-line p-2.5 bg-white/[0.02]">
+          <div className="flex items-center gap-2">
+            <SpaceIcon icon={spaceIcon ?? "folder"} className="h-5 w-5 text-signal shrink-0" />
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] text-faint uppercase tracking-wider">
+                {t("helix:sidebar.space")}
+              </div>
+              <div className="text-xs font-medium text-fg truncate">{spaceName}</div>
+            </div>
+            <button
+              type="button"
+              onClick={onManageSpace}
+              className="text-[10px] text-signal hover:text-signal/80 transition-colors shrink-0"
+            >
+              {t("helix:sidebar.manageSpace")}
+            </button>
+          </div>
+        </section>
+      )}
+
+      {hasClipboard && (
+        <section className="rounded-lg border border-line p-2.5 bg-white/[0.02]">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <Clipboard className="h-3 w-3 text-signal shrink-0" />
+            <span className="text-[10px] font-medium uppercase tracking-wider text-mute">
+              {t("helix:composer.contextMenu.clipboard")}
+            </span>
+          </div>
+          <p className="text-[10px] text-faint line-clamp-3 leading-relaxed">
+            {clipboardText.slice(0, 200)}
+            {clipboardText.length > 200 && "..."}
+          </p>
+        </section>
+      )}
+
+      {screenContexts.length > 0 && (
+        <section className="rounded-lg border border-line p-2.5 bg-white/[0.02]">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <Monitor className="h-3 w-3 text-signal shrink-0" />
+            <span className="text-[10px] font-medium uppercase tracking-wider text-mute">
+              {t("helix:composer.contextMenu.categoryScreen")}
+            </span>
+          </div>
+          <div className="grid gap-1.5">
+            {screenContexts.map((ctx) => (
+              <div key={ctx.id} className="flex items-center gap-1.5 rounded-md bg-white/[0.03] px-2 py-1">
+                {ctx.imageDataUrl ? (
+                  <img
+                    src={ctx.imageDataUrl}
+                    alt={ctx.label}
+                    className="h-8 w-12 rounded object-cover shrink-0"
+                  />
+                ) : (
+                  <Eye className="h-3 w-3 text-faint shrink-0" />
+                )}
+                <span className="text-[10px] text-mute truncate">{ctx.label}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {fileContexts.length > 0 && (
+        <section className="rounded-lg border border-line p-2.5 bg-white/[0.02]">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <FileText className="h-3 w-3 text-signal shrink-0" />
+            <span className="text-[10px] font-medium uppercase tracking-wider text-mute">
+              {t("helix:composer.contextMenu.categoryFiles")}
+            </span>
+            <span className="ml-auto text-[9px] text-faint">{fileContexts.length}</span>
+          </div>
+          <div className="grid gap-1">
+            {fileContexts.map((file) => (
+              <div key={file.path} className="flex items-center gap-1.5 rounded-md bg-white/[0.03] px-2 py-1">
+                <FileText className="h-3 w-3 text-faint shrink-0" />
+                <span className="text-[10px] text-mute truncate flex-1 min-w-0">{file.displayName}</span>
+                {onRemoveFile && (
+                  <button
+                    type="button"
+                    onClick={() => onRemoveFile(file.path)}
+                    className="text-faint hover:text-bad transition-colors shrink-0"
+                  >
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {!spaceName && !hasClipboard && screenContexts.length === 0 && fileContexts.length === 0 && (
+        <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+          <Sparkles className="h-5 w-5 text-faint" />
+          <p className="text-[10px] text-faint leading-relaxed">
+            {t("helix:normalCommandView.inspectorEmpty")}
+          </p>
+        </div>
+      )}
+    </aside>
+  );
+}

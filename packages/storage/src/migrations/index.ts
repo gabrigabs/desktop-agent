@@ -1,0 +1,120 @@
+import type { Database } from "../db";
+import { runMigrations as runInitialMigration } from "./001_initial";
+import { runMigration as runTurnsMigration } from "./002_turns";
+import { runMigration as runSettingsV2Migration } from "./003_settings_v2";
+import { runMigration as runMcpEnvMigration } from "./004_mcp_env";
+import { runMigration as runUiPreferencesMigration } from "./005_ui_preferences";
+import { runMigration as runPromptLibraryMigration } from "./006_prompt_library";
+import { runMigration as runAgentProfilesFieldsMigration } from "./007_agent_profiles_fields";
+import { runMigration as runWorkflowsAndSkillsMigration } from "./008_workflows_and_skills";
+import { runMigration as runSkillMetadataMigration } from "./009_skill_metadata";
+import { runMigration as runConversationProfileIdMigration } from "./010_conversation_profile_id";
+import { runMigration as runTurnProfileIdMigration } from "./011_turn_profile_id";
+import { runMigration as runParsedDocumentsMigration } from "./012_parsed_documents";
+import { runMigration as runParsedDocumentsIdentityMigration } from "./013_parsed_documents_identity";
+import { runMigration as runMarkdownSourcesMigration } from "./014_markdown_sources";
+import { runMigration as runSpacesMigration } from "./015_workspaces";
+import { runMigration as runSpaceCustomizationMigration } from "./016_workspace_customization";
+import { runMigration as runSpaceConsolidationMigration } from "./017_space_consolidation";
+import { runMigration as runSettingsCleanupMigration } from "./018_settings_cleanup";
+import { runMigration as runFollowUpSessionsMigration } from "./019_follow_up_sessions";
+import { runMigration as runFollowUpObservationStatusMigration } from "./020_follow_up_observation_status";
+
+const MIGRATION_TABLE = `
+  CREATE TABLE IF NOT EXISTS _migrations (
+    version INTEGER PRIMARY KEY,
+    applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`;
+
+function applyMigration(db: Database, version: number, fn: (db: Database) => void): void {
+  const existing = db.query("SELECT version FROM _migrations WHERE version = ?").get(version);
+  if (existing) return;
+
+  fn(db);
+  db.run("INSERT INTO _migrations (version) VALUES (?)", [version]);
+}
+
+function tableExists(db: Database, name: string): boolean {
+  return Boolean(db.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?").get(name));
+}
+
+function columnExists(db: Database, table: string, column: string): boolean {
+  if (!tableExists(db, table)) return false;
+  return (db.query(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).some(
+    (entry) => entry.name === column,
+  );
+}
+
+/**
+ * Versions 017-020 existed briefly in local prerelease databases with a
+ * different schema. Reconcile that exact unpublished sequence instead of
+ * asking users to delete their local data.
+ */
+function reconcilePreReleaseSequence(db: Database, targetVersion: number): void {
+  if (targetVersion < 17) return;
+
+  const hasRecorded17 = Boolean(db.query("SELECT version FROM _migrations WHERE version = 17").get());
+  const hasLegacySchema =
+    tableExists(db, "workspaces") ||
+    tableExists(db, "workspace_debts") ||
+    columnExists(db, "execution_context_snapshots", "workspace_id") ||
+    columnExists(db, "follow_up_sessions", "workspace_id");
+
+  if (!hasRecorded17 || !hasLegacySchema) return;
+
+  db.run("BEGIN IMMEDIATE");
+  try {
+    if (!tableExists(db, "spaces")) {
+      runSpacesMigration(db);
+      runSpaceCustomizationMigration(db);
+    }
+    runSpaceConsolidationMigration(db);
+    if (targetVersion >= 18) runSettingsCleanupMigration(db);
+    if (targetVersion >= 19) runFollowUpSessionsMigration(db);
+    if (targetVersion >= 20) runFollowUpObservationStatusMigration(db);
+
+    // Remove only versions beyond the current published sequence. Migration
+    // 020 is idempotently reconciled above because prerelease databases may
+    // already have that version number recorded with a different schema.
+    db.run("DELETE FROM _migrations WHERE version > ?", [targetVersion]);
+    db.run("COMMIT");
+  } catch (error) {
+    db.run("ROLLBACK");
+    throw error;
+  }
+}
+
+export function runMigrationsThrough(db: Database, targetVersion = 20): void {
+  db.run(MIGRATION_TABLE);
+  const migrations: Array<[number, (database: Database) => void]> = [
+    [1, runInitialMigration],
+    [2, runTurnsMigration],
+    [3, runSettingsV2Migration],
+    [4, runMcpEnvMigration],
+    [5, runUiPreferencesMigration],
+    [6, runPromptLibraryMigration],
+    [7, runAgentProfilesFieldsMigration],
+    [8, runWorkflowsAndSkillsMigration],
+    [9, runSkillMetadataMigration],
+    [10, runConversationProfileIdMigration],
+    [11, runTurnProfileIdMigration],
+    [12, runParsedDocumentsMigration],
+    [13, runParsedDocumentsIdentityMigration],
+    [14, runMarkdownSourcesMigration],
+    [15, runSpacesMigration],
+    [16, runSpaceCustomizationMigration],
+    [17, runSpaceConsolidationMigration],
+    [18, runSettingsCleanupMigration],
+    [19, runFollowUpSessionsMigration],
+    [20, runFollowUpObservationStatusMigration],
+  ];
+  for (const [version, migration] of migrations) {
+    if (version <= targetVersion) applyMigration(db, version, migration);
+  }
+  reconcilePreReleaseSequence(db, targetVersion);
+}
+
+export function runMigrations(db: Database): void {
+  runMigrationsThrough(db);
+}

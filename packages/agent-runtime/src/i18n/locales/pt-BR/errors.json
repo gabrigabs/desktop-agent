@@ -1,0 +1,65 @@
+{
+  "workflow": {
+    "aborted": "Workflow abortado pelo usuário.",
+    "runNotFound": "Workflow run não encontrado: {{runId}}",
+    "approvalDenied": "Aprovação negada pelo usuário.",
+    "approved": "Aprovado pelo usuário.",
+    "resumed": "Execução retomada após aprovação.",
+    "simpleModeStarted": "Modo simples iniciado.",
+    "simpleReady": "Resposta simples pronta.",
+    "workflowStarted": "Workflow iniciado.",
+    "planTitle": "Plano",
+    "planDetail": "Definindo próximos passos.",
+    "planSteps": "Workflow de até {{maxSteps}} passos com observações intermediárias.",
+    "planStepList": ["Entender pedido", "Selecionar ferramenta", "Executar", "Observar", "Repetir ou finalizar"],
+    "approvalTitle": "Aprovação necessária",
+    "approvalDetail": "Confirmar uso de {{toolName}}.",
+    "waitingApproval": "Workflow pausado aguardando aprovação.",
+    "toolPrepare": "Preparando {{toolName}}.",
+    "toolDone": "{{toolName}} concluída.",
+    "observationTitle": "Observação",
+    "observationDetail": "Resultado auditado; próximos passos definidos antes da resposta final.",
+    "finalResponseTitle": "Resposta final",
+    "finalResponseDetail": "Sintetizando resultado.",
+    "workflowFinished": "Workflow pronto para encerrar.",
+    "emptyResult": "Workflow concluído sem conteúdo retornado.",
+    "toolUnavailable": "Ferramenta indisponível: {{toolName}}",
+    "mockResultWithObservations": "[Workflow] Concluído. Pedido: \"{{prompt}}\". Observações: {{observations}}",
+    "mockResult": "[Workflow] Concluído. Pedido: \"{{prompt}}\"."
+  },
+  "mcp": {
+    "notFound": "MCP não encontrado: {{id}}",
+    "commandMissing": "Comando não definido para este MCP.",
+    "commandNotFound": "Comando não encontrado: {{command}}",
+    "configureEnv": "Configure {{env}} antes de habilitar este MCP.",
+    "noResponseInitialize": "MCP não respondeu em 10s.",
+    "handshakeError": "Erro no handshake initialize.",
+    "noResponseToolsList": "MCP não respondeu ao tools/list em 10s.",
+    "toolsListError": "Erro ao listar tools."
+  },
+  "planner": {
+    "response": "Resposta",
+    "generatedPlan": "Plano gerado",
+    "generatedPlanDescription": "Workflow gerado automaticamente para a requisição.",
+    "toolReasons": {
+      "rewrite": "Melhorar texto do clipboard.",
+      "summarize": "Resumir texto do clipboard.",
+      "translate": "Traduzir texto do clipboard.",
+      "extract": "Ler conteúdo de URL.",
+      "search": "Buscar contexto atual.",
+      "searchWeb": "Buscar contexto na web.",
+      "screenshot": "Ler conteúdo visual da tela.",
+      "fallback": "Usar {{tool}} conforme decisão do LLM."
+    }
+  },
+  "orchestrator": {
+    "aborted": "Execução abortada pelo usuário.",
+    "executingTool": "Executando ferramenta {{tool}} para a requisição: {{query}}",
+    "thinkingNextAction": "Pensando na próxima ação...",
+    "finalResponseError": "Não foi possível obter uma resposta final do agente.",
+    "responseError": "Não foi possível obter uma resposta do agente."
+  },
+  "sidecar": {
+    "connectionError": "Falha na conexão com o agente"
+  }
+}

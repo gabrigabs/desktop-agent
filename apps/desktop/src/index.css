@@ -1,12 +1,706 @@
 @import "tailwindcss";
 
 @theme {
-  --color-accent: #6366f1;
-  --color-accent-hover: #818cf8;
-  --color-surface: #18181b;
-  --color-surface-hover: #27272a;
-  --color-border: #3f3f46;
-  --color-text-primary: #fafafa;
-  --color-text-secondary: #a1a1aa;
-  --color-text-muted: #71717a;
+  --color-ink: #0b0a0f;
+  --color-glass: rgba(18, 16, 26, 0.72);
+  --color-line: rgba(255, 255, 255, 0.08);
+  --color-line-strong: rgba(255, 255, 255, 0.14);
+  --color-fg: #ece9f2;
+  --color-mute: #8b87a3;
+  --color-faint: #5a5668;
+  --color-signal: #c499f4;
+  --color-signal-dim: rgba(196, 153, 244, 0.14);
+  --color-warn: #f0a040;
+  --color-good: #5fd0a0;
+  --color-bad: #f0607c;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", monospace;
+}
+
+:root {
+  --window-opacity: 0.72;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --composer-expanded-width: 680px;
+  --glow-idle: rgba(196, 153, 244, 0.2);
+  --glow-connecting: rgba(240, 160, 64, 0.2);
+  --glow-thinking: rgba(240, 200, 64, 0.3);
+  --glow-success: rgba(95, 208, 160, 0.35);
+  --glow-error: rgba(240, 96, 124, 0.35);
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  background: transparent !important;
+  overflow: hidden;
+  font-family: var(--font-sans);
+  color: var(--color-fg);
+  user-select: none;
+  height: 100vh;
+  width: 100vw;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.16); }
+
+.scrollbar-thin::-webkit-scrollbar { height: 3px; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.06); border-radius: 3px; }
+.scrollbar-thin::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.12); }
+
+button, input, textarea, select {
+  outline: none;
+  box-shadow: none !important;
+}
+
+button:focus, button:focus-visible,
+textarea:focus, textarea:focus-visible,
+input:focus, input:focus-visible {
+  box-shadow: none !important;
+}
+
+button:focus-visible,
+textarea:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 1px solid rgba(196, 153, 244, 0.58);
+  outline-offset: 2px;
+}
+
+.agent-window-frame {
+  width: 100vw;
+  height: 100vh;
+  padding: 8px;
+  background: transparent;
+  filter:
+    drop-shadow(0 18px 34px rgba(0, 0, 0, 0.42))
+    drop-shadow(0 0 16px rgba(196, 153, 244, 0.1));
+}
+
+.launcher-frame {
+  padding: 0;
+  filter: none;
+}
+
+.task-widget-frame {
+  border-radius: 24px;
+  background: transparent;
+}
+
+.agent-shell {
+  background:
+    radial-gradient(120% 80% at 18% 0%, rgba(196, 153, 244, 0.08), transparent 42%),
+    radial-gradient(110% 90% at 100% 100%, rgba(95, 208, 160, 0.055), transparent 46%),
+    linear-gradient(180deg, rgba(20, 18, 28, var(--window-opacity)), rgba(11, 10, 15, var(--window-opacity)));
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.075),
+    inset 0 1px 0 rgba(255, 255, 255, 0.055);
+}
+
+.helix-rule {
+  border: 0;
+  border-top: 1px solid var(--color-line);
+  border-bottom: 1px solid var(--color-line);
+  height: 3px;
+  margin: 0;
+}
+
+.composer-field {
+  position: relative;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+.composer-field textarea:focus,
+.composer-field textarea:focus-visible {
+  outline: none;
+}
+.composer-field:focus-within {
+  border-color: rgba(196, 153, 244, 0.42);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.noise-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+  z-index: 50;
+  border-radius: inherit;
+}
+
+@keyframes spin-clockwise { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes spin-counter { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
+@keyframes pulse-gentle { 0%, 100% { transform: scale(1); opacity: 0.8; } 50% { transform: scale(1.04); opacity: 1; } }
+@keyframes float-gentle { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-3px); } }
+@keyframes pet-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.025); } }
+@keyframes pet-orbit { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -60; } }
+@keyframes pet-particle { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes pet-scan { 0%, 100% { opacity: 0.38; transform: scale(0.9); } 50% { opacity: 0.82; transform: scale(1.18); } }
+@keyframes pet-shine { 0%, 100% { opacity: 0.48; transform: translateX(-1px); } 50% { opacity: 0.78; transform: translateX(1px); } }
+@keyframes pulse-fast { 0%, 100% { transform: scale(1); opacity: 0.85; } 50% { transform: scale(1.05); opacity: 1; } }
+@keyframes thinking-dot { 0%, 60%, 100% { opacity: 0.3; transform: scale(0.8); } 30% { opacity: 1; transform: scale(1); } }
+@keyframes pet-spiral-flow { to { stroke-dashoffset: var(--circ, -260); } }
+@keyframes pet-shockwave { 0% { transform: scale(0.8); opacity: 0.6; } 70% { opacity: 0.1; } 100% { transform: scale(1.6); opacity: 0; } }
+@keyframes pet-core-hover { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+@keyframes pet-inner-ring-hover { 0%, 100% { transform: scale(1); opacity: 0.3; } 50% { transform: scale(1.15); opacity: 0.55; } }
+@keyframes pet-hero-pulse { 0%, 100% { transform: scale(1); opacity: 0.55; } 50% { transform: scale(1.08); opacity: 0.9; } }
+@keyframes pet-hero-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes radial-enter {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.72); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes halo-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-color) 70%, transparent); }
+  50% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--accent-color) 25%, transparent); }
+}
+@keyframes ray-glow {
+  0%, 100% { filter: drop-shadow(0 0 3px var(--accent-color)); }
+  50% { filter: drop-shadow(0 0 8px var(--accent-color)); }
+}
+@keyframes radial-click {
+  0% { transform: scale(var(--base-scale, 1)); }
+  35% { transform: scale(calc(var(--base-scale, 1) * 0.95)); }
+  70% { transform: scale(calc(var(--base-scale, 1) * 1.03)); }
+  100% { transform: scale(var(--base-scale, 1)); }
+}
+@keyframes twinkle { 0%, 100% { opacity: 0.2; transform: scale(0.8); } 50% { opacity: 0.8; transform: scale(1.2); } }
+@keyframes pulse-soft { 0%, 100% { opacity: 0.55; transform: scale(1); } 50% { opacity: 0.9; transform: scale(1.06); } }
+@keyframes launcher-arc-flow { to { stroke-dashoffset: -78; } }
+
+.animate-spin-clockwise { animation: spin-clockwise 10s linear infinite; transform-origin: center; }
+.animate-spin-counter { animation: spin-counter 14s linear infinite; transform-origin: center; }
+.animate-spin-slow { animation: spin-slow 24s linear infinite; transform-origin: center; }
+.animate-pulse-gentle { animation: pulse-gentle 4s ease-in-out infinite; }
+.animate-pulse-fast { animation: pulse-fast 1.2s ease-in-out infinite; }
+.animate-pulse-soft { animation: pulse-soft 3.2s ease-in-out infinite; }
+.animate-twinkle { animation: twinkle 2.8s ease-in-out infinite; }
+.animate-thinking-1 { animation: thinking-dot 1.4s ease-in-out infinite 0s; }
+.animate-thinking-2 { animation: thinking-dot 1.4s ease-in-out infinite 0.2s; }
+.animate-thinking-3 { animation: thinking-dot 1.4s ease-in-out infinite 0.4s; }
+.animate-pet-breathe { animation: pet-breathe 3.2s ease-in-out infinite; }
+.animate-float { animation: float-gentle 5s ease-in-out infinite; }
+
+.helix-launcher-arc {
+  animation: launcher-arc-flow 9s linear infinite;
+  transition: opacity 180ms ease, stroke-width 180ms ease;
+}
+
+.helix-launcher-arc-b {
+  animation-duration: 12s;
+  animation-direction: reverse;
+}
+
+.helix-launcher:hover .helix-launcher-arc {
+  animation-duration: 3s;
+  opacity: 1;
+  stroke-width: 1.5;
+}
+
+.pet-companion {
+  cursor: inherit;
+}
+
+.helix-seed {
+  transform-origin: center;
+  color: var(--color-signal);
+}
+
+.helix-seed-glow {
+  border-radius: 44%;
+  background: radial-gradient(circle, var(--seed-glow) 0%, transparent 70%);
+  filter: blur(7px);
+  opacity: 0.3;
+}
+
+.helix-mark {
+  overflow: visible;
+  transform-origin: center;
+}
+
+.helix-mark-ribbon {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1), opacity 140ms ease;
+}
+
+.helix-mark[data-state="idle"] .helix-mark-ribbons {
+  animation: helix-mark-idle 7s ease-in-out infinite;
+}
+
+.helix-mark[data-state="connecting"] .helix-mark-ribbon,
+.helix-mark[data-state="thinking"] .helix-mark-ribbon,
+.helix-mark[data-state="using_tool"] .helix-mark-ribbon {
+  stroke-dasharray: 74 12;
+  animation: helix-mark-flow 1.6s linear infinite;
+}
+
+.helix-mark[data-state="thinking"] .helix-mark-ribbon-b,
+.helix-mark[data-state="using_tool"] .helix-mark-ribbon-b {
+  animation-direction: reverse;
+}
+
+.helix-mark[data-state="waiting_approval"] {
+  animation: helix-mark-waiting 1.8s ease-in-out infinite;
+}
+
+.helix-mark[data-state="error"] {
+  animation: helix-seed-alert 420ms ease-in-out 2;
+}
+
+.helix-mark[data-state="success"] {
+  animation: helix-mark-success 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.helix-orbit-track {
+  fill: none;
+  animation: helix-orbit-flow 16s linear infinite;
+}
+
+.helix-orbit-track-b {
+  animation-duration: 20s;
+  animation-direction: reverse;
+}
+
+.helix-orbit-track-c {
+  animation-duration: 28s;
+}
+
+.helix-orbit-sweep {
+  fill: none;
+  filter: drop-shadow(0 0 2px currentColor);
+  opacity: 0.72;
+  animation: helix-orbit-sweep 9s linear infinite;
+}
+
+.helix-orbit-sweep-b {
+  animation-duration: 13s;
+  animation-direction: reverse;
+  opacity: 0.42;
+}
+
+.helix-seed:hover .helix-orbit-sweep,
+.helix-seed:focus-visible .helix-orbit-sweep {
+  animation-duration: 2.2s;
+  opacity: 1;
+}
+
+.helix-orbit-node {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: helix-orbit-node 4.8s ease-in-out infinite;
+}
+
+.helix-orbit-node-b {
+  animation-delay: -2.4s;
+}
+
+.helix-seed[data-state="connecting"] .helix-orbit-track,
+.helix-seed[data-state="thinking"] .helix-orbit-track,
+.helix-seed[data-state="using_tool"] .helix-orbit-track {
+  animation-duration: 3.2s;
+}
+
+.helix-seed[data-state="connecting"] .helix-orbit-sweep,
+.helix-seed[data-state="thinking"] .helix-orbit-sweep,
+.helix-seed[data-state="using_tool"] .helix-orbit-sweep {
+  animation-duration: 2.8s;
+  opacity: 0.92;
+}
+
+.helix-seed[data-state="waiting_approval"] .helix-orbit-track {
+  animation: helix-orbit-hold 1.8s ease-in-out infinite;
+}
+
+.helix-seed[data-state="thinking"] .helix-seed-glow,
+.helix-seed[data-state="using_tool"] .helix-seed-glow,
+.helix-seed[data-state="waiting_approval"] .helix-seed-glow {
+  animation: helix-seed-glow 2.6s ease-in-out infinite;
+}
+
+.helix-seed:hover .helix-mark-ribbon-a {
+  transform: translateX(-1.5px);
+}
+
+.helix-seed:hover .helix-mark-ribbon-b {
+  transform: translateX(1.5px);
+}
+
+@keyframes helix-mark-idle {
+  0%, 44%, 56%, 100% { transform: scaleX(1); }
+  50% { transform: scaleX(0.94); }
+}
+
+@keyframes helix-mark-flow {
+  to { stroke-dashoffset: -86; }
+}
+
+@keyframes helix-mark-waiting {
+  0%, 100% { opacity: 0.72; transform: scale(0.97); }
+  50% { opacity: 1; transform: scale(1.02); }
+}
+
+@keyframes helix-mark-success {
+  0% { transform: scale(0.92); }
+  55% { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+@keyframes helix-seed-glow {
+  0%, 100% { opacity: 0.2; transform: scale(0.96); }
+  50% { opacity: 0.46; transform: scale(1.04); }
+}
+
+@keyframes helix-orbit-flow {
+  to { stroke-dashoffset: -116; }
+}
+
+@keyframes helix-orbit-sweep {
+  to { stroke-dashoffset: -240; }
+}
+
+@keyframes helix-orbit-node {
+  0%, 100% { opacity: 0.34; transform: scale(0.72); }
+  50% { opacity: 1; transform: scale(1.18); }
+}
+
+@keyframes helix-orbit-hold {
+  0%, 100% { opacity: 0.42; stroke-dashoffset: 0; }
+  50% { opacity: 0.95; stroke-dashoffset: -8; }
+}
+
+@keyframes helix-seed-alert {
+  0%, 100% { transform: translateX(0); }
+  35% { transform: translateX(-2px) rotate(-2deg); }
+  70% { transform: translateX(2px) rotate(2deg); }
+}
+
+.pet-spiral-ring {
+  animation: pet-spiral-flow 6s linear infinite;
+  transition: opacity 0.25s ease, stroke-width 0.25s ease;
+}
+
+.pet-core {
+  transform-origin: center;
+  transform-box: fill-box;
+  transition: transform 0.18s ease, stroke 0.18s ease;
+}
+
+.pet-shockwave {
+  transform-origin: center;
+  opacity: 0;
+}
+
+.pet-inner-ring {
+  transform-origin: center;
+  transform-box: fill-box;
+  transition: opacity 0.25s ease;
+}
+
+.pet-companion:hover .pet-shockwave,
+.pet-companion:focus-visible .pet-shockwave {
+  animation: pet-shockwave 1.2s ease-out infinite;
+}
+
+.pet-companion:hover .pet-core,
+.pet-companion:focus-visible .pet-core {
+  animation: pet-core-hover 1.2s ease-in-out infinite;
+}
+
+.pet-companion:hover .pet-spiral-ring,
+.pet-companion:focus-visible .pet-spiral-ring {
+  animation-duration: 1.5s;
+  stroke-width: 1.4;
+  opacity: 0.9;
+}
+
+.pet-companion:hover .pet-inner-ring,
+.pet-companion:focus-visible .pet-inner-ring {
+  animation: pet-inner-ring-hover 1.2s ease-in-out infinite;
+}
+
+.pet-orbit {
+  animation: pet-orbit 4.4s linear infinite;
+  transition: opacity 0.18s ease, stroke-width 0.18s ease;
+}
+
+.pet-highlight {
+  animation: pet-shine 6s ease-in-out infinite;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+
+.pet-particle {
+  animation: pet-particle 7s linear infinite;
+  transform-origin: 50px 50px;
+}
+
+.pet-particle-alt {
+  animation-duration: 9s;
+  animation-direction: reverse;
+}
+
+.pet-hero-particle {
+  animation: pet-particle 7s linear infinite;
+  transform-origin: 50px 50px;
+}
+
+.pet-hero-particle-alt {
+  animation: pet-particle 9s linear infinite reverse;
+  transform-origin: 50px 50px;
+}
+
+.pet-hero-spiral {
+  animation: pet-spiral-flow 6s linear infinite;
+  transform-origin: center;
+  transition: opacity 0.25s ease, stroke-width 0.25s ease;
+}
+
+.pet-hero-orbit {
+  animation: pet-hero-pulse 5s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.pet-hero-outer-orbit {
+  animation: pet-hero-pulse 7s ease-in-out infinite reverse;
+  transform-origin: center;
+}
+
+.pet-hero {
+  animation: pet-hero-float 6s ease-in-out infinite;
+}
+
+.pet-compact-orbit {
+  animation: pet-compact-spin 12s linear infinite;
+  transform-origin: 50px 50px;
+}
+
+.pet-compact-orbit:nth-of-type(2) {
+  animation-duration: 18s;
+  animation-direction: reverse;
+}
+
+.pet-compact-orbit:nth-of-type(3) {
+  animation-duration: 24s;
+}
+
+@keyframes pet-compact-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes modal-enter {
+  from { opacity: 0; transform: scale(0.96) translateY(4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes backdrop-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes check-pop {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.15); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes chip-enter {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes popup-enter {
+  from { opacity: 0; transform: scale(0.96) translateY(4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.animate-modal-enter {
+  animation: modal-enter 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-backdrop-fade {
+  animation: backdrop-fade-in 0.2s ease-out both;
+}
+
+.animate-check-pop {
+  animation: check-pop 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-chip-enter {
+  animation: chip-enter 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-popup-enter {
+  animation: popup-enter 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.pet-status-dot {
+  animation: pet-scan 2.8s ease-in-out infinite;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+
+.pet-companion:hover .pet-core {
+  transform: scale(1.05);
+  stroke: rgba(255, 255, 255, 0.52);
+}
+
+.pet-companion:hover .pet-orbit {
+  opacity: 1;
+  stroke-width: 3.2;
+}
+
+.radial-item {
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.14s ease, color 0.14s ease;
+  will-change: transform;
+}
+
+.radial-item-enter {
+  animation: radial-enter 0.22s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+.radial-click {
+  animation: radial-click 0.14s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.radial-halo {
+  animation: halo-pulse 1.2s ease-in-out infinite;
+}
+
+.radial-ray {
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.14s ease;
+  will-change: transform;
+}
+
+.radial-preview {
+  animation: fade-in-up 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.helix-view-enter {
+  animation: helix-view-enter 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes helix-view-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.discrete-enter {
+  opacity: 0;
+  transform: scale(0.96);
+  transition-property: opacity, transform, display, overlay;
+  transition-duration: 0.25s;
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  transition-behavior: allow-discrete;
+}
+
+.discrete-enter:popover-open,
+.discrete-enter[open] {
+  opacity: 1;
+  transform: scale(1);
+  @starting-style {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@keyframes typing-cursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes text-fade-in {
+  from { opacity: 0.4; }
+  to { opacity: 1; }
+}
+
+@keyframes status-enter {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-typing-cursor {
+  animation: typing-cursor 0.9s step-end infinite;
+}
+
+.animate-text-fade {
+  animation: text-fade-in 0.2s ease-out both;
+}
+
+.animate-status-enter {
+  animation: status-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-spin-clockwise,
+  .animate-spin-counter,
+  .animate-spin-slow,
+  .animate-pulse-gentle,
+  .animate-pulse-soft,
+  .animate-twinkle,
+  .animate-pet-breathe,
+  .animate-float,
+  .pet-core,
+  .pet-orbit,
+  .pet-highlight,
+  .pet-particle,
+  .pet-particle-alt,
+  .pet-hero-particle,
+  .pet-hero-particle-alt,
+  .pet-hero-spiral,
+  .pet-hero-orbit,
+  .pet-hero-outer-orbit,
+  .pet-hero,
+  .pet-status-dot,
+  .pet-spiral-ring,
+  .helix-seed,
+  .helix-seed-glow,
+  .helix-mark,
+  .helix-mark-ribbon,
+  .helix-mark-ribbons,
+  .helix-seed-orbits,
+  .helix-orbit-track,
+  .helix-orbit-sweep,
+  .helix-orbit-node,
+  .helix-launcher-arc,
+  .animate-pulse-fast,
+  .animate-thinking-1,
+  .animate-thinking-2,
+  .animate-thinking-3,
+  .radial-item-enter,
+  .radial-click,
+  .radial-halo,
+  .radial-ray,
+  .radial-preview,
+  .radial-arc g,
+  .helix-view-enter,
+  .animate-fade-in,
+  .animate-modal-enter,
+  .animate-backdrop-fade,
+  .animate-check-pop,
+  .animate-chip-enter,
+  .animate-popup-enter,
+  .animate-typing-cursor,
+  .animate-text-fade,
+  .animate-status-enter {
+    animation: none;
+  }
 }

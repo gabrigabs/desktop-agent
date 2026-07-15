@@ -7,7 +7,7 @@
   ],
   "scripts": {
     "dev": "bun run --cwd apps/desktop dev",
-    "build:packages": "bun run --filter './packages/*' build",
+    "build:packages": "bun run --filter '@desktop-agent/*' typecheck",
     "build:sidecar": "bun run --cwd packages/agent-runtime build:sidecar",
     "desktop:dev": "bun run --cwd apps/desktop tauri dev",
     "desktop:build": "bun run build:packages && bun run build:sidecar && bun run --cwd apps/desktop tauri build",
@@ -15,6 +15,15 @@
     "lint": "bun x biome check .",
     "format": "bun x biome format --write .",
     "typecheck": "bun run --filter '*' typecheck"
+  },
+  "optionalDependencies": {
+    "@llamaindex/liteparse-darwin-arm64": "2.5.1",
+    "@llamaindex/liteparse-darwin-x64": "2.5.1",
+    "@llamaindex/liteparse-linux-arm64-gnu": "2.5.1",
+    "@llamaindex/liteparse-linux-x64-gnu": "2.5.1",
+    "@llamaindex/liteparse-linux-x64-musl": "2.5.1",
+    "@llamaindex/liteparse-win32-arm64-msvc": "2.5.1",
+    "@llamaindex/liteparse-win32-x64-msvc": "2.5.1"
   },
   "devDependencies": {
     "@biomejs/biome": "latest",

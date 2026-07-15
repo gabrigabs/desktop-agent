@@ -1,0 +1,74 @@
+{
+  "title": "Configurações",
+  "subtitle": "Centro de controle do Helix",
+  "sectionLabel": "Seção de configurações",
+  "navLabel": "Seções de configurações",
+  "closeSettings": "Fechar configurações",
+  "localNotice": "As preferências desta tela são persistidas localmente no Helix.",
+  "general": {
+    "title": "Comportamento geral",
+    "description": "Idioma e modo usado em cada nova abertura do Helix.",
+    "languageLabel": "Idioma",
+    "languageHint": "Idioma atual da interface.",
+    "defaultWindowMode": "Modo inicial padrão",
+    "defaultWindowModeHint": "Modo de janela ao abrir o app.",
+    "windowModePet": "Pet",
+    "windowModeNormal": "Normal",
+    "windowModeExpanded": "Expandido"
+  },
+  "model": {
+    "description": "Escolha o provider e o modelo. A chave permanece mascarada e opções técnicas ficam em Avançado.",
+    "apiKeyPlaceholder": "Insira ou cole sua chave secreta",
+    "showKey": "Mostrar chave",
+    "hideKey": "Ocultar chave"
+  },
+  "pet": {
+    "description": "Ajuste a presença flutuante e a aparência da janela.",
+    "windowOpacity": "Opacidade da janela",
+    "petSize": "Tamanho do pet",
+    "hidePet": "Ocultar pet flutuante",
+    "hidePetHint": "O app continua em segundo plano e reabre com {{shortcut}} ou menu bar.",
+    "opacity": {
+      "veryTranslucent": "{{percentage}}% — muito translúcido",
+      "translucent": "{{percentage}}% — translúcido",
+      "slightlyTranslucent": "{{percentage}}% — levemente translúcido",
+      "solid": "{{percentage}}% — sólido"
+    },
+    "size": {
+      "compact": "{{size}}px — compacto",
+      "standard": "{{size}}px — padrão",
+      "large": "{{size}}px — grande"
+    }
+  },
+  "shortcuts": {
+    "description": "Atalhos disponíveis nesta versão.",
+    "openRadial": "Abrir radial",
+    "openComposer": "Abrir composer",
+    "toggleMode": "Alternar normal/expandido"
+  },
+  "privacy": {
+    "description": "Controle as notificações nativas do Helix.",
+    "notifications": "Notificações nativas",
+    "notificationsHint": "Desligadas por padrão; o conteúdo permanece genérico.",
+    "notificationsEnabled": "Ativadas",
+    "notificationsDisabled": "Desativadas",
+    "notificationContent": "Conteúdo",
+    "notificationGeneric": "Genérico",
+    "notificationPreview": "Preview sanitizado"
+  },
+  "profiles": {
+    "description": "Perfis de agente e biblioteca de prompts para estilos de resposta e comportamentos."
+  },
+  "workflows": {
+    "description": "Templates de automação, etapas e permissões de execução."
+  },
+  "skills": {
+    "description": "Skills de agente customizadas com provider, modelo e ferramentas."
+  },
+  "advanced": {
+    "description": "Timeout e endpoint dos providers compatíveis.",
+    "timeoutHint": "Entre 5 e 600 segundos.",
+    "timeoutError": "Use um valor entre 5 e 600 segundos.",
+    "baseUrlHint": "Disponível para providers compatíveis."
+  }
+}
